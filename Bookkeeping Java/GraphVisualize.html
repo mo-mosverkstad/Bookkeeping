@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Graph with Cycles</title>
+  <style>
+    svg { border: 1px solid #ccc; }
+    .node { fill: lightblue; stroke: black; stroke-width: 1px; }
+    .edge { stroke: black; stroke-width: 1px; marker-end: url(#arrow); }
+  </style>
+</head>
+<body>
+<svg id="graph" width="1000" height="800">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="5"
+            orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="black" />
+    </marker>
+  </defs>
+</svg>
+
+<script>
+const graph = {
+  A: ['B'],
+  B: ['C'],
+  C: ['D'],
+  D: ['E'],
+  E: ['F'],
+  F: ['G'],
+  G: ['C'],
+};
+
+const svg = document.getElementById('graph');
+const positions = {};
+const nodeSize = 20;
+let layoutX = 30, layoutY = 0;
+
+// --- Layout helpers ---
+function layoutCircle(nodes, radius = 60) {
+  const centerX = layoutX + radius + 50;
+  const centerY = layoutY + radius + 50;
+
+  const angleStep = (2 * Math.PI) / nodes.length;
+  nodes.forEach((node, i) => {
+    const angle = i * angleStep - Math.PI / 2; // Start at top
+    positions[node] = {
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle)
+    };
+  });
+
+  layoutY += radius * 2 + 100; // Move down for next group
+}
+
+function layoutLinear(nodes) {
+  nodes.forEach((node, i) => {
+    positions[node] = {
+      x: layoutX + i * 120,
+      y: layoutY
+    };
+  });
+  layoutY += 150;
+}
+
+// --- Normalize positions to avoid negative coordinates ---
+function normalizePositions() {
+  let minX = Infinity, minY = Infinity;
+
+  for (const node in positions) {
+    minX = Math.min(minX, positions[node].x);
+    minY = Math.min(minY, positions[node].y);
+  }
+
+  const offsetX = minX < 0 ? -minX + 20 : 0;
+  const offsetY = minY < 0 ? -minY + 20 : 0;
+
+  for (const node in positions) {
+    positions[node].x += offsetX;
+    positions[node].y += offsetY;
+  }
+}
+
+// --- Tarjan's Algorithm for SCC ---
+function findSCCs(graph) {
+  let index = 0;
+  const indices = {}, lowlink = {}, stack = [], onStack = {};
+  const sccs = [];
+
+  function strongConnect(v) {
+    indices[v] = lowlink[v] = index++;
+    stack.push(v);
+    onStack[v] = true;
+
+    for (const w of graph[v] || []) {
+      if (indices[w] === undefined) {
+        strongConnect(w);
+        lowlink[v] = Math.min(lowlink[v], lowlink[w]);
+      } else if (onStack[w]) {
+        lowlink[v] = Math.min(lowlink[v], indices[w]);
+      }
+    }
+
+    if (lowlink[v] === indices[v]) {
+      const scc = [];
+      let w;
+      do {
+        w = stack.pop();
+        onStack[w] = false;
+        scc.push(w);
+      } while (w !== v);
+      sccs.push(scc);
+    }
+  }
+
+  for (const v in graph) {
+    if (indices[v] === undefined) {
+      strongConnect(v);
+    }
+  }
+
+  return sccs;
+}
+
+// --- Drawing ---
+function drawNode(name, x, y) {
+  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  circle.setAttribute("cx", x);
+  circle.setAttribute("cy", y);
+  circle.setAttribute("r", nodeSize);
+  circle.setAttribute("class", "node");
+  svg.appendChild(circle);
+
+  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  text.setAttribute("x", x);
+  text.setAttribute("y", y + 5);
+  text.setAttribute("text-anchor", "middle");
+  text.textContent = name;
+  svg.appendChild(text);
+}
+
+function drawEdge(from, to) {
+  const x1 = positions[from].x;
+  const y1 = positions[from].y;
+  const x2 = positions[to].x;
+  const y2 = positions[to].y;
+
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  line.setAttribute("x1", x1);
+  line.setAttribute("y1", y1);
+  line.setAttribute("x2", x2);
+  line.setAttribute("y2", y2);
+  line.setAttribute("class", "edge");
+  svg.appendChild(line);
+}
+
+// --- Main render ---
+function renderGraph(graph) {
+  const sccs = findSCCs(graph);
+
+  for (const scc of sccs) {
+    if (scc.length > 1) {
+      layoutCircle(scc, 60 + scc.length * 5);
+    } else {
+      layoutLinear(scc);
+    }
+  }
+
+  normalizePositions();
+
+  for (const node in positions) {
+    drawNode(node, positions[node].x, positions[node].y);
+  }
+
+  for (const from in graph) {
+    for (const to of graph[from]) {
+      drawEdge(from, to);
+    }
+  }
+}
+
+renderGraph(graph);
+</script>
+</body>
+</html>
