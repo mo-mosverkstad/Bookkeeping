@@ -1,6 +1,6 @@
 {
     "java.project.sourcePaths": [
-        "Bookkeeping Java"
+        "BookkeepingJava/Main"
     ],
     "java.project.referencedLibraries": []
 }

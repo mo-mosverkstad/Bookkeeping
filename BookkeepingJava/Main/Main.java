@@ -13,6 +13,7 @@ public class Main {
     public static void main(String[] args) {
         ElementRegistry dataManager = new ElementRegistry();
         OrderedTable table = DataToolsTest.createTable();
+
         dataManager.add(table);
 
         System.out.println(table);
