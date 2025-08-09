@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\temp.txt||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:temp.txt||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeeping.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:PyBookkeeping.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     }
@@ -19,14 +23,27 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "temp.txt",
+              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\temp.txt",
+              "RelativeDocumentMoniker": "temp.txt",
+              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\temp.txt",
+              "RelativeToolTip": "temp.txt",
+              "ViewState": "AgIAABsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003109|",
+              "WhenOpened": "2025-08-09T19:07:12.004Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "PyBookkeeping.py",
               "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeeping.py",
               "RelativeDocumentMoniker": "PyBookkeeping.py",
               "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeeping.py",
               "RelativeToolTip": "PyBookkeeping.py",
-              "ViewState": "AgIAANUFAAAAAAAAAAAuwGEFAAAnAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHfSURBVDhPpZCxaxNhGMZ/9zVJaUuDUlq1FBWLZBFTCXo4BFyU1qGKi4OkIHhkzF/g0KF00M2lR9YUdDDQQVAcJILoQUd1UNRmkhoRm8RL777v7nOoCZd4AcEH3uF5nvd73vd74X\u002BgtTai3LIsHeWDEEJct217a1DvwbIs7bpubFUqFW3b9naxWLwWfSOipAvHcfqqi0KhkMtms3cty1rsaomeG4FpmoMSANVqlXQ6nQMWgacMC4hOBchduEj\u002ByjKjScGh8SS1Wq3nxQZEN3j1eY/Vrfe8rTeQvsf89ARLS1cz5XIZ/uUGXxptQiVRUhJIybudXaZn52a7vbEBpmkyNb/A69YM9W8tDEJOTI2hpI\u002BSkvOZH2f13sNAB\u002B07sV9wHIdH9Unquz9RvoeUPtL3UFISKkky\u002BAT7HwTi6FpsgGma3N9\u002Bg5I\u002BKaFZyU8wOpJChwHnjiuE9wKCXyC/zsQGOI7DeELjtiUPbgky6Wd/HA3KBelC4AIpNfQGl88cQ0mfI5PugRhKkM2DUk0INYwtPI/dAGAlf4rbl06T6DyBVgeCABJzYPhwcm0V8ICNvwJKpVIf37h3IxSyKVAuBMDIYQAMw1jvaxwGrYNl3Xq5o79vat3Y3Nedj4\u002B11je7/m\u002BXOuyzFtDhUgAAAABJRU5ErkJggg==",
-              "WhenOpened": "2025-08-08T19:24:43.241Z",
+              "WhenOpened": "2025-08-09T19:06:06.253Z",
               "EditorCaption": ""
             }
           ]

@@ -26,6 +26,11 @@
           "more": 2,
           "name": "One",
           "location": 1
+        },
+        {
+          "more": 3,
+          "name": "Two",
+          "location": 3
         }
       ],
       "indexed_columns": [],

@@ -22,6 +22,20 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PyBookkeeping.py" />
+    <Compile Include="pybookkeeping\elementregistry.py" />
+    <Compile Include="pybookkeeping\elements\element.py" />
+    <Compile Include="pybookkeeping\elements\elementfactory.py" />
+    <Compile Include="pybookkeeping\elements\graph.py" />
+    <Compile Include="pybookkeeping\elements\keyvaluepair.py" />
+    <Compile Include="pybookkeeping\elements\__init__.py" />
+    <Compile Include="pybookkeeping\elements\table.py" />
+    <Compile Include="pybookkeeping\pybookkeepingcli.py" />
+    <Compile Include="pybookkeeping\utils.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="pybookkeeping\elements\" />
+    <Folder Include="unittests\" />
+    <Folder Include="pybookkeeping\" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
