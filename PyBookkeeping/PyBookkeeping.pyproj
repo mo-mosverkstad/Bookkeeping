@@ -21,6 +21,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="PyBookkeepingv1.0.0.py" />
+    <Compile Include="PyBookkeepingv1.0.2.py" />
+    <Compile Include="PyBookkeepingv1.0.1.py" />
     <Compile Include="PyBookkeeping.py" />
     <Compile Include="pybookkeeping\elementregistry.py" />
     <Compile Include="pybookkeeping\elements\element.py" />

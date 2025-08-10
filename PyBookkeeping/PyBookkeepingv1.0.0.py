@@ -103,7 +103,6 @@ class Table(Element):
         self.rows: List[Dict[str, Any]] = []
         self.indexed_columns: List[str] = []
         self.index_maps: Dict[str, Dict[Any, List[int]]] = {}
-        self.list_columns: List[str] = []  # NEW: columns storing lists
 
     def add_column(self, col_name: str):
         if col_name in self.columns:
@@ -122,31 +121,8 @@ class Table(Element):
             self.indexed_columns.remove(col_name)
             self.index_maps.pop(col_name, None)
 
-
-    def add_list_column(self, col_name: str):
-        if col_name in self.columns:
-            raise BookkeepingError("Column exists")
-        self.columns.append(col_name)
-        self.list_columns.append(col_name)
-        for r in self.rows:
-            r[col_name] = []
-
-    def del_list_column(self, col_name: str):
-        if col_name not in self.columns:
-            raise BookkeepingError("No such column")
-        self.columns.remove(col_name)
-        if col_name in self.list_columns:
-            self.list_columns.remove(col_name)
-        for r in self.rows:
-            r.pop(col_name, None)
-
     def insert_row(self, row: Dict[str, Any]) -> int:
-        new_row = {}
-        for c in self.columns:
-            if c in self.list_columns:
-                new_row[c] = []
-            else:
-                new_row[c] = None
+        new_row = {c: None for c in self.columns}
         for k, v in row.items():
             if k not in self.columns:
                 raise BookkeepingError(f"Unknown column {k}")
@@ -207,35 +183,6 @@ class Table(Element):
         idxs = self.index_maps.get(col_name, {}).get(value, [])
         return [self.rows[i] for i in idxs]
 
-
-    def _validate_list_cell(self, row_idx: int, col: str):
-        if col not in self.list_columns:
-            raise BookkeepingError(f"Column {col} is not a list column")
-        if row_idx < 0 or row_idx >= len(self.rows):
-            raise BookkeepingError("Row index out of range")
-        if not isinstance(self.rows[row_idx][col], list):
-            raise BookkeepingError(f"Cell {row_idx}:{col} is not a list")
-
-    def append_to_list_cell(self, row_idx: int, col: str, value: Any):
-        self._validate_list_cell(row_idx, col)
-        self.rows[row_idx][col].append(value)
-
-    def insert_into_list_cell(self, row_idx: int, col: str, index: int, value: Any):
-        self._validate_list_cell(row_idx, col)
-        self.rows[row_idx][col].insert(index, value)
-
-    def update_list_cell_item(self, row_idx: int, col: str, index: int, value: Any):
-        self._validate_list_cell(row_idx, col)
-        if index < 0 or index >= len(self.rows[row_idx][col]):
-            raise BookkeepingError("List index out of range")
-        self.rows[row_idx][col][index] = value
-
-    def delete_list_cell_item(self, row_idx: int, col: str, index: int):
-        self._validate_list_cell(row_idx, col)
-        if index < 0 or index >= len(self.rows[row_idx][col]):
-            raise BookkeepingError("List index out of range")
-        del self.rows[row_idx][col][index]
-
     def _rebuild_indexes(self):
         for col in list(self.indexed_columns):
             self.set_index_column(col)
@@ -248,7 +195,6 @@ class Table(Element):
             "columns": list(self.columns),
             "rows": _serialize(self.rows),
             "indexed_columns": list(self.indexed_columns),
-            "list_columns": list(self.list_columns),  # NEW
             "refs": list(self.refs),
         }
 
@@ -258,7 +204,6 @@ class Table(Element):
         self.columns = list(data.get("columns", []))
         self.rows = _deserialize(data.get("rows", []))
         self.indexed_columns = list(data.get("indexed_columns", []))
-        self.list_columns = list(data.get("list_columns", []))  # NEW
         self.refs = [int(x) for x in data.get("refs", [])]
         self._rebuild_indexes()
 
@@ -274,50 +219,36 @@ class Table(Element):
 # ---- Graph Element ----
 class Graph(Element):
     TYPE_CODE = "Graph"
-
     def __init__(self, name: str, element_id: Optional[int] = None):
         super().__init__(name, element_id)
-        # adjacency table: node_id -> {"attrs": { ... }, "edges": {target_id: {meta...}}}
-        self.adj: Dict[str, Dict[str, Any]] = {}
+        self.nodes: Dict[str, Dict[str, Any]] = {}
+        self.edges: List[Tuple[str, str, Dict[str, Any]]] = []
         self.indexed_node_attrs: List[str] = []
         self.node_index_maps: Dict[str, Dict[Any, List[str]]] = {}
 
-    # ---------------- Nodes ----------------
     def add_node(self, node_id: str, attrs: Optional[Dict[str, Any]] = None):
-        if node_id in self.adj:
+        if node_id in self.nodes:
             raise BookkeepingError("Node exists")
-        self.adj[node_id] = {"attrs": dict(attrs) if attrs else {}, "edges": {}}
+        self.nodes[node_id] = dict(attrs) if attrs else {}
         for attr in self.indexed_node_attrs:
-            val = self.adj[node_id]["attrs"].get(attr)
+            val = self.nodes[node_id].get(attr)
             self.node_index_maps.setdefault(attr, {}).setdefault(val, []).append(node_id)
 
     def del_node(self, node_id: str):
-        if node_id not in self.adj:
+        if node_id not in self.nodes:
             raise BookkeepingError("No such node")
-        # remove incoming edges from all other nodes
-        for src in self.adj:
-            self.adj[src]["edges"].pop(node_id, None)
-        # remove from indexes
-        for attr in self.indexed_node_attrs:
-            val = self.adj[node_id]["attrs"].get(attr)
-            if val in self.node_index_maps.get(attr, {}):
-                try:
-                    self.node_index_maps[attr][val].remove(node_id)
-                    if not self.node_index_maps[attr][val]:
-                        del self.node_index_maps[attr][val]
-                except ValueError:
-                    pass
-        del self.adj[node_id]
+        del self.nodes[node_id]
+        self.edges = [e for e in self.edges if e[0] != node_id and e[1] != node_id]
         self._rebuild_node_indexes()
 
     def update_node(self, node_id: str, attrs: Dict[str, Any]):
-        if node_id not in self.adj:
+        if node_id not in self.nodes:
             raise BookkeepingError("No such node")
-        old_attrs = dict(self.adj[node_id]["attrs"])
-        self.adj[node_id]["attrs"].update(attrs)
+        old = dict(self.nodes[node_id])
+        self.nodes[node_id].update(attrs)
         for attr in self.indexed_node_attrs:
-            old_val = old_attrs.get(attr)
-            new_val = self.adj[node_id]["attrs"].get(attr)
+            old_val = old.get(attr)
+            new_val = self.nodes[node_id].get(attr)
             if old_val != new_val:
                 m = self.node_index_maps.setdefault(attr, {})
                 if old_val in m:
@@ -329,24 +260,23 @@ class Graph(Element):
                         pass
                 m.setdefault(new_val, []).append(node_id)
 
-    # ---------------- Edges ----------------
     def add_edge(self, frm: str, to: str, meta: Optional[Dict[str, Any]] = None):
-        if frm not in self.adj or to not in self.adj:
+        if frm not in self.nodes or to not in self.nodes:
             raise BookkeepingError("Both nodes must exist")
-        self.adj[frm]["edges"][to] = dict(meta) if meta else {}
+        self.edges.append((frm, to, dict(meta) if meta else {}))
 
     def del_edge(self, frm: str, to: str):
-        if frm not in self.adj or to not in self.adj[frm]["edges"]:
+        before = len(self.edges)
+        self.edges = [e for e in self.edges if not (e[0] == frm and e[1] == to)]
+        if len(self.edges) == before:
             raise BookkeepingError("Edge not found")
-        del self.adj[frm]["edges"][to]
 
-    # ---------------- Indexes ----------------
     def set_node_index(self, attr_name: str):
         if attr_name not in self.indexed_node_attrs:
             self.indexed_node_attrs.append(attr_name)
         m: Dict[Any, List[str]] = {}
-        for nid, data in self.adj.items():
-            val = data["attrs"].get(attr_name)
+        for nid, attrs in self.nodes.items():
+            val = attrs.get(attr_name)
             m.setdefault(val, []).append(nid)
         self.node_index_maps[attr_name] = m
 
@@ -359,19 +289,19 @@ class Graph(Element):
         if attr_name not in self.indexed_node_attrs:
             raise BookkeepingError("Node attribute not indexed")
         nids = self.node_index_maps.get(attr_name, {}).get(value, [])
-        return [{"node_id": nid, "attrs": self.adj[nid]["attrs"]} for nid in nids]
+        return [{"node_id": nid, "attrs": self.nodes[nid]} for nid in nids]
 
     def _rebuild_node_indexes(self):
         for attr in list(self.indexed_node_attrs):
             self.set_node_index(attr)
 
-    # ---------------- Serialization ----------------
     def to_serializable(self) -> Dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
             "type": Graph.TYPE_CODE,
-            "adj": _serialize(self.adj),
+            "nodes": _serialize(self.nodes),
+            "edges": _serialize(self.edges),
             "indexed_node_attrs": list(self.indexed_node_attrs),
             "refs": list(self.refs),
         }
@@ -379,12 +309,12 @@ class Graph(Element):
     def from_serializable(self, data: Dict[str, Any]):
         self.id = int(data["id"])
         self.name = data.get("name", self.name)
-        self.adj = _deserialize(data.get("adj", {}))
+        self.nodes = _deserialize(data.get("nodes", {}))
+        self.edges = _deserialize(data.get("edges", []))
         self.indexed_node_attrs = list(data.get("indexed_node_attrs", []))
         self.refs = [int(x) for x in data.get("refs", [])]
         self._rebuild_node_indexes()
 
-    # ---------------- Info & Display ----------------
     def list_indexable(self) -> List[str]:
         return list(self.indexed_node_attrs)
 
@@ -392,12 +322,7 @@ class Graph(Element):
         return key in self.indexed_node_attrs
 
     def info(self) -> str:
-        return f"Graph(name={self.name}, nodes={len(self.adj)}, edges={sum(len(d['edges']) for d in self.adj.values())}, slots={len(self.refs)})"
-
-    # Helper for CLI show_edges (backwards compatibility)
-    def edges_as_list(self):
-        return [(src, tgt, meta) for src, data in self.adj.items() for tgt, meta in data["edges"].items()]
-
+        return f"Graph(name={self.name}, nodes={len(self.nodes)}, edges={len(self.edges)}, slots={len(self.refs)})"
 
 # ---- KeyValuePair Element ----
 class KeyValuePair(Element):
@@ -919,55 +844,6 @@ class ElementRegistry:
         el.unset_index_column(col)
         self._record_element_update(el, before)
 
-
-    def table_add_list_column(self, col: str):
-        el = self._current()
-        if not isinstance(el, Table):
-            raise BookkeepingError("Current element is not a Table")
-        before = el.to_serializable()
-        el.add_list_column(col)
-        self._record_element_update(el, before)
-
-    def table_del_list_column(self, col: str):
-        el = self._current()
-        if not isinstance(el, Table):
-            raise BookkeepingError("Current element is not a Table")
-        before = el.to_serializable()
-        el.del_list_column(col)
-        self._record_element_update(el, before)
-
-    def table_list_append(self, row_idx: int, col: str, value: Any):
-        el = self._current()
-        if not isinstance(el, Table):
-            raise BookkeepingError("Current element is not a Table")
-        before = el.to_serializable()
-        el.append_to_list_cell(row_idx, col, value)
-        self._record_element_update(el, before)
-
-    def table_list_insert(self, row_idx: int, col: str, index: int, value: Any):
-        el = self._current()
-        if not isinstance(el, Table):
-            raise BookkeepingError("Current element is not a Table")
-        before = el.to_serializable()
-        el.insert_into_list_cell(row_idx, col, index, value)
-        self._record_element_update(el, before)
-
-    def table_list_update(self, row_idx: int, col: str, index: int, value: Any):
-        el = self._current()
-        if not isinstance(el, Table):
-            raise BookkeepingError("Current element is not a Table")
-        before = el.to_serializable()
-        el.update_list_cell_item(row_idx, col, index, value)
-        self._record_element_update(el, before)
-
-    def table_list_delete(self, row_idx: int, col: str, index: int):
-        el = self._current()
-        if not isinstance(el, Table):
-            raise BookkeepingError("Current element is not a Table")
-        before = el.to_serializable()
-        el.delete_list_cell_item(row_idx, col, index)
-        self._record_element_update(el, before)
-
     # Graph ops
     def graph_add_node(self, node_id: str, attrs: Optional[Dict[str, Any]] = None):
         el = self._current()
@@ -1024,17 +900,6 @@ class ElementRegistry:
         before = el.to_serializable()
         el.unset_node_index(attr)
         self._record_element_update(el, before)
-
-    def graph_lookup_nodes(self, attr: str, value: Any):
-        el = self._current()
-        if not isinstance(el, Graph):
-            raise BookkeepingError("Current element is not a Graph")
-        # Works with adjacency table: lookup in attrs for matching value
-        if attr not in el.indexed_node_attrs:
-            raise BookkeepingError("Node attribute not indexed")
-        nids = el.node_index_maps.get(attr, {}).get(value, [])
-        return [{ "node_id": nid, "attrs": el.adj[nid]["attrs"] } for nid in nids]
-
 
     # KVP ops
     def kv_set(self, key: str, value: Any):
@@ -1178,7 +1043,7 @@ class ElementRegistry:
             }
         }
         with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, separators=(",", ":"), ensure_ascii=False)
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
     def load_from_file(self, filepath: str):
         if not os.path.exists(filepath):
@@ -1531,54 +1396,6 @@ class CLI:
                 val = parse_value(parts[2])
                 pprint.pprint(self.reg._current().lookup_by_index(parts[1], val))
                 return
-
-            if sub == "add_list_col":
-                if len(parts) != 2:
-                    raise BookkeepingError("tbl.add_list_col <col>")
-                self.reg.table_add_list_column(parts[1])
-                print("Added list column")
-                return
-            if sub == "del_list_col":
-                if len(parts) != 2:
-                    raise BookkeepingError("tbl.del_list_col <col>")
-                self.reg.table_del_list_column(parts[1])
-                print("Deleted list column")
-                return
-            if sub == "list_append":
-                if len(parts) != 4:
-                    raise BookkeepingError("tbl.list_append <row> <col> <value>")
-                row = int(parts[1])
-                val = parse_value(parts[3])
-                self.reg.table_list_append(row, parts[2], val)
-                print("Appended to list cell")
-                return
-            if sub == "list_insert":
-                if len(parts) != 5:
-                    raise BookkeepingError("tbl.list_insert <row> <col> <index> <value>")
-                row = int(parts[1])
-                idx = int(parts[3])
-                val = parse_value(parts[4])
-                self.reg.table_list_insert(row, parts[2], idx, val)
-                print("Inserted into list cell")
-                return
-            if sub == "list_update":
-                if len(parts) != 5:
-                    raise BookkeepingError("tbl.list_update <row> <col> <index> <value>")
-                row = int(parts[1])
-                idx = int(parts[3])
-                val = parse_value(parts[4])
-                self.reg.table_list_update(row, parts[2], idx, val)
-                print("Updated list cell")
-                return
-            if sub == "list_del":
-                if len(parts) != 4:
-                    raise BookkeepingError("tbl.list_del <row> <col> <index>")
-                row = int(parts[1])
-                idx = int(parts[3])
-                self.reg.table_list_delete(row, parts[2], idx)
-                print("Deleted list cell item")
-                return
-
             if sub == "show_rows":
                 pprint.pprint(cur_el.rows)
                 return
@@ -1641,12 +1458,13 @@ class CLI:
                 val = parse_value(parts[2])
                 pprint.pprint(self.reg.graph_lookup_nodes(parts[1], val))
                 return
-            if sub == "show":
-                # Full adjacency table
-                pprint.pprint(cur_el.adj)
+            if sub == "show_nodes":
+                pprint.pprint(cur_el.nodes)
                 return
-        raise BookkeepingError("Unknown g command")
-
+            if sub == "show_edges":
+                pprint.pprint(cur_el.edges)
+                return
+            raise BookkeepingError("Unknown g command")
 
         # KVP commands (prefix kv.)
         if cmd.startswith("kv.") and isinstance(cur_el, KeyValuePair):
