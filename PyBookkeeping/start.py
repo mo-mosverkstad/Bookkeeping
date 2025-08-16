@@ -1,2 +1,3 @@
-from pybookkeeping.cli import * 
-print("Starting up CLI")
+from pybookkeeping.cli import CLI
+
+CLI().run()

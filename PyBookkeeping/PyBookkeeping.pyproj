@@ -25,20 +25,35 @@
     <Compile Include="PyBookkeepingv1.0.2.py" />
     <Compile Include="PyBookkeepingv1.0.1.py" />
     <Compile Include="PyBookkeeping.py" />
-    <Compile Include="pybookkeeping\elementregistry.py" />
+    <Compile Include="PyBookkeepingv1.0.3.py" />
+    <Compile Include="pybookkeeping\cli\pybookkeepingcli.py" />
+    <Compile Include="pybookkeeping\cli\__init__.py" />
+    <Compile Include="pybookkeeping\elementregistry\__init__.py" />
+    <Compile Include="pybookkeeping\utils\delta.py" />
+    <Compile Include="pybookkeeping\elementregistry\elementregistry.py" />
     <Compile Include="pybookkeeping\elements\element.py" />
     <Compile Include="pybookkeeping\elements\elementfactory.py" />
     <Compile Include="pybookkeeping\elements\graph.py" />
     <Compile Include="pybookkeeping\elements\keyvaluepair.py" />
     <Compile Include="pybookkeeping\elements\__init__.py" />
     <Compile Include="pybookkeeping\elements\table.py" />
-    <Compile Include="pybookkeeping\pybookkeepingcli.py" />
-    <Compile Include="pybookkeeping\utils.py" />
+    <Compile Include="pybookkeeping\utils\BookkeepingError.py" />
+    <Compile Include="pybookkeeping\utils\indexpointer.py" />
+    <Compile Include="pybookkeeping\utils\utils.py" />
+    <Compile Include="pybookkeeping\utils\__init__.py" />
+    <Compile Include="start.py" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="pybookkeeping\cli\" />
+    <Folder Include="pybookkeeping\cli\__pycache__\" />
+    <Folder Include="pybookkeeping\elementregistry\" />
     <Folder Include="pybookkeeping\elements\" />
+    <Folder Include="pybookkeeping\utils\" />
     <Folder Include="unittests\" />
     <Folder Include="pybookkeeping\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="pybookkeeping\cli\__pycache__\__init__.cpython-312.pyc" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

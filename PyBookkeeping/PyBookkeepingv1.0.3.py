@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """PyBookkeeping_all_changes.py
 
 Changes:
@@ -1268,7 +1268,7 @@ class ElementRegistry:
 
 # ---- CLI ----
 HELP = """
-PyBookkeeping CLI — Help
+PyBookkeeping CLI � Help
 =========================
 
 This program manages a hierarchy of elements (Tables, Graphs, Key/Value stores)

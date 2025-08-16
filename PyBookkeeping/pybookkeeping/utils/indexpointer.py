@@ -1,4 +1,5 @@
-# ---- IndexPointer ----
+from dataclasses import dataclass
+
 @dataclass(frozen=True)
 class IndexPointer:
     target_element_id: int
