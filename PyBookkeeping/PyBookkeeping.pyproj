@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>aee58830-84da-45a7-b58b-dd03dccb7dbf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>PyBookkeeping.py</StartupFile>
+    <StartupFile>PyBookkeepingTUI.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,6 +21,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="PyBookkeepingTUI.py" />
     <Compile Include="PyBookkeepingv1.0.0.py" />
     <Compile Include="PyBookkeepingv1.0.2.py" />
     <Compile Include="PyBookkeepingv1.0.1.py" />
