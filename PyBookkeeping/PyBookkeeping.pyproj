@@ -22,6 +22,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PyBookkeepingTUI.py" />
+    <Compile Include="PyBookkeepingTUIv2.0.0.py" />
     <Compile Include="PyBookkeepingv1.0.0.py" />
     <Compile Include="PyBookkeepingv1.0.2.py" />
     <Compile Include="PyBookkeepingv1.0.1.py" />

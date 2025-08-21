@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 from __future__ import annotations
 import json
 import shlex
@@ -1363,58 +1363,20 @@ class TUIApp:
         self.command_line: str = ""
         self.file_path: Optional[str] = None
 
-        # ---------- Dispatch Tables ----------
-        self.table_commands = {
-            "a": self._table_add_column,
-            "A": self._table_add_list_column,
-            "d": self._table_delete_column,
-            "i": self._table_insert_row,
-            "x": self._table_delete_row,
-            "m": self._table_move_row,
-            "U": self._table_update_row,
-            "s": self._table_set_index,
-            "S": self._table_unset_index,
-            "l": self._table_list_append,
-            "L": self._table_list_insert,
-            "r": self._table_list_update,
-            "X": self._table_list_delete,
-        }
-
-        self.graph_commands = {
-            "a": self._graph_add_node,
-            "d": self._graph_del_node,
-            "U": self._graph_update_node,
-            "e": self._graph_add_edge,
-            "E": self._graph_del_edge,
-            "s": self._graph_set_index,
-            "S": self._graph_unset_index,
-            "f": self._graph_find_nodes,
-        }
-
-        self.kvp_commands = {
-            "a": self._kvp_set,           # add/set
-            "U": self._kvp_set,           # update = set
-            "g": self._kvp_get,
-            "d": self._kvp_delete,
-            "i": self._kvp_set_index,
-            "I": self._kvp_unset_index,
-        }
-
     # ---------- Mode Switching ----------
     def enter_mode_for_element(self) -> None:
         el = self.reg._current()
-        t = getattr(el, "TYPE_CODE", None)
-        if t == "Table":
+        if getattr(el, "TYPE_CODE", None) == "Table":
             self.mode = Mode.TABLE
-            self.cursor = Cursor(0)
+            self.cursor = Cursor(row=0, col=0)
             self.set_status("Entered Table mode")
-        elif t == "Graph":
+        elif getattr(el, "TYPE_CODE", None) == "Graph":
             self.mode = Mode.GRAPH
-            self.cursor = Cursor(0)
+            self.cursor = Cursor(row=0)
             self.set_status("Entered Graph mode")
-        elif t == "KeyValuePair":
+        elif getattr(el, "TYPE_CODE", None) == "KeyValuePair":
             self.mode = Mode.KVP
-            self.cursor = Cursor(0)
+            self.cursor = Cursor(row=0, col=0)
             self.set_status("Entered KVP mode")
         else:
             self.set_status("Element not Table/Graph/KVP", error=True)
@@ -1465,9 +1427,7 @@ class TUIApp:
             if eid != 0 and eid in self.reg.elements:
                 target = self.reg.elements[eid]
                 details = f"{getattr(target, 'TYPE_CODE', '?')} '{getattr(target, 'name', '?')}'"
-            draw_text(stdscr, start_y + i, 0,
-                      (label + details).ljust(max_x - 1),
-                      curses.A_STANDOUT if sel else 0)
+            draw_text(stdscr, start_y + i, 0, (label + details).ljust(max_x - 1), curses.A_STANDOUT if sel else 0)
         if not slots:
             draw_text(stdscr, start_y, 0, "<no slots>")
 
@@ -1486,9 +1446,7 @@ class TUIApp:
             draw_text(stdscr, max_y - 1, 0, f":{self.command_line}")
         else:
             status_attr = curses.A_BOLD | (curses.A_REVERSE if self.status.error else 0)
-            draw_text(stdscr, max_y - 1, 0,
-                      f" {self.status.message} ".ljust(max_x - 1),
-                      status_attr)
+            draw_text(stdscr, max_y - 1, 0, f" {self.status.message} ".ljust(max_x - 1), status_attr)
 
     # ---------- Input handling ----------
     def handle_input(self, ch: int, stdscr: "curses._CursesWindow") -> bool:
@@ -1498,293 +1456,57 @@ class TUIApp:
         if self.mode == Mode.NORMAL:
             return self._handle_normal(ch)
         elif self.mode == Mode.TABLE:
-            return self._dispatch(self.table_commands, ch, stdscr)
+            return self.handle_table(ch, stdscr)
         elif self.mode == Mode.GRAPH:
-            return self._dispatch(self.graph_commands, ch, stdscr)
+            return self.handle_graph(ch, stdscr)
         elif self.mode == Mode.KVP:
-            return self._dispatch(self.kvp_commands, ch, stdscr)
+            return self.handle_kvp(ch, stdscr)
         elif self.mode == Mode.COMMAND:
             return self._handle_command(ch)
         return True
 
-    def _dispatch(self, commands: Dict[str, "Callable"], ch: int, stdscr) -> bool:
-        try:
-            key = chr(ch) if 0 <= ch < 256 else None
-            if key in commands:
-                commands[key](stdscr)
-            elif ch == ord(":"):
-                self.mode = Mode.COMMAND
-                self.command_line = ""
-                self.set_status("")
-            elif key == "u":
-                self.reg.undo()
-                self.set_status("Undo successful")
-            elif ch == 18:  # Ctrl-r
-                self.reg.redo()
-                self.set_status("Redo successful")
-            elif key == "H":
-                hist = self.reg.list_history()
-                self.set_status(f"History: {hist}")
-            return True
-        except BookkeepingError as e:
-            self.set_status(str(e), error=True)
-            return True
-
-    # ---------- Prompt & Sanitizers ----------
-    def _prompt_user(self, stdscr, prompt: str) -> Optional[str]:
-        """
-        Prompt the user for input.
-        Returns the string entered, or None if Esc pressed.
-        """
-        curses.echo(False)
-        stdscr.addstr(curses.LINES - 1, 0, prompt + ": ")
-        stdscr.clrtoeol()
+    """
+    def _prompt_user(self, stdscr, prompt: str) -> str:
+        max_y, max_x = stdscr.getmaxyx()
+        curses.echo()
+        draw_text(stdscr, max_y - 1, 0, f"{prompt}: ")
         stdscr.refresh()
+        try:
+            input_str = stdscr.getstr(max_y - 1, len(prompt) + 2, max_x - len(prompt) - 3)
+            return input_str.decode("utf-8").strip()
+        finally:
+            curses.noecho()
+    """
 
-        buf: list[str] = []
+    def _prompt_user(self, stdscr: "curses._CursesWindow", prompt: str) -> Optional[str]:
+        max_y, max_x = stdscr.getmaxyx()
+        input_chars: list[str] = []
         while True:
-            ch = stdscr.getch()
-
-            if ch in (curses.KEY_ENTER, 10, 13):  # Enter
-                text = "".join(buf).strip()
-                return text if text else None
-
-            elif ch == 27:  # Esc
-                self.set_status("Aborted")
-                return None
-
-            elif ch in (curses.KEY_BACKSPACE, 127, 8):
-                if buf:
-                    buf.pop()
-                    y, x = stdscr.getyx()
-                    if x > len(prompt) + 2:
-                        stdscr.move(y, x - 1)
-                        stdscr.delch()
-
-            elif 32 <= ch < 127:
-                buf.append(chr(ch))
-                stdscr.addch(ch)
-
+            # draw prompt + current input
+            draw_text(stdscr, max_y - 1, 0,
+                      f"{prompt}: {''.join(input_chars)}".ljust(max_x - 1))
             stdscr.refresh()
 
-    def _safe_int(self, stdscr, prompt: str) -> Optional[int]:
-        raw = self._prompt_user(stdscr, prompt)
-        if raw is None or not raw.strip():
-            return None
-        try:
-            return int(raw.strip())
-        except ValueError:
-            self.set_status(f"Invalid integer: {raw}", error=True)
-            return None
-
-    def _safe_value(self, stdscr, prompt: str):
-        raw = self._prompt_user(stdscr, prompt)
-        if raw is None or not raw.strip():
-            return None
-        try:
-            return parse_value(raw.strip())
-        except BookkeepingError as e:
-            self.set_status(str(e), error=True)
-            return None
-
-    def _safe_kvs(self, stdscr, prompt: str):
-        raw = self._prompt_user(stdscr, prompt)
-        if raw is None or not raw.strip():
-            return None
-        try:
-            return parse_kvs(shlex.split(raw.strip()))
-        except BookkeepingError as e:
-            self.set_status(str(e), error=True)
-            return None
-
-    # ---------- Keep existing normal & command handlers ----------
-    # (We reuse _handle_normal and _handle_command from the original implementation.)
-
-    # ---------- Table Commands ----------
-    def _table_add_column(self, stdscr):
-        col = self._prompt_user(stdscr, "Column name")
-        if col:
-            self.reg.table_add_column(col)
-            self.set_status(f"Added column {col}")
-
-    def _table_add_list_column(self, stdscr):
-        col = self._prompt_user(stdscr, "List column name")
-        if col:
-            self.reg.table_add_list_column(col)
-            self.set_status(f"Added list column {col}")
-
-    def _table_delete_column(self, stdscr):
-        col = self._prompt_user(stdscr, "Column to delete")
-        if col:
-            self.reg.table_del_column(col)
-            self.set_status(f"Deleted column {col}")
-
-    def _table_insert_row(self, stdscr):
-        kv = self._safe_kvs(stdscr, "Row data key=value ...")
-        if kv:
-            idx = self.reg.table_insert_row(kv)
-            self.set_status(f"Inserted row #{idx}")
-
-    def _table_delete_row(self, stdscr):
-        idx = self._safe_int(stdscr, "Row index")
-        if idx is not None:
-            self.reg.table_delete_row(idx)
-            self.set_status(f"Deleted row #{idx}")
-
-    def _table_move_row(self, stdscr):
-        old_idx = self._safe_int(stdscr, "Old index")
-        new_idx = self._safe_int(stdscr, "New index")
-        if old_idx is not None and new_idx is not None:
-            self.reg.table_move_row(old_idx, new_idx)
-            self.set_status(f"Moved row {old_idx} -> {new_idx}")
-
-    def _table_update_row(self, stdscr):
-        idx = self._safe_int(stdscr, "Row index")
-        kv = self._safe_kvs(stdscr, "Updates key=value ...")
-        if idx is not None and kv:
-            self.reg.table_update_row(idx, kv)
-            self.set_status(f"Updated row #{idx}")
-
-    def _table_set_index(self, stdscr):
-        col = self._prompt_user(stdscr, "Column to index")
-        if col:
-            self.reg.table_set_index(col)
-            self.set_status(f"Indexed column {col}")
-
-    def _table_unset_index(self, stdscr):
-        col = self._prompt_user(stdscr, "Column to unindex")
-        if col:
-            self.reg.table_unset_index(col)
-            self.set_status(f"Unindexed column {col}")
-
-    def _table_list_append(self, stdscr):
-        idx = self._safe_int(stdscr, "Row index")
-        col = self._prompt_user(stdscr, "List column")
-        val = self._safe_value(stdscr, "Value to append")
-        if idx is not None and col and val is not None:
-            self.reg.table_list_append(idx, col, val)
-            self.set_status(f"Appended to {col} in row {idx}")
-
-    def _table_list_insert(self, stdscr):
-        idx = self._safe_int(stdscr, "Row index")
-        col = self._prompt_user(stdscr, "List column")
-        pos = self._safe_int(stdscr, "Insert position")
-        val = self._safe_value(stdscr, "Value")
-        if idx is not None and col and pos is not None and val is not None:
-            self.reg.table_list_insert(idx, col, pos, val)
-            self.set_status(f"Inserted in {col}[{pos}] row {idx}")
-
-    def _table_list_update(self, stdscr):
-        idx = self._safe_int(stdscr, "Row index")
-        col = self._prompt_user(stdscr, "List column")
-        pos = self._safe_int(stdscr, "Position")
-        val = self._safe_value(stdscr, "New value")
-        if idx is not None and col and pos is not None and val is not None:
-            self.reg.table_list_update(idx, col, pos, val)
-            self.set_status(f"Updated {col}[{pos}] row {idx}")
-
-    def _table_list_delete(self, stdscr):
-        idx = self._safe_int(stdscr, "Row index")
-        col = self._prompt_user(stdscr, "List column")
-        pos = self._safe_int(stdscr, "Position")
-        if idx is not None and col and pos is not None:
-            self.reg.table_list_delete(idx, col, pos)
-            self.set_status(f"Deleted from {col}[{pos}] row {idx}")
-
-    # ---------- Graph Commands ----------
-    def _graph_add_node(self, stdscr):
-        nid = self._prompt_user(stdscr, "Node ID")
-        kv = self._safe_kvs(stdscr, "Attrs key=value ... (optional)")
-        if nid:
-            self.reg.graph_add_node(nid, kv or {})
-            self.set_status(f"Added node {nid}")
-
-    def _graph_del_node(self, stdscr):
-        nid = self._prompt_user(stdscr, "Node ID")
-        if nid:
-            self.reg.graph_del_node(nid)
-            self.set_status(f"Deleted node {nid}")
-
-    def _graph_update_node(self, stdscr):
-        nid = self._prompt_user(stdscr, "Node ID")
-        kv = self._safe_kvs(stdscr, "Updates key=value ...")
-        if nid and kv:
-            self.reg.graph_update_node(nid, kv)
-            self.set_status(f"Updated node {nid}")
-
-    def _graph_add_edge(self, stdscr):
-        frm = self._prompt_user(stdscr, "From node")
-        to = self._prompt_user(stdscr, "To node")
-        kv = self._safe_kvs(stdscr, "Meta key=value ... (optional)")
-        if frm and to:
-            self.reg.graph_add_edge(frm, to, kv or {})
-            self.set_status(f"Added edge {frm}->{to}")
-
-    def _graph_del_edge(self, stdscr):
-        frm = self._prompt_user(stdscr, "From node")
-        to = self._prompt_user(stdscr, "To node")
-        if frm and to:
-            self.reg.graph_del_edge(frm, to)
-            self.set_status(f"Deleted edge {frm}->{to}")
-
-    def _graph_set_index(self, stdscr):
-        attr = self._prompt_user(stdscr, "Attr to index")
-        if attr:
-            self.reg.graph_set_node_index(attr)
-            self.set_status(f"Indexed {attr}")
-
-    def _graph_unset_index(self, stdscr):
-        attr = self._prompt_user(stdscr, "Attr to unindex")
-        if attr:
-            self.reg.graph_unset_node_index(attr)
-            self.set_status(f"Unindexed {attr}")
-
-    def _graph_find_nodes(self, stdscr):
-        attr = self._prompt_user(stdscr, "Attr name")
-        val = self._safe_value(stdscr, "Value")
-        if attr and val is not None:
-            res = self.reg.graph_lookup_nodes(attr, val)
-            self.set_status(f"Found: {res}")
-
-    # ---------- KVP Commands ----------
-    def _kvp_set(self, stdscr):
-        key = self._prompt_user(stdscr, "Key")
-        val = self._safe_value(stdscr, "Value")
-        if key and val is not None:
-            self.reg.kv_set(key, val)
-            self.set_status(f"Set {key}={val}")
-
-    def _kvp_get(self, stdscr):
-        key = self._prompt_user(stdscr, "Key")
-        if key:
             try:
-                val = self.reg.kv_get(key)
-                self.set_status(f"{key}={val}")
-            except BookkeepingError as e:
-                self.set_status(str(e), error=True)
+                ch = stdscr.get_wch()  # wide-char aware
+            except curses.error:
+                continue  # no input
 
-    def _kvp_delete(self, stdscr):
-        key = self._prompt_user(stdscr, "Key")
-        if key:
-            self.reg.kv_delete(key)
-            self.set_status(f"Deleted {key}")
-
-    def _kvp_set_index(self, stdscr):
-        key = self._prompt_user(stdscr, "Key to index")
-        if key:
-            self.reg.kv_set_index(key)
-            self.set_status(f"Indexed key {key}")
-
-    def _kvp_unset_index(self, stdscr):
-        key = self._prompt_user(stdscr, "Key to unindex")
-        if key:
-            self.reg.kv_unset_index(key)
-            self.set_status(f"Unindexed key {key}")
-
-    # ---------- Existing Normal/Command/Run from original ----------
-    # We keep _handle_normal, _handle_command, _cmd_save, _cmd_load, run as-is in the file.
-
-
+            if isinstance(ch, str):
+                if ch == "\n":      # Enter
+                    return "".join(input_chars).strip()
+                elif ch == "\x1b":  # ESC
+                    self.set_status("Aborted")
+                    return None
+                elif ch == "\x7f":  # DEL / Backspace
+                    if input_chars:
+                        input_chars.pop()
+                elif ch.isprintable():
+                    input_chars.append(ch)
+            elif isinstance(ch, int):
+                if ch in (curses.KEY_BACKSPACE, 127, 8):
+                    if input_chars:
+                        input_chars.pop()
 
 
 
@@ -1831,6 +1553,281 @@ class TUIApp:
 
         return True
 
+    def handle_table(self, ch: int, stdscr: "curses._CursesWindow") -> bool:
+        try:
+            if ch == ord("a"):  # Add column
+                col = self._prompt_user(stdscr, "Column name")
+                if col:
+                    self.reg.table_add_column(col)
+                    self.set_status(f"Added column {col}")
+            elif ch == ord("A"):  # Add list column
+                col = self._prompt_user(stdscr, "List column name")
+                if col:
+                    self.reg.table_add_list_column(col)
+                    self.set_status(f"Added list column {col}")
+            elif ch == ord("d"):  # Delete column
+                col = self._prompt_user(stdscr, "Column to delete")
+                if col:
+                    self.reg.table_del_column(col)
+                    self.set_status(f"Deleted column {col}")
+            elif ch == ord("i"):  # Insert row
+                raw = self._prompt_user(stdscr, "Row data key=value ...")
+                if raw:
+                    kv = parse_kvs(shlex.split(raw))
+                    idx = self.reg.table_insert_row(kv)
+                    self.set_status(f"Inserted row #{idx}")
+            elif ch == ord("x"):  # Delete row
+                raw_idx = self._prompt_user(stdscr, "Row index")
+                if raw_idx:
+                    idx = int(raw_idx)
+                    self.reg.table_delete_row(idx)
+                    self.set_status(f"Deleted row #{idx}")
+            elif ch == ord("m"):  # Move row
+                raw_old_idx = self._prompt_user(stdscr, "Old index")
+                raw_new_idx = self._prompt_user(stdscr, "New index")
+                if raw_old_idx and raw_new_idx:
+                    old_idx = int(self._prompt_user(stdscr, "Old index"))
+                    new_idx = int(self._prompt_user(stdscr, "New index"))
+                    self.reg.table_move_row(old_idx, new_idx)
+                    self.set_status(f"Moved row {old_idx} -> {new_idx}")
+            elif ch == ord("U"):  # Update row
+                raw_idx = self._prompt_user(stdscr, "Row index")
+                raw = self._prompt_user(stdscr, "Updates key=value ...")
+                if raw_idx and raw:
+                    idx = int(raw_idx)
+                    kv = parse_kvs(shlex.split(raw))
+                    self.reg.table_update_row(idx, kv)
+                    self.set_status(f"Updated row #{idx}")
+            elif ch == ord("s"):  # Set index
+                col = self._prompt_user(stdscr, "Column to index")
+                if col:
+                    self.reg.table_set_index(col)
+                    self.set_status(f"Indexed column {col}")
+            elif ch == ord("S"):  # Unset index
+                col = self._prompt_user(stdscr, "Column to unindex")
+                if col:
+                    self.reg.table_unset_index(col)
+                    self.set_status(f"Unindexed column {col}")
+            elif ch == ord("l"):  # Append to list cell
+                raw_idx = self._prompt_user(stdscr, "Row index")
+                col = self._prompt_user(stdscr, "List column")
+                raw_val = self._prompt_user(stdscr, "Value to append")
+                if raw_idx and col and raw_val:
+                    idx = int(raw_idx)
+                    val = parse_value(raw_val)
+                    self.reg.table_list_append(idx, col, val)
+                    self.set_status(f"Appended to {col} in row {idx}")
+            elif ch == ord("L"):  # Insert into list cell
+                raw_idx = self._prompt_user(stdscr, "Row index")
+                col = self._prompt_user(stdscr, "List column")
+                raw_pos = self._prompt_user(stdscr, "Insert position")
+                raw_val = self._prompt_user(stdscr, "Value")
+                if raw_idx and col and raw_pos and raw_val:
+                    idx = int(raw_idx)
+                    pos = int(raw_pos)
+                    val = parse_value(raw_val)
+                    self.reg.table_list_insert(idx, col, pos, val)
+                    self.set_status(f"Inserted in {col}[{pos}] row {idx}")
+            elif ch == ord("r"):  # Replace (update) list item
+                raw_idx = self._prompt_user(stdscr, "Row index")
+                col = self._prompt_user(stdscr, "List column")
+                raw_pos = self._prompt_user(stdscr, "Position")
+                raw_val = self._prompt_user(stdscr, "New value")
+                if raw_idx and col and raw_pos and raw_val:
+                    idx = int(raw_idx)
+                    pos = int(raw_pos)
+                    val = parse_value(raw_val)
+                    self.reg.table_list_update(idx, col, pos, val)
+                    self.set_status(f"Updated {col}[{pos}] row {idx}")
+            elif ch == ord("X"):  # Delete list item
+                raw_idx = self._prompt_user(stdscr, "Row index")
+                col = self._prompt_user(stdscr, "List column")
+                raw_pos = self._prompt_user(stdscr, "Position")
+                if raw_idx and col and pos:
+                    idx = int(raw_idx)
+                    pos = int(raw_pos)
+                    self.reg.table_list_delete(idx, col, pos)
+                    self.set_status(f"Deleted from {col}[{pos}] row {idx}")
+
+            elif ch == ord(":"):
+                self.mode = Mode.COMMAND
+                self.command_line = ""
+                self.set_status("")
+            elif ch == ord("u"):  # undo
+                try:
+                    self.reg.undo()
+                    self.set_status("Undo successful")
+                except BookkeepingError as e:
+                    self.set_status(str(e), error=True)
+            elif ch == 18:  # Ctrl-r for redo
+                try:
+                    self.reg.redo()
+                    self.set_status("Redo successful")
+                except BookkeepingError as e:
+                    self.set_status(str(e), error=True)
+            elif ch == ord("H"):  # show history
+                hist = self.reg.list_history()
+                self.set_status(f"History: {hist}")
+
+            elif ch == 27:  # ESC
+                self.reset_mode()
+            return True
+        except BookkeepingError as e:
+            self.set_status(str(e), error=True)
+            return True
+
+    def handle_graph(self, ch: int, stdscr) -> bool:
+        try:
+            if ch == ord("a"):  # Add node
+                nid = self._prompt_user(stdscr, "Node ID")
+                raw = self._prompt_user(stdscr, "Attrs key=value ... (optional)")
+                if nid and raw:
+                    attrs = parse_kvs(shlex.split(raw)) if raw else {}
+                    self.reg.graph_add_node(nid, attrs)
+                    self.set_status(f"Added node {nid}")
+            elif ch == ord("d"):  # Delete node
+                nid = self._prompt_user(stdscr, "Node ID")
+                if nid:
+                    self.reg.graph_del_node(nid)
+                    self.set_status(f"Deleted node {nid}")
+            elif ch == ord("U"):  # Update node
+                nid = self._prompt_user(stdscr, "Node ID")
+                raw = self._prompt_user(stdscr, "Updates key=value ...")
+                if nid and raw:
+                    attrs = parse_kvs(shlex.split(raw))
+                    self.reg.graph_update_node(nid, attrs)
+                    self.set_status(f"Updated node {nid}")
+            elif ch == ord("e"):  # Add edge
+                frm = self._prompt_user(stdscr, "From node")
+                to = self._prompt_user(stdscr, "To node")
+                raw = self._prompt_user(stdscr, "Meta key=value ... (optional)")
+                if frm and to and raw:
+                    meta = parse_kvs(shlex.split(raw)) if raw else {}
+                    self.reg.graph_add_edge(frm, to, meta)
+                    self.set_status(f"Added edge {frm}->{to}")
+            elif ch == ord("E"):  # Delete edge
+                frm = self._prompt_user(stdscr, "From node")
+                to = self._prompt_user(stdscr, "To node")
+                if frm and to:
+                    self.reg.graph_del_edge(frm, to)
+                    self.set_status(f"Deleted edge {frm}->{to}")
+            elif ch == ord("s"):  # Set index
+                attr = self._prompt_user(stdscr, "Attr to index")
+                if attr:
+                    self.reg.graph_set_node_index(attr)
+                    self.set_status(f"Indexed {attr}")
+            elif ch == ord("S"):  # Unset index
+                attr = self._prompt_user(stdscr, "Attr to unindex")
+                if attr:
+                    self.reg.graph_unset_node_index(attr)
+                    self.set_status(f"Unindexed {attr}")
+            elif ch == ord("f"):  # Find nodes
+                attr = self._prompt_user(stdscr, "Attr name")
+                val = parse_value(self._prompt_user(stdscr, "Value"))
+                if attr and val:
+                    res = self.reg.graph_lookup_nodes(attr, val)
+                    self.set_status(f"Found: {res}")
+
+            elif ch == ord(":"):
+                self.mode = Mode.COMMAND
+                self.command_line = ""
+                self.set_status("")
+            elif ch == ord("u"):  # undo
+                try:
+                    self.reg.undo()
+                    self.set_status("Undo successful")
+                except BookkeepingError as e:
+                    self.set_status(str(e), error=True)
+            elif ch == 18:  # Ctrl-r for redo
+                try:
+                    self.reg.redo()
+                    self.set_status("Redo successful")
+                except BookkeepingError as e:
+                    self.set_status(str(e), error=True)
+            elif ch == ord("H"):  # show history
+                hist = self.reg.list_history()
+                self.set_status(f"History: {hist}")
+
+            elif ch == 27:  # ESC
+                self.reset_mode()
+            return True
+        except BookkeepingError as e:
+            self.set_status(str(e), error=True)
+            return True
+
+    def handle_kvp(self, ch: int, stdscr) -> bool:
+        try:
+            if ch == ord("a"):  # Add or set
+                key = self._prompt_user(stdscr, "Key")
+                val = parse_value(self._prompt_user(stdscr, "Value"))
+                if key and val:
+                    self.reg.kv_set(key, val)
+                    self.set_status(f"Set {key}={val}")
+            elif ch == ord("d"):  # Delete
+                key = self._prompt_user(stdscr, "Key")
+                if key:
+                    self.reg.kv_delete(key)
+                    self.set_status(f"Deleted {key}")
+            elif ch == ord("U"):  # Update (same as set)
+                key = self._prompt_user(stdscr, "Key")
+                val = parse_value(self._prompt_user(stdscr, "New value"))
+                if key and val:
+                    self.reg.kv_set(key, val)
+                    self.set_status(f"Updated {key}={val}")
+            elif ch == ord("g"):  # Get value
+                key = self._prompt_user(stdscr, "Key")
+                if key:
+                    val = self.reg.kv_get(key)
+                    self.set_status(f"{key}={val}")
+            elif ch == ord("s"):  # Set index
+                key = self._prompt_user(stdscr, "Key to index")
+                if key:
+                    self.reg.kv_set_index(key)
+                    self.set_status(f"Indexed {key}")
+            elif ch == ord("S"):  # Unset index
+                key = self._prompt_user(stdscr, "Key to unindex")
+                if key:
+                    self.reg.kv_unset_index(key)
+                    self.set_status(f"Unindexed {key}")
+
+            elif ch == ord(":"):
+                self.mode = Mode.COMMAND
+                self.command_line = ""
+                self.set_status("")
+            elif ch == ord("u"):  # undo
+                try:
+                    self.reg.undo()
+                    self.set_status("Undo successful")
+                except BookkeepingError as e:
+                    self.set_status(str(e), error=True)
+            elif ch == 18:  # Ctrl-r for redo
+                try:
+                    self.reg.redo()
+                    self.set_status("Redo successful")
+                except BookkeepingError as e:
+                    self.set_status(str(e), error=True)
+            elif ch == ord("H"):  # show history
+                hist = self.reg.list_history()
+                self.set_status(f"History: {hist}")
+
+
+            elif ch == 27:  # ESC
+                self.reset_mode()
+            return True
+        except BookkeepingError as e:
+            self.set_status(str(e), error=True)
+            return True
+
+
+
+
+    def _handle_submode(self, ch: int) -> bool:
+        # For now only navigation in pprint view
+        if ch == ord("j"):
+            self.cursor.row += 1
+        elif ch == ord("k"):
+            self.cursor.row = max(0, self.cursor.row - 1)
+        return True
 
     def _handle_command(self, ch: int) -> bool:
         if ch in (10, 13):
@@ -1854,7 +1851,6 @@ class TUIApp:
             except ValueError:
                 pass
         return True
-
 
     def _cmd_save(self, path: Optional[str]) -> None:
         if not path:
@@ -1898,63 +1894,6 @@ class TUIApp:
             ch = stdscr.getch()
             if not self.handle_input(ch, stdscr):
                 break
-
-
-
-
-    def _cmd_load(self, path: str) -> None:
-        if not path:
-            self.set_status("Usage: :load <file>", error=True)
-            return
-        try:
-            self.reg.load_from_file(path)
-            self.cursor = Cursor(0)
-            self.file_path = path
-            self.set_status(f"Loaded {path}")
-        except BookkeepingError as e:
-            self.set_status(str(e), error=True)
-
-    # ---------- Main loop ----------
-    def run(self, stdscr: "curses._CursesWindow") -> None:
-        curses.curs_set(0)
-        stdscr.nodelay(False)
-        stdscr.keypad(True)
-        self.set_status("PyBookkeeping initialized")
-        while True:
-            stdscr.erase()
-            top = self._render_header(stdscr)
-            if self.mode == Mode.NORMAL:
-                self._render_slots(stdscr, top)
-            elif self.mode in (Mode.TABLE, Mode.GRAPH, Mode.KVP):
-                self._render_element_pprint(stdscr, top)
-            self._render_footer(stdscr)
-            stdscr.refresh()
-
-            ch = stdscr.getch()
-            if not self.handle_input(ch, stdscr):
-                break
-
-
-
-    def run(self, stdscr: "curses._CursesWindow") -> None:
-        curses.curs_set(0)
-        stdscr.nodelay(False)
-        stdscr.keypad(True)
-        self.set_status("PyBookkeeping initialized")
-        while True:
-            stdscr.erase()
-            top = self._render_header(stdscr)
-            if self.mode == Mode.NORMAL:
-                self._render_slots(stdscr, top)
-            elif self.mode in (Mode.TABLE, Mode.GRAPH, Mode.KVP):
-                self._render_element_pprint(stdscr, top)
-            self._render_footer(stdscr)
-            stdscr.refresh()
-
-            ch = stdscr.getch()
-            if not self.handle_input(ch, stdscr):
-                break
-
 
 
 # ---------- Entrypoint ----------
