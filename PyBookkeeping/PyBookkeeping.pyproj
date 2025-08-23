@@ -55,6 +55,7 @@
     <Folder Include="pybookkeeping\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="PyBookkeepingTUIv2.0.1.py" />
     <Content Include="pybookkeeping\cli\__pycache__\__init__.cpython-312.pyc" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

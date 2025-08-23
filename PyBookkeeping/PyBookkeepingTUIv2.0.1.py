@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 from __future__ import annotations
 import json
 import shlex
@@ -1362,7 +1362,6 @@ class TUIApp:
         self.key_buffer: str = ""
         self.command_line: str = ""
         self.file_path: Optional[str] = None
-        self.cursors: Dict[int, Cursor] = {}
 
         # ---------- Dispatch Tables ----------
         self.table_commands = {
@@ -1401,38 +1400,24 @@ class TUIApp:
             "I": self._kvp_unset_index,
         }
 
-    # --- per-element cursor helpers ---
-    def _elem_cursor(self) -> Cursor:
-        """Return (and create if needed) the cursor for the current element."""
-        eid = getattr(self.reg, "current_element_id", 0)
-        cur = self.cursors.get(eid)
-        if cur is None:
-            cur = Cursor()           # slot_index=0,row=0,col=0
-            self.cursors[eid] = cur
-        return cur
-
-    def _touch_elem_cursor(self) -> None:
-        """Ensure a cursor exists for the current element."""
-        _ = self._elem_cursor()
-
-
     # ---------- Mode Switching ----------
     def enter_mode_for_element(self) -> None:
         el = self.reg._current()
         t = getattr(el, "TYPE_CODE", None)
         if t == "Table":
             self.mode = Mode.TABLE
-            self._touch_elem_cursor()
+            self.cursor = Cursor(0)
             self.set_status("Entered Table mode")
         elif t == "Graph":
             self.mode = Mode.GRAPH
-            self._touch_elem_cursor()
+            self.cursor = Cursor(0)
             self.set_status("Entered Graph mode")
         elif t == "KeyValuePair":
             self.mode = Mode.KVP
-            self._touch_elem_cursor()
+            self.cursor = Cursor(0)
             self.set_status("Entered KVP mode")
-
+        else:
+            self.set_status("Element not Table/Graph/KVP", error=True)
 
     def reset_mode(self) -> None:
         self.mode = Mode.NORMAL
@@ -1446,14 +1431,13 @@ class TUIApp:
         return list(getattr(el, "refs", []))
 
     def move_cursor(self, delta: int) -> None:
-        cur = self._elem_cursor()
         slots = self._current_slots()
         n = len(slots)
         if n == 0:
-            cur.slot_index = 0
+            self.cursor = Cursor(0)
             return
-        cur.slot_index = clamp(cur.slot_index + delta, 0, n - 1)
-
+        new_idx = clamp(self.cursor.slot_index + delta, 0, n - 1)
+        self.cursor = Cursor(new_idx)
 
     # ---------- Status ----------
     def set_status(self, msg: str, *, error: bool = False) -> None:
@@ -1474,9 +1458,8 @@ class TUIApp:
     def _render_slots(self, stdscr: "curses._CursesWindow", start_y: int) -> None:
         slots = self._current_slots()
         max_y, max_x = stdscr.getmaxyx()
-        cur = self._elem_cursor()
         for i, eid in enumerate(slots):
-            sel = (i == cur.slot_index)
+            sel = (i == self.cursor.slot_index)
             label = f"{i:>3} -> {eid:<4} "
             details = "<empty>"
             if eid != 0 and eid in self.reg.elements:
@@ -1490,85 +1473,12 @@ class TUIApp:
 
     def _render_element_pprint(self, stdscr: "curses._CursesWindow", start_y: int) -> None:
         el = self.reg._current()
-        if getattr(el, "TYPE_CODE", None) == "Table":
-            self._render_table(stdscr, el, start_y)
-            return
-        if getattr(el, "TYPE_CODE", None) == "Graph":
-            self._render_graph(stdscr, el, start_y)
-            return
-        if getattr(el, "TYPE_CODE", None) == "KeyValuePair":
-            self._render_kvp(stdscr, el, start_y)
-            return
-        # fallback
         try:
             content = pformat(el.to_serializable(), indent=2, width=80, compact=False)
         except Exception as e:
             content = f"<error rendering element: {e}>"
         for i, line in enumerate(content.splitlines()):
             draw_text(stdscr, start_y + i, 0, line)
-
-    # --- Pretty renderers ---
-    def _render_table(self, stdscr: "curses._CursesWindow", table: Table, start_y: int) -> int:
-        max_y, max_x = stdscr.getmaxyx()
-        cur = self._elem_cursor()
-        # clamp remembered coords to current data shape
-        n_rows = len(table.rows)
-        n_cols = len(table.columns)
-        if n_rows == 0:
-            draw_text(stdscr, start_y, 0, "<empty table>")
-            return start_y + 1
-        cur.row = clamp(cur.row, 0, n_rows - 1)
-        cur.col = clamp(cur.col, 0, max(0, n_cols - 1))
-
-        # compute widths
-        col_widths = {c: len(str(c)) for c in table.columns}
-        for r in table.rows:
-            for c in table.columns:
-                col_widths[c] = max(col_widths[c], len(str(r.get(c, ""))))
-
-        # header
-        header = " | ".join(str(c).ljust(col_widths[c]) for c in table.columns)
-        draw_text(stdscr, start_y, 0, header[:max_x-1], curses.A_BOLD | curses.A_UNDERLINE)
-
-        # rows
-        for i, row in enumerate(table.rows):
-            cells = []
-            for j, c in enumerate(table.columns):
-                cell = str(row.get(c, "")).ljust(col_widths[c])
-                cells.append(cell)
-            row_str = " | ".join(cells)
-            attr = curses.A_STANDOUT if i == cur.row else 0
-            draw_text(stdscr, start_y + 1 + i, 0, row_str[:max_x-1], attr)
-        return start_y + 1 + n_rows
-
-    def _render_graph(self, stdscr: "curses._CursesWindow", graph: Graph, start_y: int) -> int:
-        cur = self._elem_cursor()
-        items = list(graph.adj.items())
-        if not items:
-            draw_text(stdscr, start_y, 0, "<empty graph>")
-            return start_y + 1
-        cur.row = clamp(cur.row, 0, len(items) - 1)
-        for i, (nid, data) in enumerate(items):
-            attrs = data.get("attrs", {})
-            edges = list(data.get("edges", {}).keys())
-            label = f"{nid}: {attrs} -> {edges}"
-            attr = curses.A_STANDOUT if i == cur.row else 0
-            draw_text(stdscr, start_y + i, 0, label, attr)
-        return start_y + len(items)
-
-    def _render_kvp(self, stdscr: "curses._CursesWindow", kvp: KeyValuePair, start_y: int) -> int:
-        cur = self._elem_cursor()
-        items = list(kvp.store.items())
-        if not items:
-            draw_text(stdscr, start_y, 0, "<empty map>")
-            return start_y + 1
-        cur.row = clamp(cur.row, 0, len(items) - 1)
-        for i, (k, v) in enumerate(items):
-            line = f"{k:<20} = {v}"
-            attr = curses.A_STANDOUT if i == cur.row else 0
-            draw_text(stdscr, start_y + i, 0, line, attr)
-        return start_y + len(items)
-
 
     def _render_footer(self, stdscr: "curses._CursesWindow") -> None:
         max_y, max_x = stdscr.getmaxyx()
@@ -1580,55 +1490,6 @@ class TUIApp:
                       f" {self.status.message} ".ljust(max_x - 1),
                       status_attr)
 
-    def _nav_table(self, ch: int) -> None:
-        el = self.reg._current()
-        if getattr(el, "TYPE_CODE", None) != "Table":
-            return
-        cur = self._elem_cursor()
-        n_rows = len(el.rows)
-        n_cols = len(el.columns)
-        if n_rows == 0:
-            cur.row = 0
-            cur.col = 0
-            return
-        if ch == ord("j"):
-            cur.row = clamp(cur.row + 1, 0, n_rows - 1)
-        elif ch == ord("k"):
-            cur.row = clamp(cur.row - 1, 0, n_rows - 1)
-        elif ch == ord("h"):
-            cur.col = clamp(cur.col - 1, 0, max(0, n_cols - 1))
-        elif ch == ord("l"):
-            cur.col = clamp(cur.col + 1, 0, max(0, n_cols - 1))
-
-    def _nav_graph(self, ch: int) -> None:
-        el = self.reg._current()
-        if getattr(el, "TYPE_CODE", None) != "Graph":
-            return
-        cur = self._elem_cursor()
-        n = len(el.adj)
-        if n == 0:
-            cur.row = 0
-            return
-        if ch == ord("j"):
-            cur.row = clamp(cur.row + 1, 0, n - 1)
-        elif ch == ord("k"):
-            cur.row = clamp(cur.row - 1, 0, n - 1)
-
-    def _nav_kvp(self, ch: int) -> None:
-        el = self.reg._current()
-        if getattr(el, "TYPE_CODE", None) != "KeyValuePair":
-            return
-        cur = self._elem_cursor()
-        n = len(el.store)
-        if n == 0:
-            cur.row = 0
-            return
-        if ch == ord("j"):
-            cur.row = clamp(cur.row + 1, 0, n - 1)
-        elif ch == ord("k"):
-            cur.row = clamp(cur.row - 1, 0, n - 1)
-
-
     # ---------- Input handling ----------
     def handle_input(self, ch: int, stdscr: "curses._CursesWindow") -> bool:
         if ch == 27:  # ESC
@@ -1637,21 +1498,11 @@ class TUIApp:
         if self.mode == Mode.NORMAL:
             return self._handle_normal(ch)
         elif self.mode == Mode.TABLE:
-            if ch in (ord("h"), ord("j"), ord("k"), ord("l")):
-                self._nav_table(ch)
-                return True
             return self._dispatch(self.table_commands, ch, stdscr)
         elif self.mode == Mode.GRAPH:
-            if ch in (ord("j"), ord("k")):
-                self._nav_graph(ch)
-                return True
             return self._dispatch(self.graph_commands, ch, stdscr)
         elif self.mode == Mode.KVP:
-            if ch in (ord("j"), ord("k")):
-                self._nav_kvp(ch)
-                return True
             return self._dispatch(self.kvp_commands, ch, stdscr)
-
         elif self.mode == Mode.COMMAND:
             return self._handle_command(ch)
         return True
@@ -1950,14 +1801,14 @@ class TUIApp:
                 self.set_status(str(e), error=True)
         elif ch == ord("l"):
             try:
-                cur = self._elem_cursor()
-                self.reg.descend(cur.slot_index)
-                self.set_status(f"descend {cur.slot_index}")
+                self.reg.descend(self.cursor.slot_index)
+                self.set_status(f"descend {self.cursor.slot_index}")
             except BookkeepingError as e:
                 self.set_status(str(e), error=True)
         elif ch == ord("i"):
             self.enter_mode_for_element()
-
+        elif ch == ord("q"):
+            return False
         elif ch == ord(":"):
             self.mode = Mode.COMMAND
             self.command_line = ""
@@ -2114,3 +1965,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
