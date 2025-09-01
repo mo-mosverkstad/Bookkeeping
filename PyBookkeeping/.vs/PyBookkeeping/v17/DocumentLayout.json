@@ -3,16 +3,24 @@
   "WorkspaceRootPath": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\btreeunittest.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:btreeunittest.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\btreetest.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:btreetest.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\Btree.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:Btree.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingTUI.py||{8B382828-6202-11D1-8870-0000F87579D2}",
       "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:PyBookkeepingTUI.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingv1.0.3.py||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:PyBookkeepingv1.0.3.py||{8B382828-6202-11D1-8870-0000F87579D2}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\tempdata.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:tempdata.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+      "AbsoluteMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingLogic.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{AEE58830-84DA-45A7-B58B-DD03DCCB7DBF}|PyBookkeeping.pyproj|solutionrelative:PyBookkeepingLogic.py||{8B382828-6202-11D1-8870-0000F87579D2}"
     }
   ],
   "DocumentGroupContainers": [
@@ -27,39 +35,67 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "PyBookkeepingTUI.py",
-              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingTUI.py",
-              "RelativeDocumentMoniker": "PyBookkeepingTUI.py",
-              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingTUI.py",
-              "RelativeToolTip": "PyBookkeepingTUI.py",
-              "ViewState": "AgIAAIgHAAAAAAAAAAASwKYHAAApAAAAAAAAAA==",
+              "Title": "btreeunittest.py",
+              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\btreeunittest.py",
+              "RelativeDocumentMoniker": "btreeunittest.py",
+              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\btreeunittest.py",
+              "RelativeToolTip": "btreeunittest.py",
+              "ViewState": "AgIAAA8AAAAAAAAAAAAAAAQAAAAKAAAAAAAAAA==",
               "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHfSURBVDhPpZCxaxNhGMZ/9zVJaUuDUlq1FBWLZBFTCXo4BFyU1qGKi4OkIHhkzF/g0KF00M2lR9YUdDDQQVAcJILoQUd1UNRmkhoRm8RL777v7nOoCZd4AcEH3uF5nvd73vd74X\u002BgtTai3LIsHeWDEEJct217a1DvwbIs7bpubFUqFW3b9naxWLwWfSOipAvHcfqqi0KhkMtms3cty1rsaomeG4FpmoMSANVqlXQ6nQMWgacMC4hOBchduEj\u002ByjKjScGh8SS1Wq3nxQZEN3j1eY/Vrfe8rTeQvsf89ARLS1cz5XIZ/uUGXxptQiVRUhJIybudXaZn52a7vbEBpmkyNb/A69YM9W8tDEJOTI2hpI\u002BSkvOZH2f13sNAB\u002B07sV9wHIdH9Unquz9RvoeUPtL3UFISKkky\u002BAT7HwTi6FpsgGma3N9\u002Bg5I\u002BKaFZyU8wOpJChwHnjiuE9wKCXyC/zsQGOI7DeELjtiUPbgky6Wd/HA3KBelC4AIpNfQGl88cQ0mfI5PugRhKkM2DUk0INYwtPI/dAGAlf4rbl06T6DyBVgeCABJzYPhwcm0V8ICNvwJKpVIf37h3IxSyKVAuBMDIYQAMw1jvaxwGrYNl3Xq5o79vat3Y3Nedj4\u002B11je7/m\u002BXOuyzFtDhUgAAAABJRU5ErkJggg==",
-              "WhenOpened": "2025-08-21T19:31:25.603Z",
+              "WhenOpened": "2025-09-01T19:21:19.694Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "tempdata.json",
-              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\tempdata.json",
-              "RelativeDocumentMoniker": "tempdata.json",
-              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\tempdata.json",
-              "RelativeToolTip": "tempdata.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAA2BwAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2025-08-21T18:50:56.234Z"
+              "Title": "btree.py",
+              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\Btree.py",
+              "RelativeDocumentMoniker": "Btree.py",
+              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\Btree.py",
+              "RelativeToolTip": "Btree.py",
+              "ViewState": "AgIAAJkAAAAAAAAAAAAmwMsAAAAuAAAAAAAAAA==",
+              "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHfSURBVDhPpZCxaxNhGMZ/9zVJaUuDUlq1FBWLZBFTCXo4BFyU1qGKi4OkIHhkzF/g0KF00M2lR9YUdDDQQVAcJILoQUd1UNRmkhoRm8RL777v7nOoCZd4AcEH3uF5nvd73vd74X\u002BgtTai3LIsHeWDEEJct217a1DvwbIs7bpubFUqFW3b9naxWLwWfSOipAvHcfqqi0KhkMtms3cty1rsaomeG4FpmoMSANVqlXQ6nQMWgacMC4hOBchduEj\u002ByjKjScGh8SS1Wq3nxQZEN3j1eY/Vrfe8rTeQvsf89ARLS1cz5XIZ/uUGXxptQiVRUhJIybudXaZn52a7vbEBpmkyNb/A69YM9W8tDEJOTI2hpI\u002BSkvOZH2f13sNAB\u002B07sV9wHIdH9Unquz9RvoeUPtL3UFISKkky\u002BAT7HwTi6FpsgGma3N9\u002Bg5I\u002BKaFZyU8wOpJChwHnjiuE9wKCXyC/zsQGOI7DeELjtiUPbgky6Wd/HA3KBelC4AIpNfQGl88cQ0mfI5PugRhKkM2DUk0INYwtPI/dAGAlf4rbl06T6DyBVgeCABJzYPhwcm0V8ICNvwJKpVIf37h3IxSyKVAuBMDIYQAMw1jvaxwGrYNl3Xq5o79vat3Y3Nedj4\u002B11je7/m\u002BXOuyzFtDhUgAAAABJRU5ErkJggg==",
+              "WhenOpened": "2025-09-01T19:17:56.58Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "PyBookkeepingv1.0.3.py",
-              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingv1.0.3.py",
-              "RelativeDocumentMoniker": "PyBookkeepingv1.0.3.py",
-              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingv1.0.3.py",
-              "RelativeToolTip": "PyBookkeepingv1.0.3.py",
-              "ViewState": "AgIAAMsGAAAAAAAAAAAIwDYHAAAAAAAAAAAAAA==",
+              "Title": "btreetest.py",
+              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\btreetest.py",
+              "RelativeDocumentMoniker": "btreetest.py",
+              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\btreetest.py",
+              "RelativeToolTip": "btreetest.py",
+              "ViewState": "AgIAAAIAAAAAAAAAAAAAAAMAAAAPAAAAAAAAAA==",
               "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHfSURBVDhPpZCxaxNhGMZ/9zVJaUuDUlq1FBWLZBFTCXo4BFyU1qGKi4OkIHhkzF/g0KF00M2lR9YUdDDQQVAcJILoQUd1UNRmkhoRm8RL777v7nOoCZd4AcEH3uF5nvd73vd74X\u002BgtTai3LIsHeWDEEJct217a1DvwbIs7bpubFUqFW3b9naxWLwWfSOipAvHcfqqi0KhkMtms3cty1rsaomeG4FpmoMSANVqlXQ6nQMWgacMC4hOBchduEj\u002ByjKjScGh8SS1Wq3nxQZEN3j1eY/Vrfe8rTeQvsf89ARLS1cz5XIZ/uUGXxptQiVRUhJIybudXaZn52a7vbEBpmkyNb/A69YM9W8tDEJOTI2hpI\u002BSkvOZH2f13sNAB\u002B07sV9wHIdH9Unquz9RvoeUPtL3UFISKkky\u002BAT7HwTi6FpsgGma3N9\u002Bg5I\u002BKaFZyU8wOpJChwHnjiuE9wKCXyC/zsQGOI7DeELjtiUPbgky6Wd/HA3KBelC4AIpNfQGl88cQ0mfI5PugRhKkM2DUk0INYwtPI/dAGAlf4rbl06T6DyBVgeCABJzYPhwcm0V8ICNvwJKpVIf37h3IxSyKVAuBMDIYQAMw1jvaxwGrYNl3Xq5o79vat3Y3Nedj4\u002B11je7/m\u002BXOuyzFtDhUgAAAABJRU5ErkJggg==",
-              "WhenOpened": "2025-08-16T17:51:43.817Z"
+              "WhenOpened": "2025-09-01T19:17:24.805Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "PyBookkeepingLogic.py",
+              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingLogic.py",
+              "RelativeDocumentMoniker": "PyBookkeepingLogic.py",
+              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingLogic.py",
+              "RelativeToolTip": "PyBookkeepingLogic.py",
+              "ViewState": "AgIAAAEAAAAAAAAAAAAmwHAAAAAGAAAAAAAAAA==",
+              "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHfSURBVDhPpZCxaxNhGMZ/9zVJaUuDUlq1FBWLZBFTCXo4BFyU1qGKi4OkIHhkzF/g0KF00M2lR9YUdDDQQVAcJILoQUd1UNRmkhoRm8RL777v7nOoCZd4AcEH3uF5nvd73vd74X\u002BgtTai3LIsHeWDEEJct217a1DvwbIs7bpubFUqFW3b9naxWLwWfSOipAvHcfqqi0KhkMtms3cty1rsaomeG4FpmoMSANVqlXQ6nQMWgacMC4hOBchduEj\u002ByjKjScGh8SS1Wq3nxQZEN3j1eY/Vrfe8rTeQvsf89ARLS1cz5XIZ/uUGXxptQiVRUhJIybudXaZn52a7vbEBpmkyNb/A69YM9W8tDEJOTI2hpI\u002BSkvOZH2f13sNAB\u002B07sV9wHIdH9Unquz9RvoeUPtL3UFISKkky\u002BAT7HwTi6FpsgGma3N9\u002Bg5I\u002BKaFZyU8wOpJChwHnjiuE9wKCXyC/zsQGOI7DeELjtiUPbgky6Wd/HA3KBelC4AIpNfQGl88cQ0mfI5PugRhKkM2DUk0INYwtPI/dAGAlf4rbl06T6DyBVgeCABJzYPhwcm0V8ICNvwJKpVIf37h3IxSyKVAuBMDIYQAMw1jvaxwGrYNl3Xq5o79vat3Y3Nedj4\u002B11je7/m\u002BXOuyzFtDhUgAAAABJRU5ErkJggg==",
+              "WhenOpened": "2025-09-01T17:51:05.498Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "PyBookkeepingTUI.py",
+              "DocumentMoniker": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingTUI.py",
+              "RelativeDocumentMoniker": "PyBookkeepingTUI.py",
+              "ToolTip": "C:\\Users\\mowan\\source\\repos\\Bookkeeping\\PyBookkeeping\\PyBookkeepingTUI.py",
+              "RelativeToolTip": "PyBookkeepingTUI.py",
+              "ViewState": "AgIAAA8BAAAAAAAAAAAAAGAAAABRAAAAAAAAAA==",
+              "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAHfSURBVDhPpZCxaxNhGMZ/9zVJaUuDUlq1FBWLZBFTCXo4BFyU1qGKi4OkIHhkzF/g0KF00M2lR9YUdDDQQVAcJILoQUd1UNRmkhoRm8RL777v7nOoCZd4AcEH3uF5nvd73vd74X\u002BgtTai3LIsHeWDEEJct217a1DvwbIs7bpubFUqFW3b9naxWLwWfSOipAvHcfqqi0KhkMtms3cty1rsaomeG4FpmoMSANVqlXQ6nQMWgacMC4hOBchduEj\u002ByjKjScGh8SS1Wq3nxQZEN3j1eY/Vrfe8rTeQvsf89ARLS1cz5XIZ/uUGXxptQiVRUhJIybudXaZn52a7vbEBpmkyNb/A69YM9W8tDEJOTI2hpI\u002BSkvOZH2f13sNAB\u002B07sV9wHIdH9Unquz9RvoeUPtL3UFISKkky\u002BAT7HwTi6FpsgGma3N9\u002Bg5I\u002BKaFZyU8wOpJChwHnjiuE9wKCXyC/zsQGOI7DeELjtiUPbgky6Wd/HA3KBelC4AIpNfQGl88cQ0mfI5PugRhKkM2DUk0INYwtPI/dAGAlf4rbl06T6DyBVgeCABJzYPhwcm0V8ICNvwJKpVIf37h3IxSyKVAuBMDIYQAMw1jvaxwGrYNl3Xq5o79vat3Y3Nedj4\u002B11je7/m\u002BXOuyzFtDhUgAAAABJRU5ErkJggg==",
+              "WhenOpened": "2025-08-21T19:31:25.603Z",
+              "EditorCaption": ""
             }
           ]
         }
