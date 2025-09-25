@@ -1,0 +1,11 @@
+[package]
+name = "rustbookkeeping"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["Mo <you@example.com>"]
+description = "Rust components for the Bookkeeping project"
+repository = "https://github.com/your/repo"
+
+[dependencies]
+
