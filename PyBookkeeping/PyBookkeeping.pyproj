@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>aee58830-84da-45a7-b58b-dd03dccb7dbf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>btreetest.py</StartupFile>
+    <StartupFile>PyBookkeepingLogic.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -24,6 +24,7 @@
     <Compile Include="btreetest.py" />
     <Compile Include="btree.py" />
     <Compile Include="btreeunittest.py" />
+    <Compile Include="indexbtreeold.py" />
     <Compile Include="PyBookkeepingLogic.py" />
     <Compile Include="PyBookkeepingTUI.py" />
     <Compile Include="PyBookkeepingTUIv2.0.0.py" />
@@ -32,6 +33,7 @@
     <Compile Include="PyBookkeepingv1.0.1.py" />
     <Compile Include="PyBookkeeping.py" />
     <Compile Include="PyBookkeepingv1.0.3.py" />
+    <Compile Include="indexbtree.py" />
     <Compile Include="start.py" />
   </ItemGroup>
   <ItemGroup>
