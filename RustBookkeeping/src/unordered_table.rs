@@ -97,10 +97,7 @@ impl UnorderedTable {
 
     /// Deletes the logical row at `index`, recycling its physical slot.
     pub fn delete_row(&mut self, index: usize) -> TableResult<()> {
-        let physical = self
-            .logical_order
-            .remove(index)
-            .map_err(map_index_error)?;
+        let physical = self.logical_order.remove(index).map_err(map_index_error)?;
         self.free_physical.insert(physical);
         Ok(())
     }
@@ -110,20 +107,10 @@ impl UnorderedTable {
         if a == b {
             return Ok(());
         }
-        let pa = self
-            .logical_order
-            .get(a)
-            .map_err(map_index_error)?;
-        let pb = self
-            .logical_order
-            .get(b)
-            .map_err(map_index_error)?;
-        self.logical_order
-            .set(a, pb)
-            .map_err(map_index_error)?;
-        self.logical_order
-            .set(b, pa)
-            .map_err(map_index_error)?;
+        let pa = self.logical_order.get(a).map_err(map_index_error)?;
+        let pb = self.logical_order.get(b).map_err(map_index_error)?;
+        self.logical_order.set(a, pb).map_err(map_index_error)?;
+        self.logical_order.set(b, pa).map_err(map_index_error)?;
         Ok(())
     }
 
@@ -132,10 +119,7 @@ impl UnorderedTable {
         if self.column_count() != row.len() {
             return Err(TableError::row_length(self.column_count(), row.len()));
         }
-        let physical = self
-            .logical_order
-            .get(index)
-            .map_err(|err| map_index_error(err, self.row_count()))?;
+        let physical = self.logical_order.get(index).map_err(map_index_error)?;
         for (value, column) in row.into_iter().zip(self.columns.iter_mut()) {
             while column.len() <= physical {
                 column.push_default();
@@ -152,7 +136,6 @@ impl UnorderedTable {
         if self.column_count() == 0 || self.row_count() == 0 {
             return "(empty table)".to_string();
         }
-        let rows = self.row_count();
         let mut widths: Vec<usize> = Vec::with_capacity(self.column_count());
         for column in &self.columns {
             let mut width = column.name().len();
@@ -168,7 +151,11 @@ impl UnorderedTable {
             if !output.is_empty() {
                 output.push(' ');
             }
-            fmt::write(&mut output, format_args!("{:<width$}", column.name(), width = width)).unwrap();
+            fmt::write(
+                &mut output,
+                format_args!("{:<width$}", column.name(), width = width),
+            )
+            .unwrap();
         }
         output.push('\n');
         for (idx, width) in widths.iter().enumerate() {
@@ -184,7 +171,11 @@ impl UnorderedTable {
                     output.push(' ');
                 }
                 let value = column.get(*physical).unwrap_or(Value::Null);
-                fmt::write(&mut output, format_args!("{:<width$}", value, width = width)).unwrap();
+                fmt::write(
+                    &mut output,
+                    format_args!("{:<width$}", value, width = width),
+                )
+                .unwrap();
             }
             output.push('\n');
         }

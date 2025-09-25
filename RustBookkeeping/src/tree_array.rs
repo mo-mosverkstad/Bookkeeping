@@ -11,7 +11,11 @@ pub struct IndexError {
 
 impl fmt::Display for IndexError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "index {} out of bounds for length {}", self.index, self.len)
+        write!(
+            f,
+            "index {} out of bounds for length {}",
+            self.index, self.len
+        )
     }
 }
 
@@ -59,7 +63,10 @@ impl<T: Clone> TreeArray<T> {
 
     /// Borrows the value at `index`.
     pub fn get_ref(&self, index: usize) -> IndexResult<&T> {
-        Self::get_node_ref(&self.root, index).ok_or(IndexError { index, len: self.len() })
+        Self::get_node_ref(&self.root, index).ok_or(IndexError {
+            index,
+            len: self.len(),
+        })
     }
 
     /// Creates an iterator that yields the elements in order.
@@ -70,7 +77,8 @@ impl<T: Clone> TreeArray<T> {
     /// Appends `value` to the end of the tree and returns its index.
     pub fn append(&mut self, value: T) -> usize {
         let len = self.len();
-        self.insert(len, value).expect("append index should always be in bounds");
+        self.insert(len, value)
+            .expect("append index should always be in bounds");
         len
     }
 
@@ -89,18 +97,27 @@ impl<T: Clone> TreeArray<T> {
         if Self::set_node_mut(&mut self.root, index, value) {
             Ok(())
         } else {
-            Err(IndexError { index, len: self.len() })
+            Err(IndexError {
+                index,
+                len: self.len(),
+            })
         }
     }
 
     /// Removes and returns the element located at `index`.
     pub fn remove(&mut self, index: usize) -> IndexResult<T> {
         if index >= self.len() {
-            return Err(IndexError { index, len: self.len() });
+            return Err(IndexError {
+                index,
+                len: self.len(),
+            });
         }
         let mut output = None;
         self.root = Self::delete_node(self.root.take(), index, &mut output);
-        output.ok_or(IndexError { index, len: self.len() })
+        output.ok_or(IndexError {
+            index,
+            len: self.len(),
+        })
     }
 
     /// Removes and returns the last element, if any.
@@ -193,7 +210,7 @@ impl<T> TreeArray<T> {
         Some(Self::balance(node))
     }
 
-    fn take_min(mut node: Box<Node<T>>) -> (T, Option<Box<Node<T>>>){
+    fn take_min(mut node: Box<Node<T>>) -> (T, Option<Box<Node<T>>>) {
         if node.left.is_none() {
             return (node.value, node.right.take());
         }

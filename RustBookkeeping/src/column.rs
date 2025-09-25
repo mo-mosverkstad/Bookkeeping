@@ -42,11 +42,25 @@ impl ColumnError {
 impl fmt::Display for ColumnError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ColumnError::TypeMismatch { column, expected, found } => {
-                write!(f, "column '{}' expected {}, found {}", column, expected.as_str(), found.as_str())
+            ColumnError::TypeMismatch {
+                column,
+                expected,
+                found,
+            } => {
+                write!(
+                    f,
+                    "column '{}' expected {}, found {}",
+                    column,
+                    expected.as_str(),
+                    found.as_str()
+                )
             }
             ColumnError::IndexOutOfBounds { column, index, len } => {
-                write!(f, "column '{}' index {} out of bounds for length {}", column, index, len)
+                write!(
+                    f,
+                    "column '{}' index {} out of bounds for length {}",
+                    column, index, len
+                )
             }
         }
     }
@@ -74,7 +88,7 @@ pub trait Column: fmt::Debug {
 
 /// Trait implemented by types that can be stored inside [`TableColumn`].
 pub trait ColumnType:
-    Clone + Default + fmt::Display + Into<Value> + TryFrom<Value, Error = Value>
+    Clone + Default + fmt::Debug + fmt::Display + Into<Value> + TryFrom<Value, Error = Value>
 {
     const KIND: ValueKind;
 }

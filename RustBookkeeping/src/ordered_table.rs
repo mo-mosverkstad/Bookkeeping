@@ -13,7 +13,9 @@ pub struct OrderedTable {
 impl OrderedTable {
     /// Creates an empty table.
     pub fn new() -> Self {
-        Self { columns: Vec::new() }
+        Self {
+            columns: Vec::new(),
+        }
     }
 
     /// Adds a column and returns the table for chaining.
@@ -116,7 +118,11 @@ impl OrderedTable {
             if !output.is_empty() {
                 output.push(' ');
             }
-            fmt::write(&mut output, format_args!("{:<width$}", column.name(), width = width)).unwrap();
+            fmt::write(
+                &mut output,
+                format_args!("{:<width$}", column.name(), width = width),
+            )
+            .unwrap();
         }
         output.push('\n');
         for (idx, width) in widths.iter().enumerate() {
@@ -132,7 +138,11 @@ impl OrderedTable {
                     output.push(' ');
                 }
                 let value = column.get(row_idx).unwrap_or(Value::Null);
-                fmt::write(&mut output, format_args!("{:<width$}", value, width = width)).unwrap();
+                fmt::write(
+                    &mut output,
+                    format_args!("{:<width$}", value, width = width),
+                )
+                .unwrap();
             }
             if row_idx + 1 < rows {
                 output.push('\n');

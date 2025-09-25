@@ -34,8 +34,14 @@ impl fmt::Display for TableError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TableError::Column(err) => write!(f, "column error: {}", err),
-            TableError::RowLength { expected, found } => write!(f, "row length mismatch: expected {}, found {}", expected, found),
-            TableError::RowOutOfBounds { index, len } => write!(f, "row {} out of bounds for length {}", index, len),
+            TableError::RowLength { expected, found } => write!(
+                f,
+                "row length mismatch: expected {}, found {}",
+                expected, found
+            ),
+            TableError::RowOutOfBounds { index, len } => {
+                write!(f, "row {} out of bounds for length {}", index, len)
+            }
         }
     }
 }

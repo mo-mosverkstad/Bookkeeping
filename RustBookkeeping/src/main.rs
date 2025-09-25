@@ -11,7 +11,7 @@ fn main() -> TableResult<()> {
     ordered.append_row(vec!["Alice".into(), 29.into(), 72_500.0_f32.into()])?;
     ordered.append_row(vec!["Bob".into(), 33.into(), 81_200.0_f32.into()])?;
     ordered.update_row(1, vec!["Bob".into(), 34.into(), Value::Null])?;
- 
+
     println!("{}", ordered.render());
 
     println!("\nUnordered table demo:");
