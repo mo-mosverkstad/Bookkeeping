@@ -1,4 +1,4 @@
-use rustbookkeeping::{OrderedTable, TableColumn, TableResult, UnorderedTable, Value};
+use rustbookkeeping::{OrderedTable, TableColumn, TableResult, UnorderedTable};
 
 fn main() -> TableResult<()> {
     let mut ordered = OrderedTable::new();

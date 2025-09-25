@@ -28,7 +28,7 @@ pub type IndexResult<T> = Result<T, IndexError>;
 ///
 /// The structure keeps subtree sizes and heights to preserve AVL balance
 /// while allowing `O(log n)` random access, insertion, and removal by index.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct TreeArray<T> {
     root: Option<Box<Node<T>>>,
 }
@@ -138,6 +138,15 @@ impl<T: Clone> TreeArray<T> {
         }
         traverse(&self.root, &mut result);
         result
+    }
+}
+
+impl<T: Clone + fmt::Debug> fmt::Debug for TreeArray<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TreeArray")
+            .field("len", &self.len())
+            .field("values", &self.in_order())
+            .finish()
     }
 }
 

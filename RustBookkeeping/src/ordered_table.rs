@@ -59,7 +59,7 @@ impl OrderedTable {
         if self.column_count() != row.len() {
             return Err(TableError::row_length(self.column_count(), row.len()));
         }
-        for (mut value, column) in row.into_iter().zip(self.columns.iter_mut()) {
+        for (value, column) in row.into_iter().zip(self.columns.iter_mut()) {
             if matches!(value, Value::Null) {
                 column.push_default();
             } else {
