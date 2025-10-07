@@ -1,30 +1,18 @@
 """
-Simple terminal CSV editor inspired by sc-im but WITHOUT any formula/evaluation support.
-Undo/Redo implemented with a Memento pattern and Python type annotations.
+Simple terminal CSV editor (multiline cell support)
 
-Usage:
-    python terminal_csv_editor.py [path/to/file.csv]
+Changes made:
+- Multiline cells supported and displayed correctly on the grid.
+- Cell editor is a scrollable textbox (uses curses.textpad). "Enter" inside the editor inserts a newline.
+- Commit the edit with Ctrl+G (default Textbox EOF). Ctrl+G means "commit" as requested.
+- Always uses type annotations.
 
-Keybindings (inside program):
-  Arrow keys / h j k l  : move cursor
-  PageUp / PageDown     : move a page
-  Enter                 : edit current cell
-  i                     : insert row below cursor
-  I                     : insert column to the right
-  d                     : delete current row
-  D                     : delete current column
-  s                     : save (overwrite current file)
-  S                     : save as (enter path)
-  /                     : search (forward)
-  n                     : next search result
-  u                     : undo last change (multi-level)
-  r                     : redo (multi-level)
-  q                     : quit (asks to save if modified)
-  h or ?                : help screen
+Usage: same as before.
 """
 from __future__ import annotations
 
 import curses
+import curses.textpad as textpad
 import csv
 import sys
 import os
@@ -217,7 +205,7 @@ class CSVEditor:
     def __init__(self, stdscr: Any, model: CSVModel) -> None:
         self.stdscr = stdscr
         self.model = model
-        self.top_row = 0
+        self.top_row = 0  # index of topmost model row displayed
         self.left_col = 0
         self.cur_row = 0
         self.cur_col = 0
@@ -233,12 +221,24 @@ class CSVEditor:
         widths: List[int] = [MIN_COL_WIDTH] * cols
         for r in self.model.rows:
             for j, cell in enumerate(r):
-                w = max(MIN_COL_WIDTH, len(str(cell)) + PADDING)
+                # consider longest line in a multiline cell
+                lines = str(cell).splitlines() or [""]
+                max_line_len = max((len(ln) for ln in lines), default=0)
+                w = max(MIN_COL_WIDTH, max_line_len + PADDING)
                 if j < len(widths):
                     widths[j] = max(widths[j], min(w, max_width // 2))
                 else:
                     widths.append(min(w, max_width // 2))
         self.col_widths = widths
+
+    def _row_height(self, row: List[str], visible_cols: List[int]) -> int:
+        # height is maximum number of lines among visible cells in the row
+        max_lines = 1
+        for j in visible_cols:
+            if j < len(row):
+                lines = str(row[j]).splitlines() or [""]
+                max_lines = max(max_lines, len(lines))
+        return max_lines
 
     def draw(self) -> None:
         self.stdscr.erase()
@@ -246,14 +246,7 @@ class CSVEditor:
         usable_h = h - 3  # reserve status + message + input
         usable_w = w - 1
         self.fit_column_widths(usable_w)
-        
-        # compute absolute column start positions
-        x = 0
-        col_positions: List[int] = []
-        for idx, cw in enumerate(self.col_widths):
-            col_positions.append(x)
-            x += cw + 1
-        
+
         # determine which columns are visible starting from left_col
         visible_cols: List[int] = []
         total_w = 0
@@ -263,8 +256,8 @@ class CSVEditor:
                 break
             visible_cols.append(j)
             total_w += cw + 1
-        
-        # draw header
+
+        # draw header (single line)
         header = "    "
         for j in visible_cols:
             cw = self.col_widths[j]
@@ -274,7 +267,7 @@ class CSVEditor:
             self.stdscr.addstr(0, 0, header[: w - 1])
         except curses.error:
             pass
-        
+
         # draw truncation markers if part of sheet hidden
         if self.left_col > 0:
             try:
@@ -286,43 +279,53 @@ class CSVEditor:
                 self.stdscr.addstr(0, w - 2, ">", curses.A_BOLD)
             except curses.error:
                 pass
-        
-        # draw visible rows
-        for screen_r in range(usable_h):
-            model_r = self.top_row + screen_r
-            if model_r >= len(self.model.rows):
-                break
-            row = self.model.rows[model_r]
-            line = f"{model_r:4d} "
-            for j in visible_cols:
-                cell = row[j] if j < len(row) else ""
-                cw = self.col_widths[j]
-                text = str(cell)
-                if len(text) > cw:
-                    text = text[: max(0, cw - 1)] + "~"
-                line += text.ljust(cw + 1)[: cw + 1]
-            try:
-                self.stdscr.addstr(1 + screen_r, 0, line[: w - 1])
-            except curses.error:
-                pass
-        
-        # highlight current cell
-        cr = self.cur_row - self.top_row
-        cc = self.cur_col
-        if 0 <= cr < usable_h and cc in visible_cols:
-            rel_index = visible_cols.index(cc)
-            x = 5 + sum(self.col_widths[self.left_col + i] + 1 for i in range(rel_index))
-            cw = self.col_widths[cc]
-            cell_text = self.model.get_cell(self.cur_row, self.cur_col)
-            text = str(cell_text)
-            if len(text) > cw:
-                text = text[: max(0, cw - 1)] + "~"
-            disp = text.ljust(cw + 1)[: cw + 1]
-            try:
-                self.stdscr.addstr(1 + cr, x, disp[: w - x - 1], curses.A_REVERSE)
-            except curses.error:
-                pass
-        
+
+        # draw visible rows with multiline support
+        screen_line = 1
+        row_idx = self.top_row
+        while screen_line <= usable_h and row_idx < len(self.model.rows):
+            row = self.model.rows[row_idx]
+            row_h = self._row_height(row, visible_cols)
+            for subline in range(row_h):
+                if screen_line > usable_h:
+                    break
+                # show row number only on first subline
+                prefix = f"{row_idx:4d} " if subline == 0 else "     "
+                line = prefix
+                for j in visible_cols:
+                    cw = self.col_widths[j]
+                    cell = row[j] if j < len(row) else ""
+                    lines = str(cell).splitlines() or [""]
+                    text = lines[subline] if subline < len(lines) else ""
+                    if len(text) > cw:
+                        text = text[: max(0, cw - 1)] + "~"
+                    line += text.ljust(cw + 1)[: cw + 1]
+                try:
+                    # if this line contains the current cell, highlight that region
+                    if row_idx == self.cur_row:
+                        # compute x position of cur_col
+                        if self.cur_col in visible_cols:
+                            rel_index = visible_cols.index(self.cur_col)
+                            x = 5 + sum(self.col_widths[self.left_col + i] + 1 for i in range(rel_index))
+                            cw = self.col_widths[self.cur_col]
+                            # draw left part
+                            self.stdscr.addstr(screen_line, 0, line[: w - 1])
+                            # apply reverse for cell area
+                            try:
+                                # take substring to highlight (ensure bounds)
+                                substr = line[x: x + cw + 1]
+                                self.stdscr.addstr(screen_line, x, substr[: max(0, w - x - 1)], curses.A_REVERSE)
+                            except curses.error:
+                                pass
+                        else:
+                            self.stdscr.addstr(screen_line, 0, line[: w - 1])
+                    else:
+                        self.stdscr.addstr(screen_line, 0, line[: w - 1])
+                except curses.error:
+                    pass
+                screen_line += 1
+            row_idx += 1
+
         # status bar
         status = f"File: {self.model.filename or '<unnamed>'}  Pos: {self.cur_row},{self.cur_col}  Rows: {len(self.model.rows)}"
         if self.model.dirty:
@@ -331,45 +334,70 @@ class CSVEditor:
             self.stdscr.addstr(h - 3, 0, status[: w - 1], curses.A_BOLD)
         except curses.error:
             pass
-        
+
         # message line
         try:
             self.stdscr.addstr(h - 2, 0, (self.message or "")[: w - 1])
         except curses.error:
             pass
-        
+
         # help hint
         hint = "Press 'h' for help | 's' save | 'q' quit | 'u' undo | 'r' redo"
         try:
             self.stdscr.addstr(h - 1, 0, hint[: w - 1], curses.A_DIM)
         except curses.error:
             pass
-        
+
         self.stdscr.refresh()
 
-
     def edit_cell(self) -> None:
-        # open a simple input line at bottom
+        """Open a scrollable multiline text box for editing the current cell.
+
+        - Enter inside the box inserts newline.
+        - Commit with Ctrl+G (Textpad default EOF).
+        """
         h, w = self.stdscr.getmaxyx()
-        prompt = f"Edit ({self.cur_row},{self.cur_col}): "
         old = self.model.get_cell(self.cur_row, self.cur_col)
-        curses.echo()
-        curses.curs_set(1)
-        self.stdscr.addstr(h - 2, 0, " " * (w - 1))
-        self.stdscr.addstr(h - 2, 0, prompt)
-        self.stdscr.addstr(h - 1, 0, "(All text — formulas are NOT evaluated)")
-        self.stdscr.clrtoeol()
-        self.stdscr.move(h - 2, len(prompt))
+        # choose box size: up to half the terminal height, leave space for borders
+        box_h = min(max(3, (h // 2)), h - 6)
+        box_w = min(max(10, (w - 10)), w - 6)
+        start_y = max(1, (h - box_h) // 2)
+        start_x = max(1, (w - box_w) // 2)
+
+        # create bordered window
+        win = curses.newwin(box_h + 2, box_w + 2, start_y - 1, start_x - 1)
+        win.box()
+        title = f" Edit ({self.cur_row},{self.cur_col}) — Ctrl+G to commit "
         try:
-            new = self.stdscr.getstr(h - 2, len(prompt), w - len(prompt) - 1).decode("utf-8")
-        except Exception:
-            new = old
-        curses.noecho()
+            win.addstr(0, 2, title[: box_w - 2], curses.A_BOLD)
+        except curses.error:
+            pass
+        # inner window for textpad
+        edit_win = curses.newwin(box_h, box_w, start_y, start_x)
+        edit_win.keypad(True)
+        # prefill with existing content
+        lines = old.splitlines() or [""]
+        for idx, ln in enumerate(lines[: box_h]):
+            try:
+                edit_win.addstr(idx, 0, ln[: box_w - 1])
+            except curses.error:
+                pass
+        self.stdscr.refresh()
+        win.refresh()
+
+        tb = textpad.Textbox(edit_win, insert_mode=True)
+        # textpad.Textbox.edit() returns after Ctrl+G (ASCII 7) by default
+        curses.curs_set(1)
+        try:
+            edited = tb.edit()
+        except KeyboardInterrupt:
+            edited = old
         curses.curs_set(0)
-        # IMPORTANT: do NOT evaluate; treat as raw text
+        # Textbox.gather may include trailing newlines/spaces; keep as-is
+        new = edited.rstrip('\n')
         if new != old:
             self.model.set_cell(self.cur_row, self.cur_col, new)
-            self.message = f"Cell updated"
+            self.message = "Cell updated"
         else:
             self.message = "No change"
 
@@ -422,28 +450,55 @@ class CSVEditor:
     def ensure_visible(self) -> None:
         h, w = self.stdscr.getmaxyx()
         usable_h = h - 3
-        usable_w = w - 1
-        
-        # --- vertical scrolling ---
+
+        # if cursor row above current top, bring it to top
         if self.cur_row < self.top_row:
             self.top_row = self.cur_row
-        elif self.cur_row >= self.top_row + usable_h:
-            self.top_row = self.cur_row - usable_h + 1
-        
-        # --- horizontal scrolling ---
-        # scroll left if cursor went off left side
+            return
+        # if cursor row is equal or below, ensure cumulative heights fit
+        # compute visible range starting from top_row
+        total = 0
+        idx = self.top_row
+        last_visible = self.top_row
+        visible_rows: List[int] = []
+        while idx < len(self.model.rows) and total < usable_h:
+            row = self.model.rows[idx]
+            # assume columns previously computed
+            visible_cols = list(range(self.left_col, min(len(self.col_widths), self.left_col + 50)))
+            rh = self._row_height(row, visible_cols)
+            total += rh
+            if total <= usable_h:
+                visible_rows.append(idx)
+                last_visible = idx
+            idx += 1
+        if self.cur_row > last_visible:
+            # scroll down until cur_row visible
+            while self.cur_row > last_visible and self.top_row < self.cur_row:
+                self.top_row += 1
+                # recompute last_visible
+                total = 0
+                idx = self.top_row
+                last_visible = self.top_row
+                while idx < len(self.model.rows) and total < usable_h:
+                    row = self.model.rows[idx]
+                    visible_cols = list(range(self.left_col, min(len(self.col_widths), self.left_col + 50)))
+                    rh = self._row_height(row, visible_cols)
+                    total += rh
+                    if total <= usable_h:
+                        last_visible = idx
+                    idx += 1
+
+        # horizontal (simple existing behaviour)
         if self.cur_col < self.left_col:
             self.left_col = self.cur_col
         else:
-            # determine how many columns fit from left_col
             total_w = 0
             j = self.left_col
-            while j < len(self.col_widths) and total_w + self.col_widths[j] + 1 < usable_w:
+            while j < len(self.col_widths) and total_w + self.col_widths[j] + 1 < (w - 1):
                 total_w += self.col_widths[j] + 1
                 j += 1
             rightmost_visible_col = j - 1
             if self.cur_col > rightmost_visible_col:
-                # move right until the cursor is visible
                 self.left_col += 1
                 self.ensure_visible()
 
@@ -498,7 +553,7 @@ class CSVEditor:
                 self.cur_row -= (h - 5)
                 self.cur_row = clamp(self.cur_row, 0, max(0, len(self.model.rows) - 1))
                 self.ensure_visible()
-            elif ch in (10, 13):  # Enter
+            elif ch in (10, 13):  # Enter -> open multiline editor
                 self.edit_cell()
             elif ch == ord('i'):
                 self.model.insert_row(self.cur_row)
@@ -578,7 +633,8 @@ class CSVEditor:
         help_lines = [
             "CSV editor — help",
             "Arrow keys or h/j/k/l : move",
-            "Enter : edit cell (text only — no formulas evaluated)",
+            "Enter : edit cell (opens multiline editor; inside editor Enter inserts newline)",
+            "Ctrl+G : commit edit",
             "i : insert row below",
             "d : delete row",
             "I : insert column to right",
