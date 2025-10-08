@@ -240,10 +240,102 @@ class CSVEditor:
                 max_lines = max(max_lines, len(lines))
         return max_lines
 
+    
+    
+    def _render_footer(self, w: int) -> str:
+        """
+        Build a formula/status bar line that reliably fits width w.
+        Left (left gravity): filename[*] [two-space] action/message (if any)
+        Right (right gravity): "row:col | total_rows"
+        Returns string exactly w characters long (or shorter when w < 10).
+        """
+        # safety minimum
+        if w < 10:
+            # very narrow terminal — minimal footer
+            right = f"{self.cur_row}:{self.cur_col}|{len(self.model.rows)}"
+            left = (self.model.filename or "<unnamed>")[: max(0, w - len(right) - 1)]
+            line = f"{left}{' ' * max(1, w - len(left) - len(right))}{right}"
+            return line[:w]
+
+        # prepare right text and measure
+        right = f"{self.cur_row}:{self.cur_col} | {len(self.model.rows)}"
+        right_len = len(right)
+
+        # prepare left parts
+        fname = self.model.filename or "<unnamed>"
+        dirty = "*" if self.model.dirty else ""
+        # action/message placed immediately to the right of filename (with two spaces)
+        action = (self.message or "").strip()
+        # Compose base left text (filename + dirty)
+        left_base = fname + dirty
+
+        # Determine how much width is available for left side (including one leading and trailing padding)
+        avail_for_left = w - right_len - 2  # spaces for padding: one leading, one between left and right
+        if avail_for_left <= 0:
+            # extremely tight: only show right text
+            line = right.rjust(w)
+            return line[:w]
+
+        # Reserve at least 8 chars for filename when possible
+        min_fname = 8
+        # Build left_text = left_base + ("  " + action) if action exists
+        if action:
+            sep = "  "
+            left_full = f"{left_base}{sep}{action}"
+        else:
+            left_full = left_base
+
+        # If left_full fits, use it; otherwise ellipsize filename (keep action visible if possible)
+        if len(left_full) <= avail_for_left:
+            left_display = left_full
+        else:
+            # try to keep action portion fully if possible
+            if action and len(action) + 3 < avail_for_left:
+                # keep tail (action) and ellipsize filename
+                max_fname_len = avail_for_left - len(action) - 3  # allow for "..." and two-space sep
+                if max_fname_len < min_fname:
+                    # force show minimal fname head
+                    max_fname_len = max(3, min_fname)
+                # ellipsize filename preserving end (extension)
+                if "." in fname and len(fname) > max_fname_len + 3:
+                    base, _, ext = fname.rpartition(".")
+                    # keep some head of base and extension
+                    keep_head = max(1, max_fname_len - len(ext) - 1)
+                    fname_short = fname[:keep_head] + "..." + ext
+                else:
+                    fname_short = fname[: max(0, max_fname_len - 3)] + "..."
+                left_display = f"{fname_short}{dirty}{sep}{action}"
+                # if still too long, truncate rightmost of action
+                if len(left_display) > avail_for_left:
+                    left_display = left_display[:avail_for_left]
+            else:
+                # no (useful) action or action too large — ellipsize overall left_full
+                if len(left_base) > avail_for_left - 3:
+                    left_display = left_base[: max(0, avail_for_left - 3)] + "..."
+                else:
+                    left_display = left_base[:avail_for_left]
+
+        # compute spacing between left_display and right so that total length is w
+        space_between = w - len(left_display) - right_len
+        if space_between < 1:
+            # ensure at least one space; trim left_display if needed
+            trim = 1 - space_between
+            left_display = left_display[: max(0, len(left_display) - trim)]
+            space_between = 1
+        middle = " " * space_between
+
+        line = f"{left_display}{middle}{right}"
+        # If shorter, pad at right (shouldn't normally happen)
+        if len(line) < w:
+            line = line + " " * (w - len(line))
+        return line[:w]
+
+    
     def draw(self) -> None:
         self.stdscr.erase()
         h, w = self.stdscr.getmaxyx()
-        usable_h = h - 3  # reserve status + message + input
+        # Reserve 1 row for footer at bottom — grid can use h-1 rows
+        usable_h = max(1, h - 1)
         usable_w = w - 1
         self.fit_column_widths(usable_w)
 
@@ -283,11 +375,12 @@ class CSVEditor:
         # draw visible rows with multiline support
         screen_line = 1
         row_idx = self.top_row
-        while screen_line <= usable_h and row_idx < len(self.model.rows):
+        # stop before last row reserved for footer
+        while screen_line <= usable_h - 1 and row_idx < len(self.model.rows):
             row = self.model.rows[row_idx]
             row_h = self._row_height(row, visible_cols)
             for subline in range(row_h):
-                if screen_line > usable_h:
+                if screen_line > usable_h - 1:
                     break
                 # show row number only on first subline
                 prefix = f"{row_idx:4d} " if subline == 0 else "     "
@@ -312,7 +405,6 @@ class CSVEditor:
                             self.stdscr.addstr(screen_line, 0, line[: w - 1])
                             # apply reverse for cell area
                             try:
-                                # take substring to highlight (ensure bounds)
                                 substr = line[x: x + cw + 1]
                                 self.stdscr.addstr(screen_line, x, substr[: max(0, w - x - 1)], curses.A_REVERSE)
                             except curses.error:
@@ -326,29 +418,19 @@ class CSVEditor:
                 screen_line += 1
             row_idx += 1
 
-        # status bar
-        status = f"File: {self.model.filename or '<unnamed>'}  Pos: {self.cur_row},{self.cur_col}  Rows: {len(self.model.rows)}"
-        if self.model.dirty:
-            status += "  [modified]"
+        # ---------- Footer area (bottom-most line): formula/status bar (includes action/message) ----------
+        footer = self._render_footer(w)
         try:
-            self.stdscr.addstr(h - 3, 0, status[: w - 1], curses.A_BOLD)
+            # draw footer with reverse attribute to stand out
+            self.stdscr.addstr(h - 1, 0, footer, curses.A_REVERSE)
         except curses.error:
-            pass
-
-        # message line
-        try:
-            self.stdscr.addstr(h - 2, 0, (self.message or "")[: w - 1])
-        except curses.error:
-            pass
-
-        # help hint
-        hint = "Press 'h' for help | 's' save | 'q' quit | 'u' undo | 'r' redo"
-        try:
-            self.stdscr.addstr(h - 1, 0, hint[: w - 1], curses.A_DIM)
-        except curses.error:
-            pass
+            try:
+                self.stdscr.addstr(h - 1, 0, footer[: w - 1], curses.A_REVERSE)
+            except curses.error:
+                pass
 
         self.stdscr.refresh()
+
 
     def edit_cell(self) -> None:
         """Open a scrollable multiline text box for editing the current cell.
@@ -627,30 +709,42 @@ class CSVEditor:
             elif ch in (ord('h'), ord('?')):
                 self.show_help()
             else:
-                self.message = f"Key: {ch}"
+               pass 
 
     def show_help(self) -> None:
+        """
+        Show a focused help page. Note: '?' is help — 'h' is navigation (left).
+        """
         help_lines = [
             "CSV editor — help",
-            "Arrow keys or h/j/k/l : move",
-            "Enter : edit cell (opens multiline editor; inside editor Enter inserts newline)",
-            "Ctrl+G : commit edit",
-            "i : insert row below",
-            "d : delete row",
-            "I : insert column to right",
-            "D : delete column",
-            "o : open/load CSV file",
-            "s : save, S : save as",
-            "/ : search, n : next",
-            "u : undo (multi-level), r : redo",
-            "q : quit",
+            "",
+            "Movement:",
+            "  Arrow keys or h/j/k/l  : move left/down/up/right",
+            "",
+            "Editing:",
+            "  Enter    : edit cell (opens multiline editor; inside editor Enter inserts newline)",
+            "  Ctrl+G   : commit edit",
+            "  Ctrl+C / Esc : cancel edit",
+            "",
+            "File & history:",
+            "  s : save    | S : save as",
+            "  o : open/load CSV file",
+            "  u : undo   | r : redo",
+            "",
+            "Other:",
+            "  / : search   | n : next match",
+            "  ? : this help screen",
+            "  q : quit",
+            "",
             "Press any key to return",
         ]
         h, w = self.stdscr.getmaxyx()
         self.stdscr.erase()
+        # center the help vertically a bit and indent for readability
+        top = max(1, (h - len(help_lines)) // 3)
         for idx, ln in enumerate(help_lines):
             try:
-                self.stdscr.addstr(idx + 2, 4, ln[: w - 8])
+                self.stdscr.addstr(top + idx, 4, ln[: w - 8])
             except curses.error:
                 pass
         self.stdscr.refresh()
