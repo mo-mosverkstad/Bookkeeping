@@ -8,3 +8,28 @@
 .*.swo
 .*.swn
 .*.un~
+
+
+# Rust/Cargo build artifacts
+*/target/
+
+# Generated files by Rust
+**/*.rs.bk
+
+# Cargo.lock is usually committed for apps, but not for libraries
+# Uncomment if you are creating a library
+# Cargo.lock
+
+# IDE/editor files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+
