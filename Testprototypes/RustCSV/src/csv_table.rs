@@ -5,7 +5,7 @@ use crate::tools::history::{History, TargetMementoTrait};
 // --------- History for CSV Table changes ----------
 #[derive(Debug, Clone)]
 enum TableChange{
-    CellEdit(usize, usize, String, String),
+    CellEdit(usize, usize, String),
 
     RowInserted(usize, usize),
     RowDeleted(usize, usize),
@@ -55,6 +55,18 @@ impl CSVTable{
 
     pub fn col_size(self: &mut Self) -> usize{
         self.col_indirection.len()
+    }
+    
+    pub fn has_cell(self: &mut Self, row_index: usize, col_index: usize) -> bool{
+        row_index < self.row_size() && col_index < self.col_size()
+    }
+    
+    pub fn has_row(self: &mut Self, row_index: usize) -> bool{
+        row_index < self.row_size()
+    }
+    
+    pub fn has_col(self: &mut Self, col_index: usize) -> bool{
+        col_index < self.col_size()
     }
 
     pub fn append_row(self: &mut Self) {
@@ -146,7 +158,7 @@ impl CSVTable{
         for physical_col_index in 0..self.col_size(){
             let old_value: String = self.table[physical_row_index][physical_col_index].clone();
             self.table[physical_row_index][physical_col_index] = String::new();
-            changes.push(TableChange::CellEdit(physical_row_index, physical_col_index, String::new(), old_value));
+            changes.push(TableChange::CellEdit(physical_row_index, physical_col_index, old_value));
         }
 
         self.history.record(CSVTableMemento{ changes: changes});
@@ -163,7 +175,7 @@ impl CSVTable{
         for physical_row_index in 0..self.row_size(){
             let old_value: String = self.table[physical_row_index][physical_col_index].clone();
             self.table[physical_row_index][physical_col_index] = String::new();
-            changes.push(TableChange::CellEdit(physical_row_index, physical_col_index, String::new(), old_value));
+            changes.push(TableChange::CellEdit(physical_row_index, physical_col_index, old_value));
         }
         self.history.record(CSVTableMemento{ changes: changes});
     }
@@ -179,7 +191,7 @@ impl CSVTable{
         };
         let old_value: String = self.table[physical_row_index][physical_col_index].clone();
         self.table[physical_row_index][physical_col_index] = value.to_string();
-        self.history.record(CSVTableMemento{ changes: vec![TableChange::CellEdit(physical_row_index, physical_col_index, value.to_string(), old_value)] });
+        self.history.record(CSVTableMemento{ changes: vec![TableChange::CellEdit(physical_row_index, physical_col_index, old_value)] });
     }
 
     pub fn read_cell(self: &mut Self, row_index: usize, col_index: usize) -> &str{
@@ -196,9 +208,8 @@ impl CSVTable{
     }
 
     pub fn pretty_print(self: &mut Self) {
-        let mut first: bool = true;
         for physical_row_index in self.row_indirection.in_order(){
-            first = true;
+            let mut first: bool = true;
             print!("[");
             for physical_col_index in self.col_indirection.in_order(){
                 let deliminator: &str = if first{
@@ -250,10 +261,10 @@ impl TargetMementoTrait<CSVTableMemento> for CSVTable{
         let mut inverse_changes = Vec::new();
         for change in &memento.changes {
             match change {
-                TableChange::CellEdit(physical_row_index, physical_col_index, old_val, new_val) => {
+                TableChange::CellEdit(physical_row_index, physical_col_index, new_val) => {
                     let previous_val = self.table[*physical_row_index][*physical_col_index].clone();
                     self.table[*physical_row_index][*physical_col_index] = new_val.clone();
-                    inverse_changes.push(TableChange::CellEdit(*physical_row_index, *physical_col_index, previous_val, new_val.clone()));
+                    inverse_changes.push(TableChange::CellEdit(*physical_row_index, *physical_col_index, previous_val));
                 }
                 TableChange::RowInserted(logical, physical) => {
                     self.row_indirection.insert(*logical, *physical);
