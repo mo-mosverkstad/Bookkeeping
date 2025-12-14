@@ -266,7 +266,7 @@ impl CSVTable{
         self.free_cols.clear();
         self.history.clear();
     
-        let mut csv_reader = CsvReader::new(reader);
+        let csv_reader = CsvReader::new(reader);
     
         let mut col_count = 0usize;
     
