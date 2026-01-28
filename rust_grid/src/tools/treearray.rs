@@ -4,15 +4,21 @@ use std::fmt::Debug;
 #[derive(Debug)]
 struct Node<T> {
     value: T,
-    size: usize,      // subtree size
-    height: usize,    // height of subtree
+    size: usize,   // subtree size
+    height: usize, // height of subtree
     left: Option<Box<Node<T>>>,
     right: Option<Box<Node<T>>>,
 }
 
 impl<T> Node<T> {
     fn new(value: T) -> Self {
-        Self { value, size: 1, height: 1, left: None, right: None }
+        Self {
+            value,
+            size: 1,
+            height: 1,
+            left: None,
+            right: None,
+        }
     }
 
     fn update(&mut self) {
@@ -38,34 +44,53 @@ pub struct TreeArray<T> {
     root: Option<Box<Node<T>>>,
 }
 
-
 #[allow(dead_code)]
 impl<T: Copy + Debug> TreeArray<T> {
-    pub fn new() -> Self { Self { root: None } }
+    pub fn new() -> Self {
+        Self { root: None }
+    }
 
-    pub fn len(&self) -> usize { self.root.as_ref().map_or(0, |n| n.size) }
+    pub fn len(&self) -> usize {
+        self.root.as_ref().map_or(0, |n| n.size)
+    }
 
     // Public interface
-    pub fn get(&self, idx: usize) -> Option<T> { self.get_ref(idx).cloned() }
-    pub fn get_ref(&self, idx: usize) -> Option<&T> { Self::get_node_ref(&self.root, idx)}
-    pub fn append(&mut self, value: T) { self.insert(self.len(), value); }
+    pub fn get(&self, idx: usize) -> Option<T> {
+        self.get_ref(idx).cloned()
+    }
+    pub fn get_ref(&self, idx: usize) -> Option<&T> {
+        Self::get_node_ref(&self.root, idx)
+    }
+    pub fn append(&mut self, value: T) {
+        self.insert(self.len(), value);
+    }
     pub fn pop(&mut self) -> Option<T> {
         let idx = self.len().checked_sub(1)?;
         let val = self.get(idx)?;
         self.delete(idx);
         Some(val)
     }
-    pub fn insert(&mut self, idx: usize, value: T) { self.root = Self::insert_node(self.root.take(), idx, value); }
-    pub fn delete(&mut self, idx: usize) { self.root = Self::delete_node(self.root.take(), idx); }
-    pub fn clear(&mut self){self.root = None}
+    pub fn insert(&mut self, idx: usize, value: T) {
+        self.root = Self::insert_node(self.root.take(), idx, value);
+    }
+    pub fn delete(&mut self, idx: usize) {
+        self.root = Self::delete_node(self.root.take(), idx);
+    }
+    pub fn clear(&mut self) {
+        self.root = None
+    }
 
     // ------------------ AVL helpers ------------------
     fn get_node_ref(node: &Option<Box<Node<T>>>, idx: usize) -> Option<&T> {
         let node = node.as_ref()?;
         let left_size = node.left.as_ref().map_or(0, |l| l.size);
-        if idx < left_size { Self::get_node_ref(&node.left, idx) }
-        else if idx == left_size { Some(&node.value) }
-        else { Self::get_node_ref(&node.right, idx - left_size - 1) }
+        if idx < left_size {
+            Self::get_node_ref(&node.left, idx)
+        } else if idx == left_size {
+            Some(&node.value)
+        } else {
+            Self::get_node_ref(&node.right, idx - left_size - 1)
+        }
     }
 
     fn rotate_right(mut y: Box<Node<T>>) -> Box<Node<T>> {
@@ -128,8 +153,12 @@ impl<T: Copy + Debug> TreeArray<T> {
             node.right = Self::delete_node(node.right.take(), idx - left_size - 1);
         } else {
             // Node to remove
-            if node.left.is_none() { return node.right; }
-            if node.right.is_none() { return node.left; }
+            if node.left.is_none() {
+                return node.right;
+            }
+            if node.right.is_none() {
+                return node.left;
+            }
             let (min_val, new_right) = Self::take_min(node.right.take().unwrap());
             node.value = min_val;
             node.right = new_right;
@@ -148,7 +177,7 @@ impl<T: Copy + Debug> TreeArray<T> {
     }
 
     // -----------------In order --------------------
-    
+
     pub fn in_order(&self) -> Vec<T> {
         let mut result = Vec::with_capacity(self.len());
         fn recurse<T: Clone>(node: &Option<Box<Node<T>>>, result: &mut Vec<T>) {
@@ -162,12 +191,18 @@ impl<T: Copy + Debug> TreeArray<T> {
         result
     }
 
-
     // ------------------ Pretty print ------------------
     pub fn pretty_print(&self) {
         fn recurse<T: Debug>(node: &Option<Box<Node<T>>>, prefix: String, is_left: bool) {
             if let Some(n) = node {
-                println!("{}{}- [{:?}] size:{} height:{}", prefix, if is_left { "L" } else { "R" }, n.value, n.size, n.height);
+                println!(
+                    "{}{}- [{:?}] size:{} height:{}",
+                    prefix,
+                    if is_left { "L" } else { "R" },
+                    n.value,
+                    n.size,
+                    n.height
+                );
                 let new_prefix = prefix.clone() + if is_left { "|  " } else { "   " };
                 recurse(&n.left, new_prefix.clone(), true);
                 recurse(&n.right, new_prefix, false);

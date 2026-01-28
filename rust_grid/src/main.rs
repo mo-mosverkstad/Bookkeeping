@@ -1,25 +1,36 @@
-use rust_grid::csv_table::CSVTable;
+mod tools;       // <- THIS IS MANDATORY
+mod csv_table;    // <- optional if you have csv_table as a module
+
+
+use crate::csv_table::CSVTable;
 use std::io::{self, Write};
 
 #[derive(Debug)]
 struct SessionState {
-    dirty: bool,                 // unsaved changes
+    dirty: bool,                      // unsaved changes
     path: Option<std::path::PathBuf>, // None = never saved / untitled
 }
 
-
-fn cli_test() -> std::io::Result<()>{
+fn cli_test() -> std::io::Result<()> {
     let mut csv = CSVTable::new();
     println!("CSV Table CLI");
     println!("Type 'help' for commands.\n");
-    
+
     let mut state = SessionState {
         dirty: false,
         path: None,
     };
 
     loop {
-        print!("[{}{}] > ", state.path.as_ref().map(|p| p.display().to_string()).unwrap_or("untitled".into()), if state.dirty { "*" } else { "" });
+        print!(
+            "[{}{}] > ",
+            state
+                .path
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or("untitled".into()),
+            if state.dirty { "*" } else { "" }
+        );
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -29,7 +40,9 @@ fn cli_test() -> std::io::Result<()>{
         }
 
         let input = input.trim();
-        if input.is_empty() { continue; }
+        if input.is_empty() {
+            continue;
+        }
 
         let mut parts = input.split_whitespace();
         let cmd = parts.next().unwrap();
@@ -89,12 +102,11 @@ fn cli_test() -> std::io::Result<()>{
 
             "dr" | "delete_row" => {
                 if let Some(r) = parts.next().and_then(|v| v.parse::<usize>().ok()) {
-                    if csv.has_row(r){
+                    if csv.has_row(r) {
                         csv.delete_row(r);
                         state.dirty = true;
                         println!("SUCCESS: Row deleted at {}.", r);
-                    }
-                    else{
+                    } else {
                         println!("PROBLEM: Cannot delete row {} out of bounds", r);
                     }
                 } else {
@@ -104,12 +116,11 @@ fn cli_test() -> std::io::Result<()>{
 
             "dc" | "delete_col" => {
                 if let Some(c) = parts.next().and_then(|v| v.parse::<usize>().ok()) {
-                    if csv.has_col(c){
+                    if csv.has_col(c) {
                         csv.delete_col(c);
                         state.dirty = true;
                         println!("SUCCESS: Column deleted at {}.", c);
-                    }
-                    else{
+                    } else {
                         println!("PROBLEM: Cannot delete column {} out of bounds", c);
                     }
                 } else {
@@ -123,12 +134,11 @@ fn cli_test() -> std::io::Result<()>{
                 let value = parts.collect::<Vec<_>>().join(" ");
 
                 if let (Some(r), Some(c)) = (r, c) {
-                    if csv.has_cell(r, c){
+                    if csv.has_cell(r, c) {
                         csv.write_cell(r, c, &value);
                         state.dirty = true;
                         println!("SUCCESS: Written to ({}, {}).", r, c);
-                    }
-                    else{
+                    } else {
                         println!("PROBLEM: Cannot write cell ({}, {}) out of bounds", r, c);
                     }
                 } else {
@@ -141,11 +151,10 @@ fn cli_test() -> std::io::Result<()>{
                 let c = parts.next().and_then(|v| v.parse::<usize>().ok());
 
                 if let (Some(r), Some(c)) = (r, c) {
-                    if csv.has_cell(r, c){
+                    if csv.has_cell(r, c) {
                         let v = csv.read_cell(r, c);
                         println!("SUCCESS: Value at ({}, {}) = \"{}\"", r, c, v);
-                    }
-                    else{
+                    } else {
                         println!("PROBLEM: Cannot read cell ({}, {}) out of bounds", r, c);
                     }
                 } else {
@@ -172,10 +181,12 @@ fn cli_test() -> std::io::Result<()>{
                     println!("INFO: Nothing to redo.");
                 }
             }
-            
+
             "load" => {
                 if state.dirty {
-                    println!("WARNING: You have unsaved changes. Save them before loading a new file");
+                    println!(
+                        "WARNING: You have unsaved changes. Save them before loading a new file"
+                    );
                     continue;
                 }
                 if let Some(path) = parts.next() {
@@ -198,7 +209,7 @@ fn cli_test() -> std::io::Result<()>{
                     println!("PROBLEM: Usage: load <file_path>");
                 }
             }
-            
+
             "s" | "save" => {
                 let target_path = if let Some(path) = parts.next() {
                     let p = std::path::PathBuf::from(path);
@@ -207,23 +218,23 @@ fn cli_test() -> std::io::Result<()>{
                 } else {
                     state.path.clone()
                 };
-            
+
                 match target_path {
-                    Some(path) => {
-                        match std::fs::File::create(&path) {
-                            Ok(file) => {
-                                let writer = std::io::BufWriter::new(file);
-                                match csv.write_csv(writer) {
-                                    Ok(_) => {
-                                        println!("SUCCESS: Saved to '{}'.", path.display());
-                                        state.dirty = false;
-                                    }
-                                    Err(e) => println!("PROBLEM: Failed to write CSV: {}", e),
+                    Some(path) => match std::fs::File::create(&path) {
+                        Ok(file) => {
+                            let writer = std::io::BufWriter::new(file);
+                            match csv.write_csv(writer) {
+                                Ok(_) => {
+                                    println!("SUCCESS: Saved to '{}'.", path.display());
+                                    state.dirty = false;
                                 }
+                                Err(e) => println!("PROBLEM: Failed to write CSV: {}", e),
                             }
-                            Err(e) => println!("PROBLEM: Cannot create file '{}': {}", path.display(), e),
                         }
-                    }
+                        Err(e) => {
+                            println!("PROBLEM: Cannot create file '{}': {}", path.display(), e)
+                        }
+                    },
                     None => {
                         println!("PROBLEM: No file path. Use `save <path>` first.");
                     }
@@ -234,7 +245,7 @@ fn cli_test() -> std::io::Result<()>{
                 if state.dirty {
                     println!("WARNING: You have unsaved changes.");
                     println!("Type 'quit!' to exit without saving, or 'save' to save.");
-            
+
                     // Optional immediate confirmation
                     // continue loop instead of exiting
                     continue;
@@ -243,7 +254,7 @@ fn cli_test() -> std::io::Result<()>{
                     break;
                 }
             }
-            
+
             "quit!" => {
                 println!("FORCED: Exiting without saving.");
                 break;
@@ -257,7 +268,6 @@ fn cli_test() -> std::io::Result<()>{
     println!("SUCCESS: Exit the system");
     Ok(())
 }
-
 
 fn main() -> std::io::Result<()> {
     cli_test()
