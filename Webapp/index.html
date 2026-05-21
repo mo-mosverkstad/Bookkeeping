@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="native-math.css" />
+    <script type="module" src="/src/main.ts"></script>
+    <title>JavaScript reference sheet visualizer</title>
+  </head>
+  <body>
+    <div id="app">BobaMath input renderer</div>
+    <input
+      type="text"
+      id="input"
+      placeholder="Write your BobaMath plaintext input"
+      style="width: 300px"
+    />
+    <button id="render">Render</button>
+    <div id="result"></div>
+    <div class="error-message" id="error-message"></div>
+  </body>
+</html>
