@@ -328,20 +328,57 @@ requiring LaTeX.
 
 #### Identifier System (Math Syntax)
 
-Identifiers carry a prefix that encodes their visual form, allowing a
-single ASCII input to unambiguously specify the exact symbol intended,
-including Greek letters and skew variants.
+The parser is responsible only for syntactic structure. It does not know
+about Greek, Hebrew, Persian, or any other script. It does not know what
+`sin`, `alpha`, `ha`, or `fa` mean. All backslash identifiers are treated
+identically by the parser — they are just tokens with a raw name and an
+optional skew modifier.
 
-| Prefix | Meaning | Example | Renders as |
-|--------|---------|---------|------------|
-| (none) | Plain Latin, upright | `a` | a |
-| `` ` `` | Left-skewed Latin (standard italic) | `` `a `` | *a* |
-| `` `1 `` | Right-skewed Latin | `` `1T `` | *T* (right skew) |
-| `\` | Greek letter, upright | `\a` | α |
-| `\1` | Greek letter, right-skewed | `\1a` | *α* (right skew) |
+The semantic renderer is responsible for meaning. Given a raw name, it
+calls a glyph lookup function that maps the name to the correct Unicode
+character. If no mapping exists, the name is rendered as-is.
+
+**Parser produces — `IdentifierNode`:**
+```ts
+interface IdentifierNode {
+    type: "Identifier";
+    raw: string;         // everything after the prefix: "fa", "sin", "ha", "a"
+    skew: "none" | "left" | "right";
+    blackboard: boolean; // true for \\R, \\N etc.
+}
+```
+
+**Grammar rules — six patterns, no script knowledge:**
+
+| Rule | Regex | Produces |
+|------|-------|---------|
+| `BlackboardBoldIdentifier` | `/^\\\\[A-Z]/` | `{ raw: "R", blackboard: true }` |
+| `SkewedBackslashIdentifier` | `/^\\[0-9]+[a-zA-Z][a-zA-Z0-9]*/` | `{ raw: "fa", skew: "right" }` |
+| `BackslashIdentifier` | `/^\\[a-zA-Z][a-zA-Z0-9]*/` | `{ raw: "fa", skew: "none" }` |
+| `RightSkewLatinIdentifier` | `` /^`[0-9]+[a-zA-Z]/ `` | `{ raw: "T", skew: "right" }` |
+| `LeftSkewLatinIdentifier` | `` /^`[a-zA-Z]/ `` | `{ raw: "a", skew: "left" }` |
+| `PlainIdentifier` | `/^[a-zA-Z]/` | `{ raw: "a", skew: "none" }` |
+
+**Renderer resolves meaning via `GLYPH_TABLE`:**
+```ts
+function resolveGlyph(raw: string): string {
+    return GLYPH_TABLE[raw] ?? raw;
+}
+```
+
+Examples:
+- `\a` → `{ raw: "a" }` → `GLYPH_TABLE["a"]` → `α`
+- `\fa` → `{ raw: "fa" }` → `GLYPH_TABLE["fa"]` → no entry → renders `fa`
+- `\faa` → `{ raw: "faa" }` → `GLYPH_TABLE["faa"]` → `ا` (Persian alef)
+- `\ha` → `{ raw: "ha" }` → `GLYPH_TABLE["ha"]` → `ℵ`
+- `\sin` → `{ raw: "sin" }` → no entry → renders `sin` ✓
+- `\pm` → `{ raw: "pm" }` → `GLYPH_TABLE["pm"]` → `±`
+- `\1fa` → `{ raw: "fa", skew: "right" }` → `ا` with right-skew CSS
 
 Skew is used in physics to disambiguate conflicting symbols. For example,
 `T` is period time and `` `1T `` is temperature — visually distinct,
+unambiguously encoded in ASCII.
+
 unambiguously encoded in ASCII. The skew index is open for future
 extension to additional variants without breaking the grammar.
 
@@ -457,7 +494,7 @@ correctly in the browser with no external dependencies.
 - [x] Implement plain Latin identifier (`a`), left-skewed (`` `a ``),
       right-skewed (`` `1a ``), Greek (`\a`), right-skewed Greek (`\1a`)
 - [x] Implement the HTML renderer for all AST node types: number,
-      identifier (with skew/Greek rendering), binary expression (with
+      identifier (with skew rendering and GLYPH_TABLE lookup), binary expression (with
       automatic parenthesisation), unary, call, control (`\int`,
       `\sqrt`, generic), subscript
 - [x] Wire up the basic UI: text input, Render button, result div,
@@ -468,7 +505,7 @@ correctly in the browser with no external dependencies.
 **Completion criteria:**
 - All grammar rules parse without error
 - Operator precedence is mathematically correct
-- Skewed and Greek identifiers parse and render with correct visual form
+- Skewed and backslash identifiers parse and render with correct visual form
 - Parse errors produce a readable message with location
 - The renderer produces visually correct HTML for all node types
 
@@ -512,6 +549,18 @@ The parser distinguishes by content inside `[...]`:
 Name decorators only accept a single identifier (with optional skew
 prefix). `[a+b]` is not a name decorator — it is a 1-element row vector.
 
+Edge cases:
+- `[`1T`]` — right-skewed identifier inside decorator → valid, treated as
+  name decorator for the right-skewed identifier `` `1T ``
+- `[a_i]` — `a_i` is a `SubscriptExpression`, not a bare identifier, so
+  this is a 1-element row vector, not a name decorator. To subscript a
+  vector name, write `[a]_i` instead
+- `[[a]]` — outer `[` sees inner `[a]` as its first element, which is a
+  `VectorNameNode` not a plain identifier, so this is a 1×1 matrix
+  containing the vector named `a`
+
+---
+
 **Array / vector / matrix literals**
 
 Vectors and matrices are unified under one construct: a rectangular array
@@ -531,13 +580,31 @@ The parser disambiguates by comma presence at the top level:
 - `(expr, expr, ...)` — commas present → column vector / `MatrixNode`
 - `(expr)` with one element and no commas → grouping (not a 1×1 vector)
 
-**Dot product**
+Edge cases that must be explicitly rejected:
+- `(a,)` — trailing comma → parse error
+- `()` — empty parens as standalone Primary → parse error (empty argument
+  list is only valid inside a function call suffix)
+
+---
+
+**Dot product `.`**
 
 `u.v` is the dot product. The `.` is a binary operator at multiplicative
-precedence. There is no ambiguity with decimal numbers because the number
-regex is greedy — after a number token is consumed, a following `.` belongs
-to the next token. After an identifier, `.` is always dot product.
-Rendered as `u · v` (centre dot `·`).
+precedence. Rendered as `u · v` (centre dot `·`).
+
+*Issue — `digit.identifier` edge case:*
+The number regex `/^([0-9]+(\.[ 0-9]*)?|\.[0-9]+)/` matches `3.` as the
+number `3.0` (zero fractional digits). So `3.v` is parsed as the number
+`3.0` implicitly multiplied by `v`, not as `3 · v`. This is technically
+an ambiguity, but in practice dot product of a bare scalar literal with
+a vector (`3.v`) is unusual and arguably ill-typed. The behaviour is
+acceptable and consistent.
+
+*Resolution:* Document the edge case. If `3 · v` is ever needed with a
+literal coefficient, write `3 .v` (space before dot) or `(3).v`. The
+space causes the number token to be fully consumed before the dot is seen.
+
+---
 
 **Cross product and scalar multiplication**
 
@@ -547,6 +614,8 @@ the parser) resolves whether `*` means cross product or scalar multiplication
 based on operand types. The renderer shows `×` for vector×vector and
 juxtaposition for scalar×vector, driven by type annotation, not syntax.
 
+---
+
 **Index notation `A[k]`**
 
 `A[k]` is array indexing — the k-th element of A. This is semantically
@@ -555,12 +624,20 @@ distinct from the subscript label `A_k`. The AST node is `IndexExpression`
 but the node type preserves the indexing semantics for the evaluator.
 `[` is currently unused in the grammar so there is no conflict.
 
+`[a][k]` — vector named `a` indexed by `k` — parses as
+`IndexExpression(VectorNameNode(a), k)`, which is the k-th element of
+vector `a`. Semantically correct.
+
+---
+
 **Determinant**
 
 `det(A)` is used for determinant. `|expr|` is reserved for absolute value
 only. This avoids the `|...|` ambiguity (absolute value vs determinant)
 entirely. `det(A - \l*I)` for eigenvalue equations is already supported
 by the existing function call syntax.
+
+---
 
 **Rollout operators `+{...}` and `*{...}`**
 
@@ -569,14 +646,107 @@ by the existing function call syntax.
 *{k=0, n, A[k]}    →  A[0] * A[1] * ... * A[n]
 ```
 
-These are control expressions with operator symbols as names. They are
-**not** the same as the `+` and `*` binary operators. The parser
-distinguishes them by lookahead: `+` or `*` followed immediately by `{`
-is a rollout control expression; otherwise it is a binary operator.
-Argument structure: `{index=start, end, body}`.
-Rendered as a large `+` or `×` with index bounds, similar to `\sum` and
-`\prod` but semantically distinct — these are rollout/expansion notation,
-not summation/product in the traditional sense.
+*Issue — whitespace breaks the lookahead approach:*
+The original design proposed detecting `+` or `*` followed by `{` as a
+lookahead at the `Additive`/`Multiplicative` level. This fails because
+the parser skips whitespace before each token. By the time `+` is seen
+at the `Additive` level, it has already been committed to as an additive
+operator. `+ {k=0, n, A[k]}` (with a space) would parse `+` as additive
+and then fail on `{`.
+
+*Solution — match `+{` and `*{` atomically at the `Primary` level:*
+Add a `RolloutExpression` rule as a new option in `Primary`, tried before
+`Number` and `Identifier`. It matches the two-character sequence `+{` or
+`*{` as a single regex `/^[+*]\{/` with no whitespace skip between the
+operator and the brace. Because `Primary` is evaluated before `Additive`
+and `Multiplicative` ever see the `+` or `*`, the rollout form is consumed
+whole and the operator never reaches the additive/multiplicative rules.
+
+```
+Primary → RolloutExpression | Number | Identifier | ( Expression ) | ...
+
+RolloutExpression:
+  regex /^[+*]\{/ — matches opening token atomically (no skip inside)
+  then: ArgumentList
+  then: literal "}"
+  → ControlExpression { name: "+" or "*", args: [...] }
+```
+
+The AST node is `ControlExpression` with `name: "+"` or `name: "*"`,
+consistent with `\int`, `\sqrt`, and other control expressions. The
+renderer handles `name === "+"` and `name === "*"` as rollout operators,
+rendering them with large operator symbols and index bounds.
+
+Important: `+{...}` must be written without a space between `+` and `{`.
+This is a deliberate syntactic constraint, not a limitation.
+
+---
+
+**Combined subscript and superscript: `x_i^2`**
+
+*Issue — current grammar gives `(x_i)^2` not `x_i^2`:*
+In the current grammar, `Postfix` collects suffixes left-to-right, so
+`x_i` becomes `SubscriptExpression(x, i)`. Then `Power` wraps the whole
+result: `BinaryExpression(^, SubscriptExpression(x, i), 2)`. This renders
+as `(x_i)^2` — the subscripted expression raised to a power — not as `x`
+with subscript `i` and superscript `2` simultaneously on the same base.
+
+Mathematically `x_i^2` means `x` with `i` as subscript and `2` as
+superscript both attached to the same base character `x`. These are
+distinct: `(x_i)^2` squares the subscripted variable, while `x_i^2`
+is a notational convention for a variable with two decorators.
+
+*Solution — `SubSuperscriptExpression` node produced in `Power`'s build:*
+Add a new AST node:
+```ts
+interface SubSuperscriptExpression {
+    type: "SubSuperscriptExpression";
+    base: ASTNode;
+    subscript: ASTNode;
+    superscript: ASTNode;
+}
+```
+
+In `Power`'s `build` function, after right-folding the exponent chain,
+check if the left operand is a `SubscriptExpression`. If so, instead of
+wrapping it in a `BinaryExpression(^)`, produce a `SubSuperscriptExpression`
+that combines the base, subscript, and superscript into one node:
+
+```ts
+build([left, rest]) {
+    if (rest.length === 0) return left;
+    const exponent = /* right-fold rest */;
+    if (left.type === "SubscriptExpression") {
+        return {
+            type: "SubSuperscriptExpression",
+            base: left.base,
+            subscript: left.subscript,
+            superscript: exponent,
+        };
+    }
+    return { type: "BinaryExpression", operator: "^", left, right: exponent };
+}
+```
+
+This requires no grammar rule changes — only the `build` function and a
+new AST node type. The renderer produces:
+```html
+<span class="subsuperscript">
+  [base]
+  <span class="scripts">
+    <sup>[superscript]</sup>
+    <sub>[subscript]</sub>
+  </span>
+</span>
+```
+With CSS stacking `<sup>` above `<sub>` on the right of the base.
+
+Note: `(x_i)^2` (explicit parentheses) still produces
+`BinaryExpression(^, SubscriptExpression(x, i), 2)` and renders as a
+power of a subscripted expression, which is the correct interpretation
+when the user explicitly groups with parentheses.
+
+---
 
 **Metavariables**
 
@@ -595,41 +765,666 @@ Example — generic fractional equation solution schema:
 Here `k`, `n`, `B`, `R`, `S` are all metavariables. The expression
 describes a class of equations, not a specific one.
 
+---
+
+**Math symbol reference and notation**
+
+All symbols below are rendered-based: the parser produces a node, and the
+renderer maps it to the correct Unicode glyph or HTML structure. The syntax
+is designed to be concise and typeable on a standard keyboard.
+
+*Relation operators* — new precedence level below additive.
+`Relational → Additive (rel_op Additive)?` — not chained, since
+`a = b = c` is not standard math notation.
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `=` | = | equals |
+| `!=` | ≠ | not equal |
+| `<` | < | less than |
+| `>` | > | greater than |
+| `<=` | ≤ | less or equal |
+| `>=` | ≥ | greater or equal |
+| `~=` | ≈ | approximately equal |
+| `:=` | ≡ | defined as / identical |
+| `~` | ∝ | proportional to |
+| `<<` | ≪ | much less than |
+| `>>` | ≫ | much greater than |
+| `->` | → | approaching / function mapping |
+| `\sub` | ⊂ | subset |
+| `\supset` | ⊃ | superset (`\sup` reserved for supremum) |
+| `\sube` | ⊆ | subset or equal |
+| `\supe` | ⊇ | superset or equal |
+
+*Set operators* — `\inter` binds tighter than `\union` (mirrors `*` vs `+`).
+`\in` and `\notin` are relation operators.
+
+| Syntax | Symbol | Meaning | Type |
+|--------|--------|---------|------|
+| `\union` | ∪ | union | binary |
+| `\inter` | ∩ | intersection | binary |
+| `\diff` | ∖ | set difference | binary |
+| `\cross` | × | Cartesian product | binary |
+| `\comp` | ∁ | complement | unary prefix |
+
+
+| `\empty` | ∅ | empty set | constant |
+| `\pow` | 𝒫 | power set | unary prefix |
+
+*Blackboard bold number sets* — double backslash `\\` prefix to avoid
+conflict with single-backslash Greek letters (`\N`=Ν Nu, `\Z`=Ζ Zeta,
+`\R`=Ρ Rho, `\C`=Χ Chi, `\H`=Η Eta, `\P`=Π Pi).
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `\\N` | ℕ | natural numbers |
+| `\\Z` | ℤ | integers |
+| `\\Q` | ℚ | rationals |
+| `\\R` | ℝ | reals |
+| `\\C` | ℂ | complex numbers |
+| `\\H` | ℍ | quaternions |
+| `\\P` | ℙ | primes / projective space |
+
+Grammar rule: `BlackboardBoldIdentifier` matches `/^\\\\[A-Z]/` (two
+backslashes followed by one uppercase letter), tried before `BackslashIdentifier`.
+
+*Logic operators* — `\and` binds tighter than `\or`.
+
+| Syntax | Symbol | Meaning | Type |
+|--------|--------|---------|------|
+| `\and` | ∧ | logical and | binary |
+| `\or` | ∨ | logical or | binary |
+| `\not` | ¬ | logical not | unary prefix |
+| `\imp` | ⟹ | implies | binary |
+| `\iff` | ⟺ | if and only if | binary |
+| `\all` | ∀ | for all | quantifier prefix |
+| `\ex` | ∃ | there exists | quantifier prefix |
+| `\nex` | ∄ | there does not exist | quantifier prefix |
+
+*Calculus and analysis*
+
+| Syntax | Symbol | Meaning | Notes |
+|--------|--------|---------|-------|
+| `\inf` | ∞ | infinity | |
+| `\d` | d | differential | plain upright d, used as `\d x` in integrals |
+| `\\d` | ∂ | partial derivative | double backslash to distinguish from `\d` |
+| `\nabla` | ∇ | nabla / gradient | |
+| `\S{...}` | Σ | summation | `\S` = uppercase Sigma, used as control expression |
+| `\P{...}` | Π | product | `\P` = uppercase Pi, used as control expression |
+| `\lim{x->a, f(x)}` | lim | limit | `->` means approaching |
+| `\pm` | ± | plus-minus | backslash identifier, maps to ± |
+| `\mp` | ∓ | minus-plus | backslash identifier, maps to ∓ |
+
+Note: `->` serves dual purpose — as a relation operator meaning "approaching"
+in limits (`x -> a`), and as function mapping (`f: A -> B`). The parser
+produces the same `BinaryExpression(->)` node in both cases; the semantic
+layer distinguishes the two uses from context.
+
+*Absolute value and norm* — both use `|...|` syntax. The renderer
+automatically distinguishes them by the inner node type:
+- `|x|` where `x` is a scalar → renders as `|x|` (absolute value)
+- `|[x]|` where `[x]` is a `VectorNameNode` or `MatrixNode` → renders
+  as `‖x‖` (norm with double bars)
+
+No separate `\abs` or `\norm` syntax is needed.
+
+*Miscellaneous*
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `\floor{x}` | ⌊x⌋ | floor |
+| `\ceil{x}` | ⌈x⌉ | ceiling |
+| `x!` | x! | factorial (postfix suffix) |
+| `\binom{n,r}` | ⁿCᵣ | binomial coefficient |
+| `->` | → | function mapping (same token as approaching) |
+| `\circ` | ∘ | function composition |
+| `\oplus` | ⊕ | direct sum / XOR |
+| `\otimes` | ⊗ | tensor product |
+| `\inner{x,y}` | ⟨x,y⟩ | inner product |
+| `\bar{x}` | x̄ | overline / complex conjugate |
+| `\hat{x}` | x̂ | hat |
+| `\tilde{x}` | x̃ | tilde |
+
+---
+
+**Extended identifier scripts**
+
+The parser has no concept of scripts. All backslash identifiers are one
+token. The `GLYPH_TABLE` in the renderer is the sole place where script
+conventions are encoded. Adding a new script = adding entries to the
+table. No grammar change ever needed.
+
+The naming convention for multi-script entries uses a short prefix in the
+raw name to namespace each script:
+
+| Raw name prefix | Script | Example raw | Glyph |
+|----------------|--------|-------------|-------|
+| (single letter) | Greek | `a` | α |
+| `h` + letter | Hebrew | `ha` | ℵ |
+| `cy` + letter | Cyrillic | `cya` | а |
+| `am` + letter | Armenian | `ama` | Ա |
+| `gn` + letter | Georgian | `gna` | ა |
+| `fa` + letter | Persian/Farsi | `faa` | ا |
+
+These are naming conventions in the lookup table, not grammar rules.
+`\fa` is a perfectly valid backslash identifier with raw name `fa`.
+It does not conflict with `\f` (phi) + `a` because the greedy regex
+consumes `\fa` as one token. `GLYPH_TABLE["fa"]` has no entry, so
+`\fa` renders as the text `fa`. `GLYPH_TABLE["faa"]` = `ا`, so
+`\faa` renders as Persian alef.
+
+Skew index comes immediately after `\`, before the raw name:
+`\1ha` → `{ raw: "ha", skew: "right" }` → right-skewed ℵ.
+
+*Hebrew letters used in mathematics:*
+
+| Input | Skewed | Glyph | Name | Use |
+|-------|--------|-------|------|-----|
+| `\ha` | `\1ha` | ℵ | aleph | cardinal numbers (ℵ₀, ℵ₁, ...) |
+| `\hb` | `\1hb` | ℶ | beth | beth numbers |
+| `\hg` | `\1hg` | ℷ | gimel | gimel function |
+| `\hd` | `\1hd` | ℸ | dalet | dalet function |
+
+*Extended scripts — use cases and priority:*
+
+- **Hebrew** (`h` prefix) — Phase 2: needed for set theory cardinal numbers
+- **Cyrillic** (`cy` prefix) — later phase: metavariables when Latin+Greek exhausted
+- **Armenian** (`am` prefix) — later phase: architectural metavariables
+- **Georgian** (`gn` prefix) — later phase: second-tier architectural metavariables
+- **Persian** (`fa` prefix) — later phase: third-tier or domain-specific extension
+
+*Implicit multiplication between backslash identifiers:*
+
+The `BackslashIdentifier` regex `/^\\[a-zA-Z][a-zA-Z0-9]*/` is greedy
+and consumes the entire alphanumeric run as one token. After consuming
+`\ca`, the parser position is at `\cb`, which starts a new identifier.
+The `ImplicitPower` rule starts from `Postfix` → `Primary` → `Identifier`,
+so a `\`-prefixed identifier is a valid implicit factor.
+
+`\ca\cb\cg` parses as `\ca * \cb * \cg` — implicit multiplication works
+between backslash identifiers without explicit `*`. Explicit `*` also
+accepted: `\ca*\cb*\cg` produces the same AST.
+
+
+---
+
+**Phase 2 grammar audit — gaps and conflicts**
+
+The following issues were identified by reviewing all Phase 2 rules against
+each other and against the existing Phase 1 grammar. Each issue is recorded
+with its root cause and resolution.
+
+*Gap 1 — `->` has no grammar rule*
+
+`->` appears in the symbol table and in `\lim{x->a, f(x)}` but no grammar
+rule defines it. Resolution: add `->` as a two-character literal in the
+`Relational` operator choices, tried before `>` to prevent `>` consuming
+the second character.
+
+*Gap 2 — `|...|` absolute value / norm has no grammar rule*
+
+`|x|` and `|[x]|` are described in the symbol table but `|` is currently
+unused in the grammar. Resolution: add `AbsoluteValueExpression` as a new
+`Primary` option: `| Expression |` → `AbsoluteValueNode`. The renderer
+checks the inner node type: `VectorNameNode` or `MatrixNode` → norm `‖x‖`,
+otherwise → absolute value `|x|`.
+
+*Gap 3 — `x!` factorial has no grammar rule*
+
+Listed as a postfix suffix but no `FactorialSuffix` rule is defined.
+Resolution: add `FactorialSuffix` to `Postfix`'s suffix choices, matching
+the literal `!` and producing `FactorialExpression(base)`.
+
+*Gap 4 — Named parameter `n=0` in control expressions is unparseable*
+
+`\sum{n=0, \inf, f(n)}` requires `n=0` to parse as an assignment argument.
+The current `ArgumentList` only accepts `Expression` items, and `=` is a
+relational operator that would parse `n=0` as `BinaryExpression(=, n, 0)`.
+Resolution: this is actually fine — `n=0` parses as a relational expression
+`BinaryExpression(=, n, 0)`. The renderer for `\sum` and `\lim` interprets
+the first argument as a bound specification and renders it accordingly.
+No grammar change needed; the renderer handles the convention.
+
+*Gap 5 — `BlackboardBoldIdentifier` rule not defined*
+
+`\\N`, `\\Z`, `\\R` etc. are described but no grammar rule is specified.
+Resolution: add `BlackboardBoldIdentifier` rule matching `/^\\\\[A-Z]/`
+(two literal backslashes + one uppercase letter), tried before
+`BackslashIdentifier` in the `Identifier` choice list. The `raw` field stores
+the uppercase letter; the renderer maps it to the blackboard bold glyph.
+
+*Gap 6 — `Expression` top level not updated to include `Relational`*
+
+The `Expression` rule currently points to `Additive`. With relation
+operators added, `Expression` must point to `Relational`, which points to
+`Additive`. This makes `=`, `<`, `->` etc. valid at the top level and
+inside `ArgumentList` (enabling `x->a` inside `\lim{...}`).
+Resolution: `Expression → Relational → Additive → Multiplicative → ...`
+
+*Gap 7 — `\mapsto` in symbol table but not in concrete tasks*
+
+`\mapsto` (↦) appears in the miscellaneous table but is absent from the
+It is a backslash identifier with raw name `mapsto` that maps to the mapsto glyph in the renderer.
+
+
+*Conflict 1 — `~` vs `~=` ordering*
+
+Both start with `~`. If `~` is tried first, `~=` would parse as `~`
+(proportional) followed by `=` (equals relation). Resolution: in the
+`Relational` operator choices, try `~=` before `~`.
+
+*Conflict 2 — `<<` vs `<`, `>>` vs `>`*
+
+`<<` and `>>` must be tried before `<` and `>` respectively in the
+relational operator choices. Resolution: order choices longest-first.
+
+*Conflict 3 — `\not` vs `\notin`*
+
+`\notin` starts with `\not`. The `BackslashIdentifier` regex is greedy and
+would consume `\notin` as a single identifier named `notin`. This is
+actually correct — `\notin` is a backslash identifier that maps
+to ∉, and `\not` maps to ¬. No conflict at the grammar level since both
+are consumed as full identifiers by the greedy regex. The renderer
+distinguishes them by name. ✓ Not a real conflict.
+
+*Conflict 4 — `\inner` vs `\in` vs `\inter` vs `\inf`*
+
+All start with `\in`. The greedy `BackslashIdentifier` regex
+`/^\\[a-zA-Z][a-zA-Z0-9]*/` consumes the longest match, so `\inner`,
+`\inter`, `\inf`, `\in` are all consumed as distinct full identifiers.
+The renderer maps each name to its symbol. No grammar conflict — the
+greedy regex handles ordering automatically. ✓ Not a real conflict.
+
+*Conflict 5 — `\supset` vs `\sube` vs `\supe`*
+
+Same as Conflict 4 — all consumed as full identifiers by the greedy regex.
+`\supset` → ⊃, `\sube` → ⊆, `\supe` → ⊇. ✓ Not a real conflict.
+
+*Conflict 6 -- resolved by the glyph lookup architecture*
+
+The original Conflict 6 described restricting script modifier letter names
+to one character in separate grammar rules (e.g. `/^\\cy[a-z]/`). Under
+the new architecture there are no separate script grammar rules at all.
+The `BackslashIdentifier` regex consumes the full token greedily. The
+`GLYPH_TABLE` maps `"cya"` -> Cyrillic a, `"cyan"` -> no entry -> renders
+as `cyan`. No grammar restriction needed. Conflict 6 is fully resolved
+by the architecture change.
+
+*Conflict 7 -- resolved by the glyph lookup architecture*
+
+Under the new architecture there are no separate grammar rules for
+Persian, Hebrew, Cyrillic, Armenian, or Georgian. There is one
+`BackslashIdentifier` rule that matches everything after `\`. The
+`GLYPH_TABLE` in the renderer is the sole place where `faa` -> Persian
+alef, `ha` -> aleph, etc. are defined.
+
+There is no grammar conflict to resolve. `\fa` is a backslash identifier
+with raw name `fa`. `\faa` is a backslash identifier with raw name `faa`.
+The renderer looks up `GLYPH_TABLE["faa"]` and gets the Persian alef.
+No rule ordering, no script-specific rules, no conflicts.
+
+*Conflict 8 -- factorial `!` vs not-equal `!=`*
+
+`!=` starts with `!`. `FactorialSuffix` in `Postfix` matches `!` as a
+postfix operator. So `x!=y` would parse as `FactorialExpression(x)` then
+`= y`, giving `(x!) = y` instead of the intended `x != y`.
+
+Resolution: change `FactorialSuffix` regex from `/^!/` to `/^!(?!=)/`
+(negative lookahead: matches `!` only when NOT followed by `=`).
+So `x!` matches factorial, but `x!=y` leaves `!=` for the Relational level.
+
+*Summary of actions required:*
+
+| Issue | Action |
+|-------|--------|
+| Gap 1 | Add `->` literal to `Relational` choices, before `>` |
+| Gap 2 | Add `AbsoluteValueExpression` to `Primary` |
+| Gap 3 | Add `FactorialSuffix` to `Postfix` |
+| Gap 4 | No change needed — `n=0` parses as relational expression |
+| Gap 5 | Add `BlackboardBoldIdentifier` rule |
+| Gap 6 | Update `Expression → Relational → Additive` |
+| Gap 7 | Add `\mapsto` to concrete tasks |
+| Conflict 1 | Order `~=` before `~` in relational choices |
+| Conflict 2 | Order `<<` before `<`, `>>` before `>` |
+| Conflicts 3-5 | No action — greedy regex handles automatically |
+| Conflict 8 | Change FactorialSuffix regex to /^!(?!=)/ (negative lookahead) |
+| Conflict 6 | Resolved by glyph lookup architecture -- no grammar restriction needed |
+| Conflict 7 | Resolved by glyph lookup architecture -- no script-specific rules needed |
+
+
+---
+
+**Missing mathematical notation — coverage gaps**
+
+The following symbols are not covered by the rules defined above and
+need to be added to Phase 2.
+
+*Two important semantic conflicts to document:*
+
+- `\inf` = ∞ (infinity) conflicts with infimum (greatest lower bound).
+  Resolution: keep `\inf` = ∞, use `\infimum` for the infimum operator.
+- `(a, b)` = column vector conflicts with ordered pair notation. These
+  are syntactically identical. The semantic layer decides from context.
+  Document this explicitly — the parser cannot distinguish them.
+
+*Algebra*
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `...` | … | ellipsis (sequences: `a_1, ..., a_n`) |
+| `\mod` | mod | modulo operator |
+| `\div` | ÷ | integer division |
+
+*Number theory*
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `\divides` | ∣ | divides (`a \divides b`) |
+| `\ndivides` | ∤ | does not divide |
+| `\cong` | ≅ | congruence (`a \cong b \mod n`) |
+
+*Calculus / analysis*
+
+| Syntax | Symbol | Meaning | Notes |
+|--------|--------|---------|-------|
+| `'` postfix | ′ | derivative prime | `f'(x)`, `f''(x)` |
+| `\eval{expr, var=val}` | ❙ | evaluated at | `f(x)\|_{x=a}` |
+| `\infimum` | inf | infimum | distinct from `\inf` = ∞ |
+| `\supremum` | sup | supremum | distinct from `\sup` reserved |
+| `\limsup` | lim sup | limit superior | control expression |
+| `\liminf` | lim inf | limit inferior | control expression |
+| `\oint` | ∮ | contour integral | control expression |
+| `\iint` | ∬ | double integral | control expression |
+| `\iiint` | ∭ | triple integral | control expression |
+
+*Linear algebra*
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `\had` | ⊙ | Hadamard (element-wise) product |
+| `\kron` | ⊗ | Kronecker product (distinct from `\otimes` tensor) |
+| `\Id` | I | identity matrix (bold I) |
+| `\0` | 0 | zero vector/matrix (bold 0) |
+
+*Set theory*
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `\psub` | ⊊ | proper subset |
+| `\psupset` | ⊋ | proper superset |
+| `\symdiff` | △ | symmetric difference |
+| `\\U` | 𝕌 | universal set (blackboard bold U) |
+| `\given` | ∣ | conditional bar: `P(A \given B)` = `P(A|B)` | â€” shares glyph âˆ£ with `\divides`; semantic layer distinguishes
+
+*Geometry*
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `\angle` | ∠ | angle |
+| `\tri` | △ | triangle |
+| `\parallel` | ∥ | parallel |
+| `\perp` | ⊥ | perpendicular |
+| `\sim` | ∼ | similar (geometric) |
+| `\arc{AB}` | ⌢ | arc |
+
+*Structural / display*
+
+| Syntax | Symbol | Meaning |
+|--------|--------|---------|
+| `\ul{x}` | x̲ | underline |
+| `\ubrace{expr, label}` | ⏟ | underbrace with label |
+| `\obrace{expr, label}` | ⏞ | overbrace with label |
+| `\cancel{x}` | x̶ | strikethrough / cancel |
+
+*Already covered by existing syntax (no new rules needed):*
+- Transpose `A^T`, conjugate transpose `A^*` — via superscript ✓
+- Trig: `\sin(x)`, `\cos(x)`, `\arctan(x)`, `\sinh(x)` — via multi-letter
+  identifier + function call ✓
+- Cardinality `|A|` — via absolute value ✓
+- Big-O `O(f(n))` — via function call ✓
+- Leibniz derivative `\d y / \d x` — via existing rules ✓
+- Complex: `\Re{z}`, `\Im{z}`, `\arg{z}` — via function call ✓
+
+---
+
+**Glyph lookup table architecture**
+
+The previous identifier system used separate grammar rules per script.
+The new architecture replaces all of them with a single `BackslashIdentifier`
+rule and a `GLYPH_TABLE` in the renderer. No grammar change is ever needed
+to add a new symbol or script.
+
+
+*Grammar layer — one rule for all backslash identifiers*
+
+The grammar has a single `BackslashIdentifier` rule:
+```
+/^\\[a-zA-Z][a-zA-Z0-9]*/
+```
+
+This produces `IdentifierNode { raw: "...", skew: "none" }` where
+`raw` is everything after the `\`. The grammar records the token verbatim.
+
+Separate rules still exist for structural prefixes that change the
+grammar behaviour:
+- `BlackboardBoldIdentifier` `/^\\\\[A-Z]/` — double backslash, one
+  uppercase letter → `blackboard: true`
+- `RightSkewBackslashIdentifier` `/^\\[0-9]+[a-zA-Z]+/` — skew index before
+  name → `skew: "right"`
+
+*Renderer layer — flat glyph lookup table*
+
+The renderer has a single flat lookup table keyed by the full name string
+after `\`. If a name is found, its Unicode glyph is used. If not, the
+name is rendered as-is (which handles `\sin`, `\cos`, `\lim` etc.
+naturally — they have no entry and render as the text `sin`, `cos`, `lim`).
+
+```ts
+const GLYPH_TABLE: Record<string, string> = {
+    // Greek single-letter (a=α, b=β, ...)
+    "a": "α", "b": "β", "g": "γ", "d": "δ", "e": "ε",
+    "z": "ζ", "h": "η", "q": "θ", "i": "ι", "k": "κ",
+    "l": "λ", "m": "μ", "n": "ν", "x": "ξ", "o": "ο",
+    "p": "π", "r": "ρ", "s": "σ", "t": "τ", "u": "υ",
+    "f": "φ", "c": "χ", "y": "ψ", "w": "ω",
+    "A": "Α", "B": "Β", "G": "Γ", "D": "Δ", "E": "Ε",
+    "Z": "Ζ", "H": "Η", "Q": "Θ", "I": "Ι", "K": "Κ",
+    "L": "Λ", "M": "Μ", "N": "Ν", "X": "Ξ", "O": "Ο",
+    "P": "Π", "R": "Ρ", "S": "Σ", "T": "Τ", "U": "Υ",
+    "F": "Φ", "C": "Χ", "Y": "Ψ", "W": "Ω",
+
+    // Hebrew (h prefix)
+    "ha": "ℵ", "hb": "ℶ", "hg": "ℷ", "hd": "ℸ",
+
+    // Cyrillic (cy prefix)
+    "cya": "а", "cyb": "б", "cyv": "в", "cyg": "г",
+    "cyd": "д", "cye": "е", "cyz": "з", "cyi": "и",
+    "cyk": "к", "cyl": "л", "cym": "м", "cyn": "н",
+    "cyo": "о", "cyp": "п", "cyr": "р", "cys": "с",
+    "cyt": "т", "cyu": "у", "cyf": "ф", "cyh": "х",
+    "cyc": "ц", "cysh": "ш", "cyya": "я",
+
+    // Armenian (am prefix)
+    "ama": "Ա", "amb": "Բ", "amg": "Գ", "amd": "Դ",
+    "ame": "Ե", "amz": "Զ", "amh": "Հ",
+
+    // Georgian (gn prefix)
+    "gna": "ა", "gnb": "ბ", "gng": "გ", "gnd": "დ",
+    "gne": "ე", "gnv": "ვ", "gnz": "ზ",
+
+    // Persian/Farsi (fa prefix)
+    "faa": "ا", "fab": "ب", "fap": "پ", "fat": "ت",
+    "fas": "س", "faf": "ف", "faq": "ق", "fak": "ک",
+    "fag": "گ", "fal": "ل", "fam": "م", "fan": "ن",
+    "fav": "و", "fah": "ه", "fay": "ی",
+
+    // Operators and symbols
+    "pm": "±", "mp": "∓", "inf": "∞",
+    "nabla": "∇", "partial": "∂",
+    "union": "∪", "inter": "∩", "diff": "∖",
+    "cross": "×", "comp": "∁", "in": "∈", "notin": "∉",
+    "empty": "∅", "pow": "𝒫",
+    "sub": "⊂", "supset": "⊃", "sube": "⊆", "supe": "⊇",
+    "psub": "⊊", "psupset": "⊋", "symdiff": "△",
+    "and": "∧", "or": "∨", "not": "¬",
+    "imp": "⟹", "iff": "⟺",
+    "all": "∀", "ex": "∃", "nex": "∄",
+    "circ": "∘", "oplus": "⊕", "otimes": "⊗",
+    "had": "⊙", "kron": "⊗",
+    "mapsto": "↦",
+    "parallel": "∥", "perp": "⊥", "sim": "∼",
+    "angle": "∠", "tri": "△",
+    "divides": "∣", "ndivides": "∤", "cong": "≅",
+    "given": "∣",
+    "mod": "mod", "div": "÷",
+    "infimum": "inf", "supremum": "sup",
+    "limsup": "lim sup", "liminf": "lim inf",
+    "oint": "âˆ®", "iint": "âˆ¬", "iiint": "âˆ­",
+    // Note: \given and \divides both map to âˆ£ (U+2223)
+    // The semantic layer distinguishes them by context.
+    // Structural decorators (rendered as wrappers, not glyphs):
+    // \ul, \ubrace, \obrace, \cancel are control expressions
+    // handled by the renderer directly, not via GLYPH_TABLE.
+}
+```
+
+The renderer function becomes:
+```ts
+function resolveGlyph(name: string): string {
+    return GLYPH_TABLE[name] ?? name;
+}
+```
+
+The skew modifier applies a CSS transform to the resolved glyph,
+independent of what the glyph is.
+
+*Benefits of this architecture:*
+- Adding a new symbol = one line in `GLYPH_TABLE`, no grammar change
+- Adding a new script = adding entries with the script prefix, no grammar change
+- `\fa` alone → lookup `"fa"` → no entry → renders as `fa` (acceptable)
+- `\faa` → lookup `"faa"` → `ا` (Persian alef) ✓
+- `\ha` → lookup `"ha"` → `ℵ` ✓
+- `\sin` → lookup `"sin"` → no entry → renders as `sin` ✓
+- `\pm` → lookup `"pm"` → `±` ✓
+- Unknown symbols render as their name, never crash
+
+*Blackboard bold remains a separate rule* because `\\` (double backslash)
+is a structurally different prefix that requires its own regex. Its glyph
+lookup uses a separate `BLACKBOARD_TABLE`:
+```ts
+const BLACKBOARD_TABLE: Record<string, string> = {
+    "N": "ℕ", "Z": "ℤ", "Q": "ℚ", "R": "ℝ", "C": "ℂ",
+    "H": "ℍ", "P": "ℙ", "U": "𝕌", "d": "∂",
+}
+```
+
+---
+
 **Concrete tasks:**
+- [ ] Update `Expression` rule: `Expression → Relational → Additive`
+      (Gap 6 fix — makes relation operators valid at top level and inside
+      ArgumentList, enabling `x->a` inside `\lim{...}`)
+- [ ] Add `Relational` grammar level below `Additive`: operators `=`, `!=`,
+      `<=`, `>=`, `~=`, `:=`, `~`, `<<`, `>>`, `->`, `\sub`, `\supset`,
+      `\sube`, `\supe`, `\in`, `\notin`, `\divides`, `\ndivides`, `\cong`, `\parallel`, `\perp`, `\sim` — ordered longest-first to resolve
+      conflicts: `~=` before `~`, `<<` before `<`, `>>` before `>`,
+      `->` before `>`, `!=` before `!`
+- [ ] Add `AbsoluteValueExpression` to `Primary`: `| Expression |` →
+      `AbsoluteValueNode`; renderer checks inner node type: `VectorNameNode`
+      or `MatrixNode` → norm `‖x‖`, otherwise → `|x|` (Gap 2 fix)
+- [ ] Add `FactorialSuffix` to `Postfix` suffix choices: regex `/^!(?!=)/`
+      (negative lookahead: does not match `!=`) -> `FactorialExpression(base)` (Gap 3 + Conflict 8 fix)
+- [ ] Add `BlackboardBoldIdentifier` rule: regex `/^\\\\[A-Z]/`, tried
+      before `BackslashIdentifier`; renderer maps letter to blackboard bold
+      glyph: N→ℕ, Z→ℤ, Q→ℚ, R→ℝ, C→ℂ, H→ℍ, P→ℙ (Gap 5 fix)
 - [ ] Add vector name decorator: `[single_identifier]` → `VectorNameNode`,
       renders with arrow over the identifier
 - [ ] Add array literal grammar rule: `[expr, expr, ...]` and
       `[[row], [row], ...]` as a new `Primary` option → `MatrixNode`
 - [ ] Add column vector shorthand: `(expr, expr, ...)` in `Primary`,
-      disambiguated from grouping by comma presence
+      disambiguated from grouping by comma presence; reject `(a,)` and
+      standalone `()`
 - [ ] Add index expression postfix suffix: `base[expr]` → `IndexExpression`
-- [ ] Add dot product operator `.` at multiplicative level → `BinaryExpression(.)`
-- [ ] Add rollout control expressions: `+{...}` and `*{...}` with
-      lookahead to distinguish from binary `+` and `*`
+- [ ] Add `\mod` and `\div` operators at multiplicative level (same precedence
+      as `*` and `/`): `\mod` -> `BinaryExpression(mod)`, `\div` -> `BinaryExpression(div)`
+- [ ] Add dot product operator `.` at multiplicative level →
+      `BinaryExpression(.)`; document `3.v` edge case
+- [ ] Add `RolloutExpression` as a new `Primary` option matching `/^[+*]\{/`
+      atomically, consuming `ArgumentList` and `}` →
+      `ControlExpression { name: "+" or "*", args }`
+- [ ] Add `SubSuperscriptExpression` AST node
+      `{ type, base, subscript, superscript }`
+- [ ] Update `Power` build function: when left operand is
+      `SubscriptExpression`, produce `SubSuperscriptExpression` instead
+      of `BinaryExpression(^, SubscriptExpression, exponent)`
 - [ ] Add matrix renderer using `.matrix` / `.matrix-row` / `.matrix-cell`
       CSS classes (already defined in `native-math.css`)
 - [ ] Add piecewise grammar rule: `\piecewise{expr, cond; expr, cond}`
 - [ ] Add piecewise renderer using the existing `.piecewise` CSS classes
-- [ ] Add combined superscript+subscript: `x_i^2`
-- [ ] Add named parameter support to control expressions:
-      `\sum{n=0, \inf, f(n)}` where `n=0` is a named lower bound
-- [ ] Implement semantic annotation pass: accept a metavariable
-      declaration list, walk AST, tag `Identifier` nodes
-- [ ] Update renderer to style metavariable `Identifier` nodes distinctly
+- [ ] Add renderer for `SubSuperscriptExpression`: base with stacked
+      `<sup>` and `<sub>` on the right using `.subsuperscript` CSS
+- [ ] Implement set operators as backslash identifiers in renderer:
+      `\union`→∪, `\inter`→∩, `\diff`→∖, `\cross`→×, `\comp`→∁,
+      `\empty`→∅, `\pow`→𝒫
+- [ ] Implement logic operators as backslash identifiers in renderer:
+      `\and`→∧, `\or`→∨, `\not`→¬, `\imp`→⟹, `\iff`→⟺,
+      `\all`→∀, `\ex`→∃, `\nex`→∄
+- [ ] Implement calculus/misc identifiers in renderer:
+      `\nabla`→∇, `\pm`→±, `\mp`→∓, `\circ`→∘, `\oplus`→⊕,
+      `\otimes`→⊗, `\mapsto`→↦ (Gap 7 fix)
+- [ ] Implement decorator control expressions in renderer:
+      `\floor{x}`→⌊x⌋, `\ceil{x}`→⌈x⌉, `\bar{x}`→x̄, `\hat{x}`→x̂,
+      `\tilde{x}`→x̃, `\inner{x,y}`→⟨x,y⟩, `\binom{n,r}`→ⁿCᵣ
+- [ ] Implement `\S{...}` and `\P{...}` as summation and product renderers
+      (Sigma and Pi used as control expression names)
+- [ ] Implement `\lim{...}` renderer
+- [ ] Add `BlackboardBoldIdentifier` renderer: N→ℕ, Z→ℤ, Q→ℚ, R→ℝ,
+      C→ℂ, H→ℍ, P→ℙ, d→∂ (for `\\d`)
+- [ ] Add Hebrew entries to `GLYPH_TABLE`: ha->aleph, hb->beth, hg->gimel, hd->dalet
+- [ ] Add Cyrillic, Armenian, Georgian, Persian entries to `GLYPH_TABLE` when needed
+      (no grammar changes required â€” table entries only)
+- [ ] Verify `Identifier` choice list order: `BlackboardBold` -> `SkewedBackslash`
+      -> `Backslash` -> `RightSkewLatin` -> `LeftSkewLatin` -> `Plain`
+
+
+
+
+
+- [ ] Implement semantic annotation pass: accept a metavariable declaration
+      list, walk AST, tag `Identifier` nodes as metavariable or concrete
+- [ ] Add prime derivative postfix suffix: `f` followed by one or more `'`
+      characters -> `DerivativeNode(base, order)` where order = count of primes
+- [ ] Add ellipsis primary: `...` -> `EllipsisNode`, renders as `â€¦`
+- [ ] Add `\eval{expr, var=val}` control expression renderer: renders as
+      `expr|_{var=val}` with a vertical bar and subscript
+- [ ] Add `\0` and `\Id` to `GLYPH_TABLE`: `\0` -> bold 0, `\Id` -> bold I
+
 - [ ] Extend error messages to name the specific grammar rule that failed
 
 **Completion criteria:**
 - `[a]` parses as `VectorNameNode`, renders as `a⃗`
+- `[a_i]` parses as a 1-element row vector, not a name decorator
 - `[[a, b], [c, d]]` renders as a 2×2 matrix grid
 - `(a, b, c)` renders as a 3×1 column vector
+- `(a,)` and standalone `()` produce parse errors
 - `A[k]` parses as `IndexExpression`, renders as `A` with subscript `k`
 - `u.v` parses as `BinaryExpression(.)`, renders as `u · v`
-- `+{k=0, n, A[k]}` parses as a rollout control expression, not as
-  binary `+` applied to `{...}`
+- `3.v` parses as `3.0` implicitly multiplied by `v` (documented edge case)
+- `+{k=0, n, A[k]}` parses as `ControlExpression` with `name: "+"`,
+  not as binary `+` applied to `{...}`; space variant `+ {k=0, n, A[k]}`
+  produces a parse error
 - `*{k=0, n, A[k]}` likewise
+- `x_i^2` parses as `SubSuperscriptExpression(x, i, 2)`, renders with
+  subscript `i` and superscript `2` stacked on the same base `x`
+- `(x_i)^2` still parses as `BinaryExpression(^, SubscriptExpression(x,i), 2)`
 - Piecewise renders with left brace and aligned rows
-- `x_i^2` renders with `i` as subscript and `2` as superscript simultaneously
 - Metavariable identifiers render with distinct styling when declared
+- Relation operators parse and render correctly: `a <= b`, `x != y`,
+  `A \sub B`
+- Set operators parse and render: `A \union B`, `\comp A`, `x \in S`
+- Logic operators parse and render: `p \and q`, `\not p`, `p \imp q`
+- Hebrew identifiers render correct glyphs: `\ha` → ℵ
+- `\ha_0` renders as ℵ with subscript 0 (aleph-null)
 - All new constructs produce correct parse errors on malformed input
 
 **Demo:** Extend the Phase 1 demo page with additional test inputs:
@@ -645,10 +1440,102 @@ describes a class of equations, not a specific one.
 | `*{k=0, n, A[k]}` | rollout product with index bounds |
 | `\piecewise{x, x>=0; -x, x<0}` | absolute value piecewise |
 | `x_i^2` | x with subscript i and superscript 2 |
+| `a <= b` | a ≤ b |
+| `A \union B` | A ∪ B |
+| `x \in \\R` | x ∈ ℝ |
+| `p \and q` | p ∧ q |
+| `\ha_0` | ℵ with subscript 0 (aleph-null) |
 
 Additionally, load an expression with declared metavariables and show
 that the metavariable identifiers render with distinct styling compared
 to concrete variable identifiers in the same expression.
+
+**Phase 2 — Summary and Conclusion**
+
+Phase 2 extends the math syntax parser and renderer established in Phase 1
+into a complete mathematical notation system. The following is a consolidated
+record of all design decisions, resolved issues, and the final state ready
+for implementation.
+
+*What Phase 2 adds to the grammar:*
+
+| Addition | Type | Notes |
+|----------|------|-------|
+| `Relational` level | New grammar level | Sits between `Expression` and `Additive`; not chained |
+| `->` | Relational operator | Two-char literal; tried before `>` |
+| `=`, `!=`, `<`, `>`, `<=`, `>=`, `~=`, `:=`, `~`, `<<`, `>>` | Relational operators | Ordered longest-first |
+| `\sub`, `\supset`, `\sube`, `\supe`, `\in`, `\notin`, `\divides`, `\ndivides`, `\cong`, `\parallel`, `\perp`, `\sim` | Relational operators | Backslash identifiers at Relational level |
+| `\mod`, `\div` | Multiplicative operators | Same precedence as `*` and `/` |
+| `[a]` | VectorNameNode | Name decorator; single identifier only |
+| `[expr, ...]`, `[[row], ...]` | MatrixNode | Row vector and matrix literals |
+| `(expr, expr, ...)` | MatrixNode (column vector) | Disambiguated from grouping by comma presence |
+| `base[expr]` | IndexExpression | Postfix suffix |
+| `.` | BinaryExpression(.) | Dot product at multiplicative level |
+| `+{...}`, `*{...}` | ControlExpression | Rollout operators; matched atomically at Primary level |
+| `\|...\|` | AbsoluteValueNode | New Primary option; renderer auto-detects norm vs abs |
+| `x!` | FactorialExpression | Postfix suffix; regex `/^!(?!=)/` to avoid `!=` conflict |
+| `'` postfix | DerivativeNode | One or more primes; order = count |
+| `...` | EllipsisNode | New Primary option |
+| `BlackboardBoldIdentifier` | IdentifierNode (blackboard: true) | `/^\\\\[A-Z]/`; tried before BackslashIdentifier |
+| `SubSuperscriptExpression` | AST node | Produced by Power build when left is SubscriptExpression |
+| `\piecewise{...}` | ControlExpression | Semicolon-separated rows |
+
+*What Phase 2 adds to the renderer (GLYPH_TABLE and control expressions):*
+
+- All Greek single-letter and multi-letter symbols via GLYPH_TABLE
+- Hebrew letters: `\ha` ℵ, `\hb` ℶ, `\hg` ℷ, `\hd` ℸ
+- All set, logic, calculus, geometry, and miscellaneous operators via GLYPH_TABLE
+- Blackboard bold: `\\N` ℕ, `\\Z` ℤ, `\\Q` ℚ, `\\R` ℝ, `\\C` ℂ, `\\H` ℍ, `\\P` ℙ, `\\d` ∂
+- Control expression renderers: `\S{...}` Σ, `\P{...}` Π, `\lim{...}`, `\floor{...}`,
+  `\ceil{...}`, `\bar{...}`, `\hat{...}`, `\tilde{...}`, `\inner{...}`,
+  `\binom{...}`, `\eval{...}`, `\ubrace{...}`, `\obrace{...}`, `\ul{...}`, `\cancel{...}`
+- Matrix, piecewise, SubSuperscript, VectorName, AbsoluteValue/Norm renderers
+- Metavariable annotation pass and distinct styling
+
+*All audit issues resolved:*
+
+| Issue | Resolution |
+|-------|------------|
+| Gap 1 — `->` missing | Added to Relational choices before `>` |
+| Gap 2 — `\|...\|` missing | AbsoluteValueExpression added to Primary |
+| Gap 3 — `x!` missing | FactorialSuffix added to Postfix |
+| Gap 4 — `n=0` named param | No change — parses as relational expression |
+| Gap 5 — BlackboardBold missing | BlackboardBoldIdentifier rule added |
+| Gap 6 — Expression not updated | Expression → Relational → Additive |
+| Gap 7 — `\mapsto` missing | Added to GLYPH_TABLE and concrete tasks |
+| Conflict 1 — `~` vs `~=` | `~=` tried before `~` |
+| Conflict 2 — `<<`/`>>` vs `<`/`>` | Longest-first ordering |
+| Conflicts 3–5 | Not real conflicts — greedy regex handles automatically |
+| Conflict 6 | Resolved by glyph lookup architecture |
+| Conflict 7 | Resolved by glyph lookup architecture |
+| Conflict 8 — `!=` vs `!` | FactorialSuffix uses `/^!(?!=)/` negative lookahead |
+
+*Key architectural decisions made in Phase 2:*
+
+1. **Parser is script-agnostic.** The parser records `{ raw, skew, blackboard }`
+   verbatim. It does not know about Greek, Hebrew, Persian, or any other script.
+   All semantic meaning lives in the renderer's `GLYPH_TABLE`.
+
+2. **GLYPH_TABLE is the single source of truth.** Adding a symbol or script
+   requires one line in the table. No grammar change ever needed.
+
+3. **Table as view, not model** (carried from superproduct design). The same
+   principle applies here: the syntax is a view over the underlying mathematical
+   meaning. The parser captures structure; the renderer assigns meaning.
+
+4. **`(a, b)` is syntactically a column vector.** The semantic layer decides
+   whether it is an ordered pair or a vector based on context. The parser
+   cannot and does not distinguish them.
+
+5. **`\inf` = ∞ (infinity), `\infimum` = inf (infimum).** These are distinct
+   symbols with distinct raw names. No conflict.
+
+*Phase 2 is ready for implementation.* All grammar rules are defined,
+all conflicts are resolved, all symbols are accounted for in either the
+grammar tasks or the GLYPH_TABLE, and the architecture is internally
+consistent.
+
+---
 
 ---
 
