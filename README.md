@@ -30,7 +30,7 @@ Each implementation provides the complete feature set with language-specific opt
 | **Java** | Enterprise & Cross-platform | In Development | `BookkeepingJava/` (Java bookkeeping database) |
 | **Python** | Rapid Development & Data Science | In Development | `PyBookkeeping/` (Python bookkeeping database) |
 | **C/C++** | System-level Performance | Planned | - |
-| **JavaScript (TypeScript)** | Web Application | Planned | - |
+| **JavaScript (TypeScript)** | Web Application | In Development | `Webapp/` (browser-based knowledge viewer and editor) |
 
 ## Current Implementation Status
 
@@ -49,7 +49,17 @@ Each implementation provides the complete feature set with language-specific opt
 - JSON data handling
 - Multiple version iterations (v1.0.0 - v2.0.1)
 
-### Rust Implementation (`rust_grid/`, `RustBookkeeping/`)
+### Webapp Implementation (`Webapp/`)
+- Browser-based knowledge viewer and editor (TypeScript + Vite)
+- Plugin-based syntax rendering system — math syntax is the first plugin,
+  covering algebra, calculus, and linear algebra with a custom PEG parser
+- Renders expressions as formatted HTML: fractions, superscripts, subscripts,
+  integrals, Greek and skewed identifiers
+- Reads Bookkeeping data files (CSV in early phases, binary in later phases)
+- See [`Webapp/README.md`](Webapp/README.md) for quick start and
+  [`Webapp/docs/docs_guide.md`](Webapp/docs/docs_guide.md) for full documentation
+
+
 - CSV processing capabilities
 - AVL tree implementations
 - History tracking tools
@@ -96,6 +106,7 @@ python PyBookkeeping.py
 Bookkeeping/
 ├── BookkeepingJava/     # Java implementation
 ├── PyBookkeeping/       # Python implementation
+├── Webapp/              # TypeScript/JavaScript web application
 ├── rust_grid/           # Rust CSV processing
 ├── RustBookkeeping/     # Rust core implementation
 └── Testprototypes/      # Development prototypes

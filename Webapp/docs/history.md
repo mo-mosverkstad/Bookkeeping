@@ -101,3 +101,90 @@ Splitting it makes each concern independently readable and reusable.
 - `docs/testing.md` — all test cases, verdicts, issues and fixes
 - `docs/demos.md` — setup, build, run, expected results, troubleshooting
 - `docs/history.md` — this file
+
+---
+
+### Phase 1 completion — Skew identifier system
+
+**Added**
+- `IdentifierNode.prefix` field in `src/parser/types.ts` — encodes the
+  visual form of an identifier: `"plain"`, `"left-skew"`, `"right-skew"`,
+  `"greek"`, `"greek-right"`
+- Five identifier grammar rules in `src/parser/grammar.ts`:
+  - `PlainIdentifier` — `/^[a-zA-Z]/`
+  - `LeftSkewIdentifier` — `` /^`[a-zA-Z]/ ``
+  - `RightSkewIdentifier` — `` /^`[0-9]+[a-zA-Z]/ ``
+  - `GreekIdentifier` — `/^\\[a-zA-Z][a-zA-Z0-9]*/`
+  - `RightSkewGreekIdentifier` — `/^\\[0-9]+[a-zA-Z][a-zA-Z0-9]*/`
+- `GREEK` mapping table in `src/render/render.ts` — maps single Latin
+  letters to Unicode Greek glyphs (α, β, γ, ... Ω)
+- `renderIdentifier()` function in `src/render/render.ts` — dispatches
+  on `prefix` to produce the correct CSS class and glyph
+- Identifier CSS classes in `native-math.css`:
+  `.ident-plain`, `.ident-left-skew`, `.ident-right-skew`,
+  `.ident-greek`, `.ident-greek-right`
+- Phase 1 test case cycle in `src/main.ts` — 6 test cases cycled via
+  `__nextTest()` in the browser console
+
+**Changed**
+- `Identifier` rule in `grammar.ts` — now dispatches to 5 sub-rules
+  instead of 2 (`EscapedIdentifier` and `PlainIdentifier` replaced)
+- `render()` in `render.ts` — `Identifier` case now calls
+  `renderIdentifier()` instead of inline string handling
+- `src/main.ts` — single hardcoded test case replaced with a 6-case
+  cycle covering all Phase 1 demo inputs
+
+**Removed**
+- `EscapedIdentifier` rule — replaced by `GreekIdentifier` and
+  `RightSkewGreekIdentifier` which also strip the prefix correctly
+
+---
+
+### Bug fix — Integral body rendered below sign (Issue 3)
+
+**Problem:** `renderIntegral` placed the body as a fourth `display: block`
+child inside `.opstack`, causing it to stack below the ∫ symbol.
+
+**Change:** `renderIntegral` now produces an outer `.integral` flex container
+holding the `.opstack` (bounds + symbol only) and a sibling `.integral-body`
+(the integrand). Added `.integral` and `.integral-body` CSS rules.
+
+**Files changed:** `src/render/render.ts`, `native-math.css`
+
+---
+
+### Extended test cases
+
+Added 9 new test cases (TC-19 to TC-27) to `src/main.ts` covering:
+compound integral bodies, nested fractions, polynomials, function calls
+inside integrals, subscript chains, Greek coefficients, deeply nested
+right-associative powers, unary chains, and implicit multiplication with
+Greek letters. Cycled via `__nextTest()` in the browser console.
+
+---
+
+### Unit test infrastructure added
+
+**Added**
+- `vitest` and `happy-dom` as dev dependencies in `package.json`
+- `npm test` script (runs all tests once) and `npm run test:watch` (watch mode)
+- `vite.config.ts` — Vitest config using `happy-dom` environment, includes
+  all `test/**/*.test.ts` files
+- `test/parser/PEGParser.test.ts` — unit tests for the PEG engine primitives:
+  literal, regex, sequence, choice, repeat, rule reference, build function,
+  error reporting
+- `test/parser/grammar.test.ts` — unit tests for the math syntax grammar:
+  numbers, all 5 identifier forms, additive, multiplicative (including
+  implicit multiplication), power (right-associativity), unary, postfix
+  (call, subscript, control), grouping, operator precedence, error cases.
+  Includes regression tests for Issue 1 (implicit multiplication precedence)
+  and Issue 2 (unary sign theft)
+- `test/render/render.test.ts` — unit tests for the renderer using
+  `happy-dom`: number, identifier CSS classes, Greek glyph mapping, fraction
+  structure, power `<sup>`, subscript `<sub>`, call, integral structure
+  (including regression for Issue 3 — body beside sign not inside opstack),
+  sqrt, automatic parenthesisation, `renderMath` wrapper
+- `tsconfig.json` updated to include `test/` and `vite.config.ts`
+
+**Test counts:** 3 layers × multiple suites = 60+ individual test cases,
+all serving as regression tests for future phases.

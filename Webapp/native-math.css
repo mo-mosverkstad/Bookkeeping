@@ -27,6 +27,14 @@
   vertical-align: middle;
   text-align: center;
 }
+.native-math .integral {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.native-math .integral-body {
+  margin-left: 0.15em;
+}
 .native-math .opstack {
   display: inline-block;
   vertical-align: middle;
@@ -87,4 +95,29 @@
 .native-math .piecewise-cell {
   display: table-cell;
   padding: 2px 6px;
+}
+
+/* Identifier variants */
+.native-math .ident-plain {
+  font-style: normal;
+  display: inline-block;
+}
+.native-math .ident-left-skew {
+  font-style: normal;
+  display: inline-block;
+  transform: skewX(-20deg);
+}
+.native-math .ident-right-skew {
+  font-style: normal;
+  display: inline-block;
+  transform: skewX(20deg);
+}
+.native-math .ident-greek {
+  font-style: normal;
+  display: inline-block;
+}
+.native-math .ident-greek-right {
+  font-style: normal;
+  display: inline-block;
+  transform: skewX(20deg);
 }

@@ -307,23 +307,52 @@ const grammar: Grammar = {
         peg: {
             type: "choice",
             options: [
-                { type: "rule", name: "EscapedIdentifier" },
+                { type: "rule", name: "RightSkewGreekIdentifier" },
+                { type: "rule", name: "GreekIdentifier" },
+                { type: "rule", name: "RightSkewIdentifier" },
+                { type: "rule", name: "LeftSkewIdentifier" },
                 { type: "rule", name: "PlainIdentifier" },
             ],
         },
     },
 
+    // plain Latin: a
     PlainIdentifier: {
         peg: { type: "regex", regex: /^[a-zA-Z]/, name: "identifier" },
         build(value: string): IdentifierNode {
-            return { type: "Identifier", name: value };
+            return { type: "Identifier", name: value, prefix: "plain" };
         },
     },
 
-    EscapedIdentifier: {
-        peg: { type: "regex", regex: /^\\[a-zA-Z][a-zA-Z0-9]*/, name: "escaped identifier" },
+    // left-skew Latin: `a
+    LeftSkewIdentifier: {
+        peg: { type: "regex", regex: /^`[a-zA-Z]/, name: "left-skew identifier" },
         build(value: string): IdentifierNode {
-            return { type: "Identifier", name: value };
+            return { type: "Identifier", name: value.slice(1), prefix: "left-skew" };
+        },
+    },
+
+    // right-skew Latin: `1a
+    RightSkewIdentifier: {
+        peg: { type: "regex", regex: /^`[0-9]+[a-zA-Z]/, name: "right-skew identifier" },
+        build(value: string): IdentifierNode {
+            return { type: "Identifier", name: value.replace(/^`[0-9]+/, ""), prefix: "right-skew" };
+        },
+    },
+
+    // upright Greek: \a = alpha, \b = beta, etc.
+    GreekIdentifier: {
+        peg: { type: "regex", regex: /^\\[a-zA-Z][a-zA-Z0-9]*/, name: "greek identifier" },
+        build(value: string): IdentifierNode {
+            return { type: "Identifier", name: value.slice(1), prefix: "greek" };
+        },
+    },
+
+    // right-skew Greek: \1a
+    RightSkewGreekIdentifier: {
+        peg: { type: "regex", regex: /^\\[0-9]+[a-zA-Z][a-zA-Z0-9]*/, name: "right-skew greek identifier" },
+        build(value: string): IdentifierNode {
+            return { type: "Identifier", name: value.replace(/^\\[0-9]+/, ""), prefix: "greek-right" };
         },
     },
 

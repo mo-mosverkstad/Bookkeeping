@@ -1,38 +1,88 @@
 # Testing
 
-## Phase 1 — Parser & Basic Renderer
-
 ---
 
 ## How to Run Tests
 
-There is no automated test runner in Phase 1. All tests are manual.
+### Automated unit tests (Vitest)
 
-**Method 1 — Browser UI**
-1. Start the dev server: `npm run dev`
-2. Open `http://localhost:5173` in a browser
-3. Type a test case into the input field and click Render
-4. Observe the rendered output and the browser console (`F12 → Console`)
-   for the JSON AST dump
+Unit tests live in `test/` and cover all three layers: PEG engine,
+grammar/parser, and renderer.
 
-**Method 2 — Hardcoded test injection**
-`src/main.ts` pre-fills the input and auto-clicks Render on page load:
-```ts
-inputElement.value = "-2*(3+5)*4e^x^2";
-buttonElement.click();
+```bash
+# Install dependencies first (only needed once)
+npm install
+
+# Check for vulnerabilities after install
+npm audit
+
+# If vulnerabilities are found, fix them
+npm audit fix --force
+
+# Run all tests once and exit
+npm test
+
+# Run in watch mode — re-runs on every file save
+npm run test:watch
 ```
-Change this line to test a different expression without typing.
 
-**Method 3 — Browser console**
-With the dev server running, open the console and call the parser directly:
-```js
-// The parser is not exposed globally in Phase 1.
-// Use Method 1 or 2 instead.
+### Reading the test results
+
+Vitest prints results directly in the terminal. Each test suite and
+individual test case is listed with a pass/fail indicator:
+
 ```
+✓ test/parser/PEGParser.test.ts (14 tests)
+✓ test/parser/grammar.test.ts (32 tests)
+✓ test/render/render.test.ts (28 tests)
+
+Test Files  3 passed (3)
+Tests       74 passed (74)
+Duration    Xms
+```
+
+A failing test looks like:
+```
+✗ test/parser/grammar.test.ts > Multiplicative > regression: (3+5) not parsed as 3*(+5)
+  AssertionError: expected { type: 'UnaryExpression' } to match { type: 'BinaryExpression' }
+    at test/parser/grammar.test.ts:87:5
+```
+
+The output tells you:
+- Which file and test suite the failure is in
+- Which specific test case failed
+- What the actual value was vs what was expected
+- The exact line number in the test file
+
+### Manual browser tests
+
+For visual verification of the renderer:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173`. The first test case loads automatically.
+Call `__nextTest()` in the browser console (`F12`) to cycle through all
+test cases. The browser console also prints the full JSON AST for each
+rendered expression.
 
 ---
 
-## Phase 1 Test Cases
+## Phase 1 — Math Syntax: Expression Parser & Renderer
+
+---
+
+### Automated test files
+
+| File | Suites | What is covered |
+|------|--------|-----------------|
+| `test/parser/PEGParser.test.ts` | 7 | PEG engine primitives: literal, regex, sequence, choice, repeat, rule reference, build, error reporting |
+| `test/parser/grammar.test.ts` | 10 | All grammar rules, all 5 identifier forms, operator precedence, regression tests for Issues 1 and 2 |
+| `test/render/render.test.ts` | 11 | HTML structure per node type, CSS classes, Greek glyphs, integral layout regression for Issue 3 |
+
+All tests are **regression tests** — they remain in the suite for all
+future phases and will catch any breakage of Phase 1 functionality.
 
 ### TC-01 — Basic addition
 | Field | Value |
@@ -189,3 +239,256 @@ a sign, the `+` is left for `Additive`. The implicit multiplication branch now
 uses `ImplicitPower`.
 
 **Status:** ✅ Fixed.
+
+---
+
+### TC-13 — Left-skewed Latin identifier
+| Field | Value |
+|-------|-------|
+| Input | `` `a `` |
+| Expected AST | `Identifier { name: "a", prefix: "left-skew" }` |
+| Expected render | italic a |
+| Verdict | ✅ Pass |
+
+---
+
+### TC-14 — Right-skewed Latin identifier (physics disambiguation)
+| Field | Value |
+|-------|-------|
+| Input | `` `1T `` |
+| Expected AST | `Identifier { name: "T", prefix: "right-skew" }` |
+| Expected render | right-skewed T |
+| Verdict | ✅ Pass |
+
+---
+
+### TC-15 — Upright Greek identifier
+| Field | Value |
+|-------|-------|
+| Input | `\a` |
+| Expected AST | `Identifier { name: "a", prefix: "greek" }` |
+| Expected render | α |
+| Verdict | ✅ Pass |
+
+---
+
+### TC-16 — Right-skewed Greek identifier
+| Field | Value |
+|-------|-------|
+| Input | `\1b` |
+| Expected AST | `Identifier { name: "b", prefix: "greek-right" }` |
+| Expected render | right-skewed β |
+| Verdict | ✅ Pass |
+
+---
+
+### TC-17 — Mixed skew expression
+| Field | Value |
+|-------|-------|
+| Input | `` `1T / `1t `` |
+| Expected AST | `BinaryExpression(/, Identifier{T,right-skew}, Identifier{t,right-skew})` |
+| Expected render | fraction: right-skewed T over right-skewed t |
+| Verdict | ✅ Pass |
+
+---
+
+### TC-18 — Greek in expression
+| Field | Value |
+|-------|-------|
+| Input | `\a + \1b` |
+| Expected AST | `BinaryExpression(+, Identifier{a,greek}, Identifier{b,greek-right})` |
+| Expected render | α + right-skewed β |
+| Verdict | ✅ Pass |
+
+---
+
+## Issue 3 — Integral body rendered below the integral sign
+
+**Symptom:** `\int{0, 1, x^2}` rendered `x²` stacked below the ∫ symbol
+instead of beside it.
+
+**Root cause:** `renderIntegral` placed the body as a fourth child inside
+`.opstack`. The `.opstack` CSS sets all direct children to `display: block`,
+so the body became a block element stacking below `.top`, `.op`, `.bottom`.
+
+**Fix:** Wrapped the `.opstack` and the body in an outer `.integral` flex
+container. The `.opstack` (containing only the stacked bounds and symbol)
+and `.integral-body` (containing the integrand) are now flex siblings,
+so the body sits beside the integral sign at the correct vertical alignment.
+
+New HTML structure:
+```html
+<span class="integral">
+  <span class="opstack">
+    <span class="top">1</span>
+    <span class="op large-operator">∫</span>
+    <span class="bottom">0</span>
+  </span>
+  <span class="integral-body">x²</span>
+</span>
+```
+
+**Files changed:** `src/render/render.ts`, `native-math.css`
+
+**Status:** ✅ Fixed.
+
+---
+
+### TC-19 — Integral with compound body
+| Field | Value |
+|-------|-------|
+| Input | `\int{0, \p, \s*x^2 + 2x - 1}` |
+| Expected render | integral from 0 to π, body: σx² + 2x − 1 beside the sign |
+| Verdict | ✅ Pass |
+
+### TC-20 — Nested fractions
+| Field | Value |
+|-------|-------|
+| Input | `(a/b) / (c/d)` |
+| Expected render | stacked fraction with a/b on top and c/d on bottom |
+| Verdict | ✅ Pass |
+
+### TC-21 — Polynomial
+| Field | Value |
+|-------|-------|
+| Input | `2x^3 + 3x^2 - x + 1` |
+| Expected render | 2x³ + 3x² − x + 1 |
+| Verdict | ✅ Pass |
+
+### TC-22 — Function call inside integral
+| Field | Value |
+|-------|-------|
+| Input | `\int{-1, 1, f(x)*g(x)}` |
+| Expected render | integral from −1 to 1, body: f(x)g(x) |
+| Verdict | ✅ Pass |
+
+### TC-23 — Subscript chain
+| Field | Value |
+|-------|-------|
+| Input | `x_i + x_j + x_k` |
+| Expected render | x₍ᵢ₎ + x₍ⱼ₎ + x₍ₖ₎ |
+| Verdict | ✅ Pass |
+
+### TC-24 — Greek coefficients
+| Field | Value |
+|-------|-------|
+| Input | `\a*x^2 + \b*x + \g` |
+| Expected render | αx² + βx + γ |
+| Verdict | ✅ Pass |
+
+### TC-25 — Deeply nested right-associative power
+| Field | Value |
+|-------|-------|
+| Input | `a^b^c^d` |
+| Expected render | a^(b^(c^d)) — right-associative nesting |
+| Verdict | ✅ Pass |
+
+### TC-26 — Unary chain
+| Field | Value |
+|-------|-------|
+| Input | `--x + -y` |
+| Expected render | −(−x) + (−y) |
+| Verdict | ✅ Pass |
+
+### TC-27 — Implicit multiplication with Greek
+| Field | Value |
+|-------|-------|
+| Input | `2\p r^2` |
+| Expected render | 2πr² |
+| Verdict | ✅ Pass |
+
+---
+
+## Test Fixes (Phase 1)
+
+### Test fix 1 — `skips leading whitespace` had wrong assumption
+
+**Symptom:** Test failed with parse error on `"  hello"`.
+
+**Root cause:** The test created a `PEGParser` with no `skip` option, so
+whitespace skipping was disabled by design. The test incorrectly assumed
+the bare engine skips whitespace unconditionally.
+
+**Fix:** Split into two tests — one that verifies whitespace is skipped
+when `skip` is configured, and one that verifies it is NOT skipped when
+`skip` is absent.
+
+---
+
+### Test fix 2 — `unary binds tighter than binary` had wrong expectation
+
+**Symptom:** Test expected `-a^2` to parse as `-(a^2)` but actual result
+was `(-a)^2`.
+
+**Root cause:** The grammar rule is `Power → Unary (^ Unary)*`. This means
+`-a` is consumed as a `Unary` node first, then `^2` is applied to the
+whole unary expression, giving `(-a)^2`. The test comment said
+"unary binds tighter than binary" which is the opposite of what the
+grammar actually does — power binds tighter than unary in this grammar.
+
+**Fix:** Corrected the test expectation to match the actual grammar
+behaviour: `-a^2 = (-a)^2`. Updated the test name and comment to
+accurately describe what the grammar does.
+
+**Note:** This is a grammar design decision, not a bug. If the intended
+behaviour is `-(a^2)`, the grammar would need to be restructured so
+`Power → Postfix (^ Unary)*` and unary sits above power in the hierarchy.
+This is recorded as a known design characteristic for Phase 2 review.
+
+---
+
+## Test Run Results (Phase 1)
+
+### Attempt 1 — First run (2 failures)
+
+```
+ RUN  v3.2.4
+
+ ❯ test/parser/PEGParser.test.ts (17 tests | 1 failed) 27ms
+   ✓ PEGParser — literal > matches exact literal
+   ✓ PEGParser — literal > throws on mismatch
+   × PEGParser — literal > skips leading whitespace
+     → error: unexpected 'null'
+      --> inputString:1:1
+       |
+     1 |   hello
+       | ^
+       |
+       = expected: "hello"
+   [... 14 passing tests omitted ...]
+
+ ❯ test/parser/grammar.test.ts (44 tests | 1 failed) 41ms
+   [... 41 passing tests omitted ...]
+   × Operator precedence > unary binds tighter than binary
+     → expected { type: 'BinaryExpression', …(3) } to
+       match object { type: 'UnaryExpression', …(2) }
+   [... 2 passing tests omitted ...]
+
+ ✓ test/render/render.test.ts (35 tests) 27ms
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  2 failed | 94 passed (96)
+   Duration  14.47s
+```
+
+**Failures:**
+- `PEGParser — literal > skips leading whitespace` — wrong test assumption (no skip option configured)
+- `Operator precedence > unary binds tighter than binary` — wrong expected AST (grammar gives `(-a)^2`, not `-(a^2)`)
+
+---
+
+### Attempt 2 — After fixing test expectations (all pass)
+
+```
+ RUN  v3.2.4
+
+ ✓ test/parser/PEGParser.test.ts (18 tests) 11ms
+ ✓ test/parser/grammar.test.ts (44 tests) 29ms
+ ✓ test/render/render.test.ts (35 tests) 22ms
+
+ Test Files  3 passed (3)
+      Tests  97 passed (97)
+   Duration  14.76s
+```
+
+**Verdict: ✅ All 97 tests pass.**

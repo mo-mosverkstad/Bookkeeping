@@ -4,6 +4,7 @@ import type {
     BinaryExpressionNode,
     CallExpressionNode,
     ControlExpressionNode,
+    IdentifierNode,
     SubscriptExpressionNode,
 } from "../parser/types.ts";
 
@@ -19,14 +20,22 @@ function getOperatorPrecedence(operator: string): number {
     return OPERATOR_PRECEDENCE[operator] ?? -1;
 }
 
+const GREEK: Record<string, string> = {
+    a: "α", b: "β", g: "γ", d: "δ", e: "ε", z: "ζ", h: "η", q: "θ",
+    i: "ι", k: "κ", l: "λ", m: "μ", n: "ν", x: "ξ", o: "ο", p: "π",
+    r: "ρ", s: "σ", t: "τ", u: "υ", f: "φ", c: "χ", y: "ψ", w: "ω",
+    A: "Α", B: "Β", G: "Γ", D: "Δ", E: "Ε", Z: "Ζ", H: "Η", Q: "Θ",
+    I: "Ι", K: "Κ", L: "Λ", M: "Μ", N: "Ν", X: "Ξ", O: "Ο", P: "Π",
+    R: "Ρ", S: "Σ", T: "Τ", U: "Υ", F: "Φ", C: "Χ", Y: "Ψ", W: "Ω",
+};
+
 export function render(node: ASTNode): HTMLElement {
     switch (node.type) {
         case "NumberLiteral":
             return el("span", "", [String(node.value)]);
 
         case "Identifier": {
-            const name = node.name.startsWith("\\") ? node.name.slice(1) : node.name;
-            return el("span", "", [name]);
+            return renderIdentifier(node);
         }
 
         case "BinaryExpression":
@@ -46,6 +55,28 @@ export function render(node: ASTNode): HTMLElement {
 
         default:
             throw new Error("Unknown node");
+    }
+}
+
+function renderIdentifier(node: IdentifierNode): HTMLElement {
+    const { name, prefix } = node;
+    switch (prefix) {
+        case "plain":
+            return el("span", "ident-plain", [name]);
+        case "left-skew":
+            return el("span", "ident-left-skew", [name]);
+        case "right-skew":
+            return el("span", "ident-right-skew", [name]);
+        case "greek": {
+            const glyph = GREEK[name] ?? name;
+            return el("span", "ident-greek", [glyph]);
+        }
+        case "greek-right": {
+            const glyph = GREEK[name] ?? name;
+            return el("span", "ident-greek-right", [glyph]);
+        }
+        default:
+            return el("span", "", [name]);
     }
 }
 
@@ -113,11 +144,13 @@ function renderControl(node: ControlExpressionNode): HTMLElement {
 
 function renderIntegral(node: ControlExpressionNode): HTMLElement {
     const [from, to, body] = node.args;
-    return el("span", "opstack", [
-        el("span", "top", [render(to)]),
-        el("span", "op large-operator", ["∫"]),
-        el("span", "bottom", [render(from)]),
-        render(body),
+    return el("span", "integral", [
+        el("span", "opstack", [
+            el("span", "top", [render(to)]),
+            el("span", "op large-operator", ["\u222b"]),
+            el("span", "bottom", [render(from)]),
+        ]),
+        el("span", "integral-body", [render(body)]),
     ]);
 }
 

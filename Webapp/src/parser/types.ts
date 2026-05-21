@@ -90,6 +90,13 @@ export interface UnaryExpressionNode {
 export interface IdentifierNode {
     type: "Identifier";
     name: string;
+    // prefix encodes the visual form:
+    //   "plain"        — upright Latin (a)
+    //   "left-skew"    — italic Latin (`a)
+    //   "right-skew"   — right-skewed Latin (`1a)
+    //   "greek"        — upright Greek (\a = α)
+    //   "greek-right"  — right-skewed Greek (\1a)
+    prefix: "plain" | "left-skew" | "right-skew" | "greek" | "greek-right";
 }
 
 export interface CallExpressionNode {

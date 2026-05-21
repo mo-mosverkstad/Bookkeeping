@@ -1,6 +1,6 @@
 # Codebase Analysis
 
-## Phase 1 — Parser & Basic Renderer
+## Phase 1 — Math Syntax: Expression Parser & Renderer
 
 This document explains every concept and every piece of code in the project,
 written for readers who are new to parsers, ASTs, or this codebase.
@@ -315,3 +315,194 @@ Provides all the visual math rendering styles:
   (CSS prepared, not yet wired in Phase 1)
 - `.piecewise` — left-brace piecewise function layout (CSS prepared, not yet
   wired in Phase 1)
+
+---
+
+### Skew Identifier System (added in Phase 1 completion)
+
+#### Why skew identifiers?
+
+In physics, the same Latin letter is often used for multiple quantities. For
+example, `T` means both period time and temperature. To distinguish them
+unambiguously in ASCII input, a skew prefix is used: `T` is period time,
+`` `1T `` is temperature. The skew is visible in the rendered output as a
+different slant direction.
+
+#### The five identifier forms
+
+| Input form | Rule | AST prefix | Renders as |
+|-----------|------|-----------|------------|
+| `a` | `PlainIdentifier` | `"plain"` | upright a |
+| `` `a `` | `LeftSkewIdentifier` | `"left-skew"` | italic a |
+| `` `1a `` | `RightSkewIdentifier` | `"right-skew"` | right-skewed a |
+| `\a` | `GreekIdentifier` | `"greek"` | α (upright) |
+| `\1a` | `RightSkewGreekIdentifier` | `"greek-right"` | α (right-skewed) |
+
+The skew index number (`1` in `` `1a `` and `\1a`) is kept open for future
+extension. The grammar regex accepts any digit sequence: `` `2a ``, `\3b `,
+etc., though only `1` is used in practice for now.
+
+#### Grammar rule ordering
+
+The `Identifier` rule tries options in this order:
+1. `RightSkewGreekIdentifier` — `\1a` (must come before `GreekIdentifier` to
+   avoid `\` being consumed as a Greek prefix leaving `1a` unparsed)
+2. `GreekIdentifier` — `\a`
+3. `RightSkewIdentifier` — `` `1a `` (must come before `LeftSkewIdentifier`
+   to avoid `` ` `` being consumed leaving `1a` unparsed)
+4. `LeftSkewIdentifier` — `` `a ``
+5. `PlainIdentifier` — `a`
+
+#### Greek letter mapping
+
+The `GREEK` table in `render.ts` maps single Latin letters to their Greek
+Unicode equivalents. The mapping uses phonetic/conventional assignments:
+`a`→α, `b`→β, `g`→γ, `d`→δ, `l`→λ, `p`→π, `w`→ω, etc. Multi-letter
+names (e.g. `\int`, `\sqrt`) do not map to Greek — they are used as control
+expression names and rendered by `renderControl`.
+
+#### CSS classes
+
+Each prefix maps to a CSS class in `native-math.css`:
+- `.ident-plain` — `font-style: normal`
+- `.ident-left-skew` — `font-style: italic`
+- `.ident-right-skew` — `font-style: italic; transform: skewX(15deg)`
+- `.ident-greek` — `font-style: normal`
+- `.ident-greek-right` — `font-style: italic; transform: skewX(15deg)`
+
+`transform: skewX` requires `display: inline-block` to take effect on
+inline elements, which is also set on those classes.
+
+---
+
+### Bug: Integral body rendered below the sign (Issue 3)
+
+#### Symptom
+
+`\int{0, 1, x^2}` rendered `x²` stacked below the ∫ symbol instead of
+beside it to the right.
+
+#### Root cause
+
+The original `renderIntegral` produced this DOM structure:
+
+```html
+<span class="opstack">
+  <span class="top">1</span>
+  <span class="op large-operator">∫</span>
+  <span class="bottom">0</span>
+  <span>x²</span>   ← body placed as 4th child inside opstack
+</span>
+```
+
+The `.opstack` CSS rule sets **all direct children** to `display: block`:
+
+```css
+.native-math .opstack .top,
+.native-math .opstack .op,
+.native-math .opstack .bottom {
+  display: block;
+}
+```
+
+However, the body `<span>` is not `.top`, `.op`, or `.bottom` — it has no
+class. Despite this, being a direct child of a `display: inline-block`
+container, it still participates in the block formatting context and flows
+below the previous block children. The result: the body stacks below the
+integral sign rather than sitting beside it.
+
+The underlying mental model error was treating `.opstack` as a container
+for the whole integral expression. In reality, `.opstack` is only meant to
+hold the **stacked symbol with its bounds** — the three vertically arranged
+pieces (top bound, operator, bottom bound). The integrand body is a
+**sibling** of the opstack, not a child.
+
+#### Fix
+
+Introduced a new `.integral` wrapper using `display: inline-flex` with
+`align-items: center`. The `.opstack` (bounds + symbol) and a new
+`.integral-body` (the integrand) are flex siblings:
+
+```html
+<span class="integral">           ← flex row, items vertically centred
+  <span class="opstack">          ← stacked bounds + symbol
+    <span class="top">1</span>
+    <span class="op large-operator">∫</span>
+    <span class="bottom">0</span>
+  </span>
+  <span class="integral-body">    ← integrand, sits beside the sign
+    x²
+  </span>
+</span>
+```
+
+New CSS:
+
+```css
+.native-math .integral {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.native-math .integral-body {
+  margin-left: 0.15em;
+}
+```
+
+`align-items: center` vertically centres the body against the middle of
+the integral sign. `vertical-align: middle` keeps the whole integral
+inline with surrounding text.
+
+#### Lesson
+
+`.opstack` is a layout primitive for stacked operator notation (∫, Σ, Π,
+lim, etc.) — it only handles the vertical stack of: top label, operator
+glyph, bottom label. Any content that should appear **beside** an opstack
+must be a sibling in an outer flex container, not a child of the opstack.
+This pattern applies to all future operators that use `.opstack`.
+
+---
+
+### Design note: Skew visibility
+
+#### The problem
+
+The initial implementation used `font-style: italic` for left-skew and
+`font-style: italic` + `transform: skewX(15deg)` for right-skew. In
+practice this was nearly invisible:
+
+- `font-style: italic` renders the font's own italic glyphs, which in
+  Cambria Math look almost identical to the upright glyphs at normal
+  reading size
+- `skewX(15deg)` on top of italic added only a subtle extra tilt that
+  was easy to miss at a glance
+
+The purpose of skew is to **unambiguously distinguish symbols** — e.g.
+`T` (period) vs `` `1T `` (temperature). If the visual difference is not
+immediately obvious to the naked eye, the notation fails its purpose.
+
+#### The fix
+
+Removed `font-style: italic` from all identifier variants entirely.
+`skewX` transform is now the **sole visual differentiator**, applied to
+upright glyphs:
+
+| Class | Transform | Visual result |
+|-------|-----------|---------------|
+| `ident-plain` | none | upright |
+| `ident-left-skew` | `skewX(-20deg)` | clearly leans left |
+| `ident-right-skew` | `skewX(20deg)` | clearly leans right |
+| `ident-greek` | none | upright Greek glyph |
+| `ident-greek-right` | `skewX(20deg)` | right-leaning Greek glyph |
+
+Using `skewX` directly on upright glyphs gives full control over the
+angle. At ±20° the difference between plain, left-skew, and right-skew
+is immediately visible without needing to look closely.
+
+#### Lesson
+
+When a visual distinction carries semantic meaning (here: which physical
+quantity a symbol refers to), the distinction must be **obvious at a
+glance**. Subtle typographic differences like italic vs upright are not
+sufficient. Use a transform with a large enough angle that the three
+states are unambiguous even at small font sizes.

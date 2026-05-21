@@ -1,6 +1,6 @@
 # Demos
 
-## Phase 1 — Parser & Basic Renderer
+## Phase 1 — Math Syntax: Expression Parser & Renderer
 
 ---
 
@@ -53,69 +53,39 @@ before deploying.
 
 1. Run `npm run dev`
 2. Open `http://localhost:5173`
-3. The page loads with the input pre-filled with `-2*(3+5)*4e^x^2` and the
-   result already rendered (the test injection in `main.ts` auto-clicks Render
-   on load)
-4. To try your own expression: clear the input, type a BobaMath expression,
-   and click **Render**
+3. The page loads with the first test case `-2*(3+5)*4e^x^2` pre-filled
+   and rendered automatically
+4. To cycle through all Phase 1 test cases, open the browser console
+   (`F12`) and call:
+   ```js
+   __nextTest()
+   ```
+   Each call advances to the next test case and re-renders.
+5. To try your own expression: type into the input and click **Render**
 
 ---
 
 ## Expected Results
 
-### Default test case: `-2*(3+5)*4e^x^2`
+### Test case cycle (call `__nextTest()` in console to advance)
 
-The rendered output should show:
-
-```
-(-2)(3 + 5)(4)(e^(x^2))
-```
-
-Where:
-- `-2` is wrapped in parentheses because it is a unary expression inside a
-  multiplication
-- `3 + 5` is wrapped in parentheses because it is an additive expression
-  inside a multiplication
-- `e^(x^2)` shows `x^2` as a superscript of `e`, and `x^2` itself has `2`
-  as a superscript of `x` (nested superscripts)
-
-The browser console (`F12 → Console`) will print the full JSON AST:
-```json
-{
-  "type": "BinaryExpression",
-  "operator": "*",
-  "left": {
-    "type": "BinaryExpression",
-    "operator": "*",
-    "left": {
-      "type": "BinaryExpression",
-      "operator": "*",
-      "left": { "type": "UnaryExpression", "operator": "-", "operand": { "type": "NumberLiteral", "value": 2 } },
-      "right": { "type": "BinaryExpression", "operator": "+", "left": { "type": "NumberLiteral", "value": 3 }, "right": { "type": "NumberLiteral", "value": 5 } }
-    },
-    "right": { "type": "NumberLiteral", "value": 4 }
-  },
-  "right": {
-    "type": "BinaryExpression",
-    "operator": "^",
-    "left": { "type": "Identifier", "name": "e" },
-    "right": { "type": "BinaryExpression", "operator": "^", "left": { "type": "Identifier", "name": "x" }, "right": { "type": "NumberLiteral", "value": 2 } }
-  }
-}
-```
-
-### Integral: `\int{0, 1, x^2}`
-
-Renders as an integral symbol with `0` below and `1` above, and `x²` as the body.
-
-### Fraction: `a/b`
-
-Renders as a stacked fraction with `a` on top and `b` on bottom, separated by
-a horizontal line.
-
-### Square root: `\sqrt{x+1}`
-
-Renders with a radical sign and overline above `x+1`.
+| # | Input | Expected visual |
+|---|-------|-----------------|
+| 1 | `-2*(3+5)*4e^x^2` | `(-2)(3 + 5)(4)e`^`(x`^`2)` |
+| 2 | `a/b + c/d` | two stacked fractions joined by ` + ` |
+| 3 | `\int{0, 1, x^2}` | ∫ with 0 below, 1 above, body x² **beside** the sign |
+| 4 | `\sqrt{x+1}` | radical sign over x + 1 |
+| 5 | `` `1T / `1t `` | fraction: right-skewed T over right-skewed t |
+| 6 | `\a + \1b` | α + right-skewed β |
+| 7 | `\int{0, \p, \s*x^2 + 2x - 1}` | integral from 0 to π, body σx² + 2x − 1 |
+| 8 | `(a/b) / (c/d)` | nested stacked fraction |
+| 9 | `2x^3 + 3x^2 - x + 1` | polynomial with superscripts |
+| 10 | `\int{-1, 1, f(x)*g(x)}` | integral, body f(x)g(x) |
+| 11 | `x_i + x_j + x_k` | three subscripted variables |
+| 12 | `\a*x^2 + \b*x + \g` | αx² + βx + γ |
+| 13 | `a^b^c^d` | right-associative nested superscripts |
+| 14 | `--x + -y` | double negation + negation |
+| 15 | `2\p r^2` | 2πr² (implicit multiplication with Greek) |
 
 ---
 

@@ -412,7 +412,6 @@ prefix). `[a+b]` is not a name decorator — it is a 1-element row vector.
 - Equation editing (cursor, selection)
 - Matrix and piecewise notation (CSS is prepared but not wired)
 - Vector name decorator `[a]`
-- Skew identifier prefixes (`` ` ``, `` `1 ``, `\1`)
 - Binary encoding
 - Plugin formalisation
 
@@ -441,30 +440,30 @@ A phase is not complete until its demo works end-to-end.
 
 ---
 
-#### Phase 1 — Math Syntax: Expression Parser & Renderer *(current)*
+#### Phase 1 — Math Syntax: Expression Parser & Renderer ✅ *complete*
 
 **Goal:** Prove that math syntax notation can be parsed and rendered
 correctly in the browser with no external dependencies.
 
 **Concrete tasks:**
-- [ ] Implement the PEG engine: `PEGParser` class with literal, regex,
+- [x] Implement the PEG engine: `PEGParser` class with literal, regex,
       sequence, choice, repeat, and rule-reference match types
-- [ ] Implement whitespace skipping and structured error reporting
+- [x] Implement whitespace skipping and structured error reporting
       (line, column, caret, expected tokens)
-- [ ] Define the math syntax grammar covering: additive, multiplicative
+- [x] Define the math syntax grammar covering: additive, multiplicative
       (explicit and implicit), power (right-associative), unary prefix,
       postfix (call, control, subscript), primary (number, identifier,
       parenthesised expression)
-- [ ] Implement plain Latin identifier (`a`), left-skewed (`` `a ``),
+- [x] Implement plain Latin identifier (`a`), left-skewed (`` `a ``),
       right-skewed (`` `1a ``), Greek (`\a`), right-skewed Greek (`\1a`)
-- [ ] Implement the HTML renderer for all AST node types: number,
+- [x] Implement the HTML renderer for all AST node types: number,
       identifier (with skew/Greek rendering), binary expression (with
       automatic parenthesisation), unary, call, control (`\int`,
       `\sqrt`, generic), subscript
-- [ ] Wire up the basic UI: text input, Render button, result div,
+- [x] Wire up the basic UI: text input, Render button, result div,
       error message div
-- [ ] Verify correct operator precedence and right-associativity of `^`
-- [ ] Verify implicit multiplication does not steal unary signs from additive
+- [x] Verify correct operator precedence and right-associativity of `^`
+- [x] Verify implicit multiplication does not steal unary signs from additive
 
 **Completion criteria:**
 - All grammar rules parse without error

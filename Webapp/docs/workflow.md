@@ -49,8 +49,51 @@ All code must be committed before moving to testing.
 
 ### Step 2 — Testing
 
-Run all test cases defined for the phase. Record results.
-Fix any failures before proceeding to the demo.
+Run all test cases defined for the phase:
+```
+npm test
+```
+This runs **all** tests in `test/` via Vitest — both the new tests added
+in this phase and all regression tests from every previous phase.
+Results are printed in the terminal — each test suite and individual test
+case is listed with a pass/fail indicator, and any failure shows the exact
+file, line, actual value, and expected value.
+
+**All tests must pass — new and regression — before proceeding to the demo.**
+If any test fails, whether it is a new test for the current phase or a
+regression test from a previous phase:
+1. Diagnose and fix the failure
+2. Rerun `npm test`
+3. Repeat until every single test passes
+
+Do not proceed to the demo with any failing test, regardless of which
+phase it belongs to. A regression failure means a previous phase's
+functionality has been broken and must be restored before moving forward.
+
+During development, use `npm run test:watch` for continuous re-running
+on every file save.
+
+See `docs/testing.md` for a full explanation of how to read the output.
+
+**When writing test cases:**
+- Write as much coverage as possible — cover the happy path, edge cases,
+  boundary conditions, error cases, and any known tricky interactions
+- Every bug that is found and fixed must have a corresponding regression
+  test added so it can never silently reappear
+- Tests must be independent — no test should rely on the side effects
+  of another test
+
+Whenever a bug is found during testing or demo:
+1. Record the bug in `docs/testing.md` — symptom, root cause, fix, and
+   both the failing and passing test run outputs
+2. Record the bug in `docs/codebase_analysis.md` — explain the root cause
+   in depth so a new reader understands why it happened and how the fix
+   works. Include: what the wrong behaviour was, what code caused it,
+   what the correct mental model is, and what the fix changed
+3. Record the bug in `docs/history.md` — what changed and why
+
+Do not proceed to the demo until all bugs found in testing are fixed
+and recorded in all three files.
 
 ---
 

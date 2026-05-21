@@ -1,6 +1,6 @@
 # Documentation Guide
 
-This folder contains all documentation for the BobaMath Webapp project.
+This folder contains all documentation for the Bookkeeping Webapp project.
 Each file serves a distinct purpose and targets a different reading context.
 
 ---
@@ -12,7 +12,7 @@ The design and planning document. Read this first if you want to understand
 **what** the project is trying to achieve and **why** it is structured the way it is.
 
 Contents:
-- Target definition — what problem BobaMath solves and for whom
+- Target definition — what problem the Webapp solves and for whom
 - Feasibility analysis — what is technically realistic and what is not
 - Implementation proposal — the chosen approach and its rationale
 - Phase breakdown — the project divided into incremental delivery milestones

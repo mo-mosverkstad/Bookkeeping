@@ -131,6 +131,8 @@ Defined in `package.json`:
 | `npm run dev` | Start Vite dev server with hot reload |
 | `npm run build` | Type-check with `tsc` then bundle for production |
 | `npm run preview` | Serve the production build locally |
+| `npm test` | Run all unit tests once (Vitest) |
+| `npm run test:watch` | Run tests in watch mode, re-runs on file save |
 
 ---
 
