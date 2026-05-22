@@ -1,6 +1,11 @@
 import { renderCell } from "../plugins/registry.ts";
 import type { TableData } from "../data/types.ts";
 
+/**
+ * createTable — backward-compatible function that renders a TableData
+ * as an HTML table. Used by tests. Internally delegates to the same
+ * rendering logic as TableView but accepts the flat TableData interface.
+ */
 export function createTable(data: TableData): HTMLElement {
     const container = document.createElement("div");
     container.className = "table-container";

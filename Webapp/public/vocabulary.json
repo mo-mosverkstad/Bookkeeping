@@ -1,0 +1,9 @@
+{
+  "relations": [
+    { "name": "uses", "inverse": "is-used-by", "symmetric": false },
+    { "name": "proves", "inverse": "is-proved-by", "symmetric": false },
+    { "name": "generalizes", "inverse": "is-special-case-of", "symmetric": false },
+    { "name": "defines", "inverse": "is-defined-by", "symmetric": false },
+    { "name": "equivalent-to", "inverse": "equivalent-to", "symmetric": true }
+  ]
+}

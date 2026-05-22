@@ -734,3 +734,65 @@ which the parser could partially handle (unary `+` chains).
 
 **Fix:** Changed test input to `"@@@"` which has no valid Primary start
 and always fails immediately.
+
+
+---
+
+## Phase 4 — Association Graph & Filtered Table View
+
+---
+
+### Automated test files
+
+| File | What is covered |
+|------|-----------------|
+| `test/data/graph.test.ts` | Edge storage, filterByRelation, filterBySource, getAssociationsFor, inverse lookup, entity IDs, clear, empty cells, cross-file refs |
+| `test/ui/graph-filter.test.ts` | Dropdown population, initial table render, filter button, entity click |
+
+### Phase 4 test cases
+
+#### AssociationGraph tests
+
+| Test | Setup | Expected |
+|------|-------|----------|
+| Stores edges | 3 entities, 4 associations | `getAllEdges().length === 4` |
+| filterByRelation | "uses" → "defX" | Returns TheoremA, TheoremB |
+| filterBySource | "uses" from TheoremA | Returns defX, defY |
+| getAssociationsFor | entity "defX" | outgoing=0, incoming=2 |
+| getInverse forward | "uses" | Returns "is-used-by" |
+| getInverse reverse | "is-used-by" | Returns "uses" |
+| getInverse symmetric | "equivalent-to" | Returns "equivalent-to" |
+| getRelationTypes | graph with "uses" edges | Returns ["uses"] |
+| getAllEntityIds | 3 sources + 3 targets | Contains all 6 IDs |
+| clear | after clear() | `getAllEdges().length === 0` |
+| Empty cells | ["uses:X", ""] | Only 1 edge stored |
+| Cross-file refs | "uses:definitions:derivative" | Target = "definitions:derivative" |
+
+#### Graph Filter UI tests
+
+| Test | Action | Expected |
+|------|--------|----------|
+| Relation dropdown | Initial render | Has "uses" option |
+| Target dropdown | Initial render | Has entity IDs |
+| Tables rendered | Initial render | `<table>` exists |
+| Filter button | Select uses→defX, click | Only TheoremA row shown |
+| Entity click | Click first cell | Detail panel shows associations |
+
+---
+
+### Test run results
+
+**Phase 4 — 218 tests total (all passing)**
+
+```
+✓ test/engine/PEGParser.test.ts (18 tests)
+✓ test/plugins/math/grammar.test.ts (87 tests)
+✓ test/plugins/math/render.test.ts (75 tests)
+✓ test/data/csv.test.ts (8 tests)
+✓ test/data/graph.test.ts (11 tests)
+✓ test/ui/table.test.ts (14 tests)
+✓ test/ui/graph-filter.test.ts (5 tests)
+
+Test Files  7 passed (7)
+Tests       218 passed (218)
+```

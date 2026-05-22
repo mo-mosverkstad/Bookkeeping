@@ -522,9 +522,9 @@ in Phase 2. It builds on the Phase 1 foundation — read Phase 1 first.
 ### What is a Relational Expression?
 
 A relational expression compares two values: `a = b`, `x < y`, `n != 0`.
-Unlike additive or multiplicative operators, relational operators are
-**not chained** — `a = b = c` is not valid in this grammar. Each expression
-has at most one relational operator.
+Relational operators can be **chained** left-to-right — `f(x) = x^n -> f'(x) = n*x^(n-1)`
+parses as `((f(x) = x^n) -> f'(x)) = n*x^(n-1)`. This allows expressing
+implications between equations.
 
 Relational operators have the **lowest precedence** in the grammar. This
 means `a + 1 = b` parses as `(a + 1) = b`, not `a + (1 = b)`.
@@ -730,7 +730,7 @@ backslashes followed by a letter). Renders using `BLACKBOARD_TABLE`.
 
 ```
 Expression → Relational
-Relational → Additive (RelationalOp Additive)?
+Relational → Additive (RelationalOp Additive)*
 Additive → Multiplicative ((+|-) Multiplicative)*
 Multiplicative → Power ((MultiplicativeOp Power) | ImplicitPower)*
 ImplicitPower → Postfix (^ Unary)*
@@ -745,12 +745,12 @@ Primary → RolloutExpression | Ellipsis | AbsoluteValue |
 ### New rule: `Relational`
 
 ```
-Relational → Additive (RelationalOp Additive)?
+Relational → Additive (RelationalOp Additive)*
 ```
 
-The `?` means at most one relational operator. This is implemented as a
-choice between `[RelationalOp, Additive]` (produces a binary expression)
-and an empty sequence (passes through the left Additive unchanged).
+The `*` means zero or more relational operators can be chained. This allows
+expressions like `f(x) = x^n -> f'(x) = n*x^(n-1)` where `->` separates
+two equations. The build function folds left-to-right, same as `Additive`.
 
 `RelationalOp` is a choice of literals ordered longest-first:
 `!=`, `<=`, `>=`, `~=`, `:=`, `<<`, `>>`, `->`, `<`, `>`, `=`, `~`
@@ -1835,3 +1835,254 @@ the expression input + render button. Takes DOM element references as parameters
 4. **UI is presentation-only** — `src/ui/` imports from `plugins/` and `data/` but
    contains no parsing logic
 5. **main.ts is thin** — only wires components, no business logic
+
+
+---
+
+## Phase 4 — Association Graph & Filtered Table View
+
+---
+
+### Architecture
+
+Phase 4 adds a graph layer on top of the table system:
+
+```
+CSV files (with _associations column)
+    │
+    ▼
+┌──────────────────────────────────┐
+│         CSV Reader               │
+│  (structural — splits rows)      │
+└──────────────┬───────────────────┘
+               │
+    ┌──────────┴──────────┐
+    ▼                     ▼
+┌────────────┐    ┌───────────────────┐
+│ TableData  │    │ AssociationGraph   │
+│ (rows/cols)│    │ (edges: src→tgt)   │
+└─────┬──────┘    └────────┬──────────┘
+      │                    │
+      ▼                    ▼
+┌──────────────────────────────────────┐
+│          Graph Filter UI             │
+│  - Relation dropdown                 │
+│  - Target dropdown                   │
+│  - Filter button → filtered table    │
+│  - Entity click → association detail │
+└──────────────────────────────────────┘
+```
+
+---
+
+### `src/data/graph.ts` — AssociationGraph
+
+The core data structure for the graph layer. Stores typed, directed edges
+between entities.
+
+**Association storage format in CSV:**
+A dedicated column named `_associations` contains semicolon-separated entries:
+```
+relation-type:target-entity-id;relation-type:target-id
+```
+
+Example: `uses:derivative;uses:integral`
+
+**Entity IDs:** The first column of each table is the entity ID. Cross-file
+references use the target's first-column value directly (e.g., `derivative`
+refers to the row where column 0 = "derivative" in any loaded table).
+
+**Key methods:**
+
+| Method | Purpose |
+|--------|---------|
+| `setVocabulary(vocab)` | Load relation type definitions (name, inverse, symmetric) |
+| `addAssociations(ids, column)` | Parse `_associations` column and store edges |
+| `filterByRelation(rel, target)` | Find all sources that have `rel` → `target` |
+| `filterBySource(rel, source)` | Find all targets that `source` → via `rel` |
+| `getAssociationsFor(entityId)` | Get all outgoing and incoming edges for an entity |
+| `getInverse(relation)` | Look up the inverse relation name from vocabulary |
+| `getRelationTypes()` | All unique relation types in the graph |
+| `getAllEntityIds()` | All unique entity IDs (sources + targets) |
+
+**Vocabulary format** (`vocabulary.json`):
+```json
+{
+  "relations": [
+    { "name": "uses", "inverse": "is-used-by", "symmetric": false },
+    { "name": "equivalent-to", "inverse": "equivalent-to", "symmetric": true }
+  ]
+}
+```
+
+---
+
+### `src/ui/graph-filter.ts` — Graph Filter UI
+
+Renders the filter controls and handles user interaction:
+
+**Components:**
+- **Relation dropdown** — populated from `graph.getRelationTypes()`
+- **Target dropdown** — populated from `graph.getAllEntityIds()`
+- **Filter button** — calls `graph.filterByRelation(rel, target)`, then
+  renders only matching rows from all loaded tables
+- **Show All button** — resets to showing all tables unfiltered
+- **Association detail panel** — shows outgoing and incoming associations
+  for a clicked entity, with clickable links to navigate to related entities
+
+**Entity click interaction:**
+- First column cells are clickable (underlined, cursor pointer)
+- Clicking shows the association detail panel with:
+  - Outgoing: `relation → target` (with clickable target links)
+  - Incoming: `inverse-relation ← source` (with clickable source links)
+- Clicking a link in the detail panel navigates to that entity's associations
+
+**Filtering logic:**
+1. User selects relation type and target entity
+2. `graph.filterByRelation(relation, target)` returns matching source IDs
+3. Each loaded table is filtered to only rows where column 0 is in the match set
+4. Filtered tables are re-rendered with the table component
+
+---
+
+### `src/ui/file-loader.ts` — Updated for Multiple Files
+
+Now supports loading multiple CSV files simultaneously:
+- File input has `multiple` attribute
+- Each loaded file is added to the `tables` array
+- The `_associations` column (if present) is parsed into the shared graph
+- After each file load, the entire UI is rebuilt with all tables and the graph
+
+**Association extraction:**
+```ts
+const assocColIdx = data.headers.indexOf("_associations");
+if (assocColIdx !== -1) {
+    const entityIds = data.rows.map(row => row[0]);
+    const assocCol = data.rows.map(row => row[assocColIdx]);
+    graph.addAssociations(entityIds, assocCol);
+}
+```
+
+---
+
+### Sample Data Files
+
+**`public/theorems.csv`** — 6 theorems with associations:
+- Fundamental Theorem of Calculus → uses: derivative, integral
+- Integration by Parts → uses: integral, product-rule
+- Chain Rule → uses: derivative, composition
+- Pythagorean Theorem → uses: right-triangle
+- Binomial Theorem → uses: binomial-coefficient, factorial
+- Euler's Formula → uses: exponential, complex-numbers
+
+**`public/definitions.csv`** — 9 definitions with inverse associations:
+- derivative → is-used-by: FTC, Chain Rule
+- integral → is-used-by: FTC, Integration by Parts
+- (etc.)
+
+**`public/vocabulary.json`** — 5 relation types:
+- uses / is-used-by
+- proves / is-proved-by
+- generalizes / is-special-case-of
+- defines / is-defined-by
+- equivalent-to (symmetric)
+
+---
+
+### CSV Quoting Fix
+
+Fields containing commas must be quoted in CSV. Math expressions like
+`\int{a, b, f(x)}` and `\binom{n, k}` contain commas and must be wrapped
+in double quotes. All sample CSV files were corrected to properly quote
+such fields.
+
+
+---
+
+## MVC Architectural Refactoring
+
+### Motivation
+
+The previous architecture mixed data storage with HTML rendering. The
+`createTable` function both held the row data AND rendered it to DOM.
+There was no "business model" — the data existed only as raw string arrays
+or as HTML elements. This makes it impossible to manipulate data without
+re-parsing, and couples all logic to the browser DOM.
+
+### Layered MVC Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  VIEW (presentation)                                    │
+│  src/view/table-view.ts      — renders Table → HTML     │
+│  src/view/graph-filter-view.ts — filter UI + detail     │
+├─────────────────────────────────────────────────────────┤
+│  CONTROLLER (orchestration)                             │
+│  src/controller/index.ts     — handles user actions,    │
+│                                updates model, tells     │
+│                                view to re-render        │
+├─────────────────────────────────────────────────────────┤
+│  MODEL (business data)                                  │
+│  src/model/index.ts          — KnowledgeBase, Table,    │
+│                                Row, Cell, Column,       │
+│                                AssociationGraph         │
+├─────────────────────────────────────────────────────────┤
+│  INTEGRATION (plugins)                                  │
+│  src/plugins/                — syntax parsing/rendering │
+├─────────────────────────────────────────────────────────┤
+│  DATA (persistence)                                     │
+│  src/data/csv.ts             — file format parsing      │
+│  src/data/graph.ts           — re-exports from model    │
+├─────────────────────────────────────────────────────────┤
+│  ENGINE (infrastructure)                                │
+│  src/engine/                 — PEG parser engine        │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Model Layer — `src/model/index.ts`
+
+Pure business objects with no DOM dependency:
+
+| Class | Responsibility |
+|-------|---------------|
+| `Cell` | Holds a value string and its type_id |
+| `Column` | Holds column name and type_id |
+| `Row` | Holds an array of Cells, provides `entityId` and `getCellValue(i)` |
+| `Table` | Holds name, columns, rows. Provides `filterByEntityIds`, `sortedRows`, `getColumnIndex` |
+| `Association` | A single directed edge: source → relation → target |
+| `RelationType` | Defines a relation: name, inverse, symmetric flag |
+| `AssociationGraph` | Stores all edges. Provides filter, inverse lookup, entity inspection |
+| `KnowledgeBase` | Top-level container: holds all Tables + one shared Graph. Auto-extracts associations on `addTable` |
+
+### Controller Layer — `src/controller/index.ts`
+
+The `AppController` class:
+- Holds a `KnowledgeBase` (model)
+- References `TableView` and `GraphFilterView` (views)
+- Methods: `loadCSV(name, text)`, `filterByRelation(rel, target)`, `showAll()`, `getAssociationsFor(id)`
+- On `loadCSV`: parses CSV → creates Table model → adds to KnowledgeBase → refreshes views
+
+### View Layer — `src/view/`
+
+| Class | Responsibility |
+|-------|---------------|
+| `TableView` | Renders `Table[]` as HTML tables. Handles sorting (view-level state). Fires entity click events. |
+| `GraphFilterView` | Renders filter dropdowns and detail panel. Calls controller on user actions. |
+
+Views read from the model (via controller) and write to the DOM. They never
+modify the model directly.
+
+### OO Design Principles Applied
+
+1. **Single Responsibility** — each class has one job (Cell stores a value, Table stores rows, View renders)
+2. **Encapsulation** — model objects expose methods, not raw data manipulation
+3. **Dependency Inversion** — controller depends on view interfaces (type imports), not concrete DOM
+4. **Open/Closed** — new plugins can be added without modifying existing model/view code
+5. **Separation of Concerns** — model has no DOM imports, view has no file I/O, controller has no rendering logic
+
+### Backward Compatibility
+
+- `src/ui/table.ts` — kept with `createTable(TableData)` function for existing tests
+- `src/data/graph.ts` — re-exports `AssociationGraph` from model for existing tests
+- `AssociationGraph.addAssociations()` — alias for `addFromColumn()` for test compat
+- `AssociationGraph.setVocabulary()` — accepts both `RelationType[]` and `{ relations: [...] }`

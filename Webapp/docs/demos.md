@@ -349,3 +349,98 @@ npm run dev
 
 Open `http://localhost:5173`. The expression renderer and CSV table loader
 both work as before. The restructuring is internal — no user-visible changes.
+
+
+---
+
+## Phase 4 — Association Graph & Filtered Table View
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Load multiple CSV files
+
+1. Click the file picker (now labeled "Load CSV file(s)")
+2. Navigate to `Webapp/public/`
+3. Hold Ctrl and select both `theorems.csv` and `definitions.csv`
+4. Click Open
+
+Both tables appear below the filter controls.
+
+### 2. Explore the graph filter
+
+After loading, the filter UI appears with:
+- **Relation** dropdown — shows "uses" and "is-used-by"
+- **Target** dropdown — shows all entity IDs from both files
+
+### 3. Filter by relation
+
+1. Select relation: `uses`
+2. Select target: `integral`
+3. Click **Filter**
+4. Only theorems that use "integral" appear:
+   - Fundamental Theorem of Calculus
+   - Integration by Parts
+
+### 4. Reset filter
+
+Click **Show All** — all tables reappear unfiltered.
+
+### 5. Inspect entity associations
+
+1. Click any entity name (underlined, first column) — e.g., "Chain Rule"
+2. The association detail panel appears showing:
+   - **Outgoing:** uses → derivative, uses → composition
+3. Click "derivative" link in the panel
+4. Panel updates to show derivative's associations:
+   - **Incoming:** is-used-by ← Fundamental Theorem of Calculus, is-used-by ← Chain Rule
+
+### 6. Cross-file navigation
+
+The definitions table has inverse associations. Clicking "integral" in the
+definitions table shows:
+- **Incoming:** is-used-by ← Fundamental Theorem of Calculus, is-used-by ← Integration by Parts
+
+These point to entities in the theorems table — the graph connects both files.
+
+---
+
+## Association Format Reference
+
+### In CSV files
+
+Add a column named `_associations` with semicolon-separated entries:
+```
+relation-type:target-entity-id;relation-type:target-id
+```
+
+Example row:
+```csv
+Fundamental Theorem of Calculus,"...",Calculus,uses:derivative;uses:integral
+```
+
+### Vocabulary file (optional)
+
+`vocabulary.json` defines relation types and their inverses:
+```json
+{
+  "relations": [
+    { "name": "uses", "inverse": "is-used-by", "symmetric": false }
+  ]
+}
+```
+
+Without a vocabulary file, the graph still works — inverse names just won't
+be resolved in the detail panel.

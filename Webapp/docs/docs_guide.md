@@ -93,17 +93,20 @@ Contents:
 
 ---
 
-## Source Structure (after restructuring)
+## Source Structure (after MVC refactoring)
 
 ```
 src/
 ├── engine/          # General-purpose PEG engine
+├── model/           # Business model (Cell, Row, Table, Graph, KnowledgeBase)
+├── controller/      # Orchestration (AppController)
+├── view/            # Presentation (TableView, GraphFilterView)
 ├── plugins/         # Syntax plugins (math, text, ...)
 │   ├── math/        # Math syntax (self-contained)
 │   └── text/        # Plain text (fallback)
-├── data/            # Data formats (CSV, future: binary)
-├── ui/              # UI components
-└── main.ts          # App entry point
+├── data/            # Data persistence (CSV parser, re-exports)
+├── ui/              # Legacy UI functions (backward compat for tests)
+└── main.ts          # App entry point (MVC wiring)
 
 test/                # Mirrors src structure
 ├── engine/

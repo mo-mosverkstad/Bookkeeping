@@ -1,0 +1,8 @@
+Name,Statement,Domain,_associations
+text,math,text,text
+Fundamental Theorem of Calculus,"\int{a, b, f'(x)} = f(b) - f(a)",Calculus,uses:derivative;uses:integral
+Integration by Parts,"\int{a, b, u*v'} = u*v - \int{a, b, u'*v}",Calculus,uses:integral;uses:product-rule
+Chain Rule,"f(g(x))' = f'(g(x))*g'(x)",Calculus,uses:derivative;uses:composition
+Pythagorean Theorem,a^2 + b^2 = c^2,Geometry,uses:right-triangle
+Binomial Theorem,"+{k=0, n, \binom{n, k}*a^(n-k)*b^k}",Algebra,uses:binomial-coefficient;uses:factorial
+Euler's Formula,"e^(\\p*\\i*x) = \cos(x) + \\i*\sin(x)",Analysis,uses:exponential;uses:complex-numbers

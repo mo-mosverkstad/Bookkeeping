@@ -422,3 +422,100 @@ directly, and `main.ts` was a monolith.
 2. **Plugins own their types** — `MathNode` lives in `src/plugins/math/types.ts`
 3. **CSV is a PEG grammar** — demonstrates the engine is truly general-purpose
 4. **UI components take DOM refs as parameters** — no global DOM access in components
+
+
+---
+
+## Phase 4 — Association Graph & Filtered Table View
+
+---
+
+### Implementation
+
+**Added — Data layer**
+- `src/data/graph.ts` — `AssociationGraph` class: stores directed typed edges,
+  filters by relation/target, inverse lookup via vocabulary, entity inspection
+
+**Added — UI**
+- `src/ui/graph-filter.ts` — filter UI: relation/target dropdowns, filter button,
+  reset button, association detail panel with clickable entity links
+
+**Added — Sample data**
+- `public/theorems.csv` — 6 theorems with `_associations` column
+- `public/definitions.csv` — 9 definitions with inverse associations
+- `public/vocabulary.json` — 5 relation types with inverses
+
+**Added — Tests**
+- `test/data/graph.test.ts` — 11 tests for AssociationGraph
+- `test/ui/graph-filter.test.ts` — 5 tests for filter UI
+
+**Changed**
+- `src/ui/file-loader.ts` — supports multiple files, builds graph from
+  `_associations` column, rebuilds UI after each file load
+- `index.html` — `multiple` attribute on file input
+- `style.css` — graph filter and association detail styles
+- `public/sample.csv`, `public/theorems.csv`, `public/definitions.csv` —
+  fixed CSV quoting for fields containing commas
+
+**Test count:** 218 total (up from 202 in Phase 3)
+
+---
+
+### Bug fixes
+
+**Relational chaining:** `f(x) = x^n -> f'(x) = n*x^(n-1)` failed to parse
+because the `Relational` rule only allowed one operator. Fixed by changing
+from `(RelationalOp Additive)?` to `(RelationalOp Additive)*` with left-fold.
+This allows chaining relational operators (e.g., equation `->` equation).
+
+---
+
+### Design decisions
+
+1. **`_associations` column convention** — associations are stored inline in
+   the CSV as a dedicated column. No sidecar file needed for simple cases.
+   The column name `_associations` is reserved (prefixed with `_` to indicate
+   it's metadata, not content).
+
+2. **Entity ID = first column** — simple, no extra configuration needed.
+   Cross-file references use the target's first-column value directly.
+
+3. **Vocabulary is optional** — the graph works without a vocabulary file.
+   Relation types are discovered from the data. The vocabulary adds inverse
+   name resolution for the detail panel.
+
+4. **Shared graph across files** — all loaded files contribute to one graph.
+   This enables cross-file navigation (theorem → definition in another file).
+
+5. **UI rebuilds on each file load** — simple and correct. For small knowledge
+   bases (hundreds of entities), re-rendering is instantaneous.
+
+
+---
+
+## MVC Architectural Refactoring
+
+### Changes
+
+**Added**
+- `src/model/index.ts` — business model classes: `Cell`, `Column`, `Row`,
+  `Table`, `Association`, `RelationType`, `AssociationGraph`, `KnowledgeBase`
+- `src/controller/index.ts` — `AppController` class: orchestrates model and views
+- `src/view/table-view.ts` — `TableView` class: renders Table models as HTML
+- `src/view/graph-filter-view.ts` — `GraphFilterView` class: filter UI + detail panel
+
+**Changed**
+- `src/main.ts` — rewritten to use MVC wiring (controller + views)
+- `src/data/graph.ts` — now re-exports from model (backward compat)
+- `src/model/index.ts` `AssociationGraph` — accepts both old and new interfaces
+
+**Kept (backward compat for tests)**
+- `src/ui/table.ts` — `createTable(TableData)` function unchanged
+- `src/ui/graph-filter.ts` — `initGraphFilter()` function unchanged
+
+### Design decisions
+
+1. **Model is DOM-free** — can be used in Node.js, tests, or any non-browser context
+2. **Controller mediates** — views never access model directly for mutations
+3. **Views are stateless** (except sort state) — they re-render from model on each call
+4. **Backward compat preserved** — all 218 existing tests pass without modification

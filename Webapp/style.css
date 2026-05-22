@@ -53,3 +53,41 @@ body {
   color: #4a90d9;
 }
 
+
+/* Graph filter */
+.graph-filter {
+  margin-bottom: 1em;
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.graph-filter select {
+  padding: 4px 8px;
+  margin-left: 4px;
+}
+.graph-filter button {
+  padding: 4px 12px;
+}
+.association-detail {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5em 1em;
+  margin-bottom: 1em;
+  min-height: 1em;
+}
+.association-detail:empty {
+  display: none;
+}
+.association-detail h4 {
+  margin: 0.3em 0;
+}
+.association-detail ul {
+  margin: 0.3em 0;
+  padding-left: 1.5em;
+}
+.entity-link {
+  color: #2563eb;
+  cursor: pointer;
+}

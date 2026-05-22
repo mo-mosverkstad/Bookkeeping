@@ -8,15 +8,15 @@ const grammar: Grammar = {
     Relational: {
         peg: { type: "sequence", parts: [
             { type: "rule", name: "Additive" },
-            { type: "choice", options: [
-                { type: "sequence", parts: [{ type: "rule", name: "RelationalOp" }, { type: "rule", name: "Additive" }] },
-                { type: "sequence", parts: [] },
-            ] },
+            { type: "repeat", expr: { type: "sequence", parts: [
+                { type: "rule", name: "RelationalOp" },
+                { type: "rule", name: "Additive" },
+            ] } },
         ] },
-        build([left, rest]: [MathNode, any]): MathNode {
-            if (Array.isArray(rest) && rest.length === 0) return left;
-            const [operator, right] = rest;
-            return { type: "BinaryExpression", operator, left, right };
+        build([left, rest]: [MathNode, [string, MathNode][]]): MathNode {
+            let node = left;
+            for (const [operator, right] of rest) node = { type: "BinaryExpression", operator, left: node, right };
+            return node;
         },
     },
 

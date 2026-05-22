@@ -1,5 +1,9 @@
-import { initExpressionInput } from "./ui/expression-input.ts";
-import { initFileLoader } from "./ui/file-loader.ts";
+import { AppController } from "./controller/index.ts";
+import { TableView } from "./view/table-view.ts";
+import { GraphFilterView } from "./view/graph-filter-view.ts";
+import { mathPlugin } from "./plugins/math/index.ts";
+import type { MathNode } from "./plugins/math/types.ts";
+import { renderMath } from "./plugins/math/render.ts";
 
 window.addEventListener("load", () => {
     const input = document.getElementById("input") as HTMLInputElement;
@@ -9,10 +13,63 @@ window.addEventListener("load", () => {
     const fileInput = document.getElementById("file-input") as HTMLInputElement;
     const tableContainer = document.getElementById("table-container")!;
 
-    initExpressionInput(input, button, result, errorEl);
-    initFileLoader(fileInput, tableContainer, errorEl);
+    // ── MVC wiring ───────────────────────────────────────────────────────────
+    const controller = new AppController();
 
-    // Demo test cases
+    // View: table area (below filter)
+    const tableArea = document.createElement("div");
+    tableArea.id = "table-area";
+    tableContainer.appendChild(tableArea);
+
+    const tableView = new TableView(tableArea);
+    const graphFilterView = new GraphFilterView(tableContainer, controller);
+
+    // Move table area after filter (filter was appended first)
+    tableContainer.appendChild(tableArea);
+
+    controller.setTableView(tableView);
+    controller.setGraphFilterView(graphFilterView);
+
+    // Entity click → show associations
+    tableView.setEntityClickHandler((entityId) => graphFilterView.showEntityAssociations(entityId));
+
+    // ── File loading ─────────────────────────────────────────────────────────
+    function loadFile(file: File) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                controller.loadCSV(file.name, reader.result as string);
+                errorEl.textContent = "";
+            } catch (e) { errorEl.textContent = (e as Error).message; }
+        };
+        reader.readAsText(file);
+    }
+
+    fileInput.addEventListener("change", () => {
+        const files = fileInput.files;
+        if (files) for (let i = 0; i < files.length; i++) loadFile(files[i]);
+    });
+
+    tableContainer.addEventListener("dragover", (e) => { e.preventDefault(); tableContainer.classList.add("drag-over"); });
+    tableContainer.addEventListener("dragleave", () => { tableContainer.classList.remove("drag-over"); });
+    tableContainer.addEventListener("drop", (e) => {
+        e.preventDefault(); tableContainer.classList.remove("drag-over");
+        const files = e.dataTransfer?.files;
+        if (files) for (let i = 0; i < files.length; i++) loadFile(files[i]);
+    });
+
+    // ── Expression renderer ──────────────────────────────────────────────────
+    button.addEventListener("click", () => {
+        try {
+            const ast = mathPlugin.parse(input.value) as MathNode;
+            console.log(JSON.stringify(ast, null, 2));
+            result.innerHTML = "";
+            result.appendChild(renderMath(ast));
+            errorEl.textContent = "";
+        } catch (e) { errorEl.textContent = (e as Error).message; result.innerHTML = ""; }
+    });
+
+    // ── Demo test cases ──────────────────────────────────────────────────────
     const testCases = [
         "-2*(3+5)*4e^x^2", "a/b + c/d", "\\int{0, 1, x^2}", "\\sqrt{x+1}",
         "`1T / `1t", "\\a + \\1b", "[a]", "[[a, b], [c, d]]", "(a, b, c)",

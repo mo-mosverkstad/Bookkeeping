@@ -1,11 +1,10 @@
 Name,Definition,Formula,Domain
 text,text,math,text
 Pythagorean Theorem,In a right triangle the square of the hypotenuse equals the sum of squares of the other two sides,a^2 + b^2 = c^2,Geometry
-Quadratic Formula,Solutions to a quadratic equation,x = (-b + \sqrt{b^2 - 4a*c}) / (2a),Algebra
-Euler's Identity,Connects five fundamental constants,e^(\p*i) + 1 = 0,Analysis
-Derivative Power Rule,Derivative of x to the n,f(x) = x^n -> f'(x) = n*x^(n-1),Calculus
-Integration by Parts,Product rule for integrals,\int{a, b, u*v'} = u*v - \int{a, b, u'*v},Calculus
-Area of Circle,Area enclosed by a circle of radius r,A = \p*r^2,Geometry
+Quadratic Formula,Solutions to a quadratic equation,"x = (-b + \sqrt{b^2 - 4a*c}) / (2a)",Algebra
+Euler's Identity,Connects five fundamental constants,"e^(\\p*\\i) + 1 = 0",Analysis
+Derivative Power Rule,Derivative of x to the n,"f(x) = x^n -> f'(x) = n*x^(n-1)",Calculus
+Integration by Parts,Product rule for integrals,"\int{a, b, u*v'} = u*v - \int{a, b, u'*v}",Calculus
+Area of Circle,Area enclosed by a circle of radius r,A = \\p*r^2,Geometry
 Binomial Theorem,Expansion of (a+b)^n,"+{k=0, n, \binom{n, k}*a^(n-k)*b^k}",Algebra
 Aleph Null,Cardinality of natural numbers,\ha_0 = |\\N|,Set Theory
-
