@@ -93,6 +93,27 @@ Contents:
 
 ---
 
+## Source Structure (after restructuring)
+
+```
+src/
+├── engine/          # General-purpose PEG engine
+├── plugins/         # Syntax plugins (math, text, ...)
+│   ├── math/        # Math syntax (self-contained)
+│   └── text/        # Plain text (fallback)
+├── data/            # Data formats (CSV, future: binary)
+├── ui/              # UI components
+└── main.ts          # App entry point
+
+test/                # Mirrors src structure
+├── engine/
+├── plugins/math/
+├── data/
+└── ui/
+```
+
+---
+
 ### `theory.md`
 The theoretical foundation document. Explains the computer science theory
 behind the parser and grammar system from first principles, written for

@@ -1,14 +1,7 @@
 import type {
-    Grammar,
-    PEGExpression,
-    PEGParserOptions,
-    MatchResult,
-    ParseErrorInfo,
-    LiteralExpression,
-    RegexExpression,
-    SequenceExpression,
-    ChoiceExpression,
-    RepeatExpression,
+    Grammar, PEGExpression, PEGParserOptions, MatchResult, ParseErrorInfo,
+    LiteralExpression, RegexExpression, SequenceExpression,
+    ChoiceExpression, RepeatExpression,
 } from "./types.ts";
 
 export class PEGParser {
@@ -16,12 +9,7 @@ export class PEGParser {
     private skipPattern?: RegExp;
     private inputString: string = "";
     private lineStarts: number[] = [];
-
-    private bestError: ParseErrorInfo = {
-        position: 0,
-        expected: new Set<string>(),
-        found: null,
-    };
+    private bestError: ParseErrorInfo = { position: 0, expected: new Set(), found: null };
 
     constructor(grammar: Grammar, options: PEGParserOptions = {}) {
         this.grammar = grammar;
@@ -31,43 +19,28 @@ export class PEGParser {
     parse(startRule: string, inputString: string): unknown {
         this.inputString = inputString;
         this.lineStarts = this.computeLineStarts(inputString);
-        this.bestError = {
-            position: 0,
-            expected: new Set<string>(),
-            found: null,
-        };
+        this.bestError = { position: 0, expected: new Set(), found: null };
 
         const result = this.matchRule(startRule, 0);
-
-        if (!result.success) {
-            throw new Error(this.formatError());
-        }
+        if (!result.success) throw new Error(this.formatError());
 
         const finalPosition = this.skip(result.position);
         if (finalPosition < inputString.length) {
             this.recordFailure(result.position, "EOF");
             throw new Error(this.formatError());
         }
-
         return result.node;
     }
 
-    private computeLineStarts(inputString: string): number[] {
-        const starts: number[] = [0];
-        for (let i = 0; i < inputString.length; i++) {
-            if (inputString[i] === "\n") starts.push(i + 1);
-        }
+    private computeLineStarts(s: string): number[] {
+        const starts = [0];
+        for (let i = 0; i < s.length; i++) if (s[i] === "\n") starts.push(i + 1);
         return starts;
     }
 
     private getLineColumn(position: number): { line: number; column: number } {
         let line = 0;
-        while (
-            line + 1 < this.lineStarts.length &&
-            this.lineStarts[line + 1] <= position
-        ) {
-            line++;
-        }
+        while (line + 1 < this.lineStarts.length && this.lineStarts[line + 1] <= position) line++;
         return { line: line + 1, column: position - this.lineStarts[line] + 1 };
     }
 
@@ -77,9 +50,7 @@ export class PEGParser {
 
     private recordFailure(position: number, expected: string): void {
         if (position > this.bestError.position) {
-            this.bestError.position = position;
-            this.bestError.expected = new Set([expected]);
-            this.bestError.found = this.inputString[position] || "EOF";
+            this.bestError = { position, expected: new Set([expected]), found: this.inputString[position] || "EOF" };
         } else if (position === this.bestError.position) {
             this.bestError.expected.add(expected);
         }
@@ -105,10 +76,8 @@ export class PEGParser {
     private matchRule(ruleName: string, position: number): MatchResult {
         const rule = this.grammar[ruleName];
         if (!rule) throw new Error(`Unknown rule: ${ruleName}`);
-
         const result = this.match(rule.peg, position);
         if (!result.success) return result;
-
         const node = rule.build ? rule.build(result.node) : result.node;
         return { success: true, position: result.position, node };
     }
@@ -121,15 +90,14 @@ export class PEGParser {
             case "choice":   return this.matchChoice(expr, position);
             case "repeat":   return this.matchRepeat(expr, position);
             case "rule":     return this.matchRule(expr.name, position);
-            default:         throw new Error(`Unknown PEG node`);
+            default:         throw new Error("Unknown PEG node");
         }
     }
 
     private matchLiteral(expr: LiteralExpression, position: number): MatchResult<string> {
         position = this.skip(position);
-        if (this.inputString.startsWith(expr.value, position)) {
+        if (this.inputString.startsWith(expr.value, position))
             return { success: true, position: position + expr.value.length, node: expr.value };
-        }
         this.recordFailure(position, `"${expr.value}"`);
         return { success: false, position };
     }

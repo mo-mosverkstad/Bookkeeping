@@ -211,3 +211,141 @@ The study.md specifies semicolons as separators: `\piecewise{x, x>=0; -x, x<0}`.
 The implementation uses commas throughout: `\piecewise{x, x>=0, -x, x<0}`.
 The renderer interprets the flat argument list as pairs of (expression, condition).
 This avoids grammar complexity while producing the same visual output.
+
+
+---
+
+## Phase 3 — Plugin System & CSV Table Display
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm install    # first time only
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Expression renderer (unchanged from Phase 1-2)
+
+The top section still works as before. Type a math expression, click Render.
+Call `__nextTest()` in the console to cycle through all test cases.
+
+### 2. Load the sample CSV
+
+**Option A — File picker:**
+1. Click the "Load CSV file" file picker
+2. Navigate to `Webapp/public/sample.csv`
+3. Select and open
+
+**Option B — Drag and drop:**
+1. Open a file explorer window
+2. Drag `public/sample.csv` onto the "Drop a .csv file here" zone
+
+### 3. Verify the table
+
+After loading, a table appears with 4 columns:
+- **Name** (text) — plain text, no formatting
+- **Definition** (text) — plain text descriptions
+- **Formula** (math) — rendered with fractions, superscripts, Greek, etc.
+- **Domain** (text) — plain text category
+
+### 4. Verify math rendering in cells
+
+| Row | Formula cell should show |
+|-----|-------------------------|
+| Pythagorean Theorem | a² + b² = c² |
+| Quadratic Formula | fraction with √ in numerator |
+| Euler's Identity | e^(π·i) + 1 = 0 |
+| Derivative Power Rule | f(x) = xⁿ → f′(x) = n·x^(n-1) |
+| Integration by Parts | ∫ with bounds and body |
+| Area of Circle | A = π·r² |
+| Binomial Theorem | Σ with binomial coefficient |
+| Aleph Null | ℵ₀ = |ℕ| |
+
+### 5. Test column sorting
+
+1. Click the "Name" column header → rows sort A-Z (▲ indicator)
+2. Click "Name" again → rows sort Z-A (▼ indicator)
+3. Click "Domain" → sorts by domain alphabetically
+
+### 6. Test error handling
+
+Create a test CSV file with an invalid math cell:
+```csv
+Name,Expr
+text,math
+Good,x^2
+Bad,@@@invalid
+```
+Load it. The "Good" row renders `x²`. The "Bad" row shows a red
+"Parse error:" message with the caret pointing to the problem character.
+The table does not crash.
+
+### 7. Test unknown plugin type fallback
+
+Create a CSV with an unknown type:
+```csv
+Name,Data
+text,unknown_type
+Test,some raw data
+```
+Load it. The "Data" column falls back to plain text rendering — shows
+"some raw data" as-is without error.
+
+---
+
+## CSV File Format
+
+```
+Row 0: Column display names (comma-separated)
+Row 1: Column types — plugin type_id per column ("text", "math", ...)
+Row 2+: Data rows
+```
+
+The types row tells the system which plugin to use for each column.
+Currently supported types:
+- `text` — plain text, no formatting
+- `math` — BobaMath expression, fully rendered
+
+Any unknown type falls back to `text` gracefully.
+
+
+---
+
+## Codebase Restructuring
+
+### How to run tests after restructuring
+
+```bash
+cd Webapp
+npm test
+```
+
+Test files now mirror the src structure:
+
+| Test file | What it tests |
+|-----------|--------------|
+| `test/engine/PEGParser.test.ts` | PEG engine primitives |
+| `test/plugins/math/grammar.test.ts` | Math grammar rules |
+| `test/plugins/math/render.test.ts` | Math renderer |
+| `test/data/csv.test.ts` | CSV parser |
+| `test/ui/table.test.ts` | Table component + plugin registry |
+
+### How to run the demo after restructuring
+
+Unchanged — same as Phase 3:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173`. The expression renderer and CSV table loader
+both work as before. The restructuring is internal — no user-visible changes.

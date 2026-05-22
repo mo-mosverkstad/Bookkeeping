@@ -616,3 +616,121 @@ Test Files  3 passed (3)
 Per `docs/exception.md`, tests are written by the assistant and executed
 by the user on the target environment. Results will be recorded here after
 the user runs `npm test`.
+
+
+---
+
+## Phase 3 — Plugin System & CSV Table Display
+
+---
+
+### Automated test files
+
+| File | What is covered |
+|------|-----------------|
+| `test/csv/reader.test.ts` | CSV parsing: basic parsing, quoted fields, escaped quotes, empty fields, CRLF, edge cases |
+| `test/plugin/registry.test.ts` | Plugin dispatch: math plugin, text plugin, fallback for unknown types, error handling |
+| `test/table/table.test.ts` | Table rendering: structure, cell rendering, math/text dispatch, error cells, sorting |
+
+### How to run
+
+```bash
+cd Webapp
+npm test
+```
+
+Expected output:
+```
+✓ test/parser/PEGParser.test.ts
+✓ test/parser/grammar.test.ts
+✓ test/render/render.test.ts
+✓ test/csv/reader.test.ts
+✓ test/plugin/registry.test.ts
+✓ test/table/table.test.ts
+
+Test Files  6 passed (6)
+```
+
+---
+
+### Phase 3 test cases
+
+#### CSV Reader tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Basic CSV | `Name,Value\ntext,math\nFoo,x^2\n` | headers=["Name","Value"], types=["text","math"], 1 data row |
+| Quoted field with comma | `"hello, world"` | Field value = `hello, world` |
+| Escaped quotes | `"say ""hi"""` | Field value = `say "hi"` |
+| Empty fields | `,middle,` | ["", "middle", ""] |
+| CRLF line endings | `A,B\r\ntext,text\r\nfoo,bar\r\n` | Parses correctly |
+| Too few rows | `A,B\n` | Throws error |
+| No data rows | `A,B\ntext,math\n` | rows = [] (valid, just empty) |
+| Newline inside quoted field | `"line1\nline2"` | Field value = `line1\nline2` |
+
+#### Plugin Registry tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Get math plugin | `getPlugin("math")` | type_id = "math" |
+| Get text plugin | `getPlugin("text")` | type_id = "text" |
+| Unknown type fallback | `getPlugin("unknown")` | type_id = "text" (fallback) |
+| renderCell math | `renderCell("math", "x^2")` | Element with `<sup>` |
+| renderCell text | `renderCell("text", "hello")` | textContent = "hello" |
+| renderCell math error | `renderCell("math", "@@@")` | className = "cell-error" |
+| renderCell unknown type | `renderCell("foo", "text")` | textContent = "text" (fallback) |
+
+#### Table Component tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Creates table | 2-col, 3-row data | `<table>` element exists |
+| Header count | 2 columns | 2 `<th>` elements |
+| Row count | 3 data rows | 3 `<tbody tr>` elements |
+| Text cell content | "Pythagoras" | td textContent = "Pythagoras" |
+| Math cell rendering | math column | `.native-math` class present |
+| Invalid math cell | "@@@" in math column | `.cell-error` class present |
+| Sort ascending | Click Name header | First row = "Area" (alphabetical) |
+| Sort descending | Click Name header twice | First row = "Pythagoras" (reverse) |
+
+---
+
+### Test run results
+
+**Phase 3 — 202 tests total (all passing)**
+
+```
+✓ test/parser/PEGParser.test.ts (18 tests)
+✓ test/parser/grammar.test.ts (85 tests)
+✓ test/render/render.test.ts (76 tests)
+✓ test/csv/reader.test.ts (8 tests)
+✓ test/plugin/registry.test.ts (7 tests)
+✓ test/table/table.test.ts (8 tests)
+
+Test Files  6 passed (6)
+Tests       202 passed (202)
+```
+
+---
+
+### Issues found and fixed
+
+#### Issue — Cell error messages displayed without newlines
+
+**Symptom:** Parse error messages in table cells appeared as a single line.
+The caret-style error formatting was unreadable.
+
+**Root cause:** `span.textContent` does not interpret `\n` as line breaks
+in normal flow layout. The browser collapses whitespace.
+
+**Fix:** Used `span.innerHTML` with `escapeHTML()` that converts `\n` → `<br>`
+and ` ` → `&nbsp;`. Escaping order: `&` first (prevents double-escaping),
+then `<>`, then `\n`, then spaces last.
+
+#### Issue — Test used parseable input for error case
+
+**Symptom:** Test `renders invalid math as cell-error` used `"2++invalid"`
+which the parser could partially handle (unary `+` chains).
+
+**Fix:** Changed test input to `"@@@"` which has no valid Primary start
+and always fails immediately.

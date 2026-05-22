@@ -1429,3 +1429,409 @@ is a structural representation — it should use consistent, simple operators
 (`"*"` for all multiplication) without encoding display concerns. The renderer
 has access to the full subtree context needed to make intelligent display
 decisions.
+
+
+---
+
+## Phase 3 — Plugin System & CSV Table Display
+
+This section explains all new code introduced in Phase 3: the plugin
+architecture, CSV reader, table component, and how they connect.
+
+---
+
+### Architecture Overview
+
+Phase 3 introduces a layered architecture that separates concerns:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Browser                              │
+│                                                             │
+│  ┌──────────────┐     ┌──────────────────────────────────┐  │
+│  │  File I/O    │────▶│         CSV Reader               │  │
+│  │ (file picker │     │  (structural — splits into       │  │
+│  │  or drag&drop)     │   headers, types, rows)          │  │
+│  └──────────────┘     └────────────┬─────────────────────┘  │
+│                                    │                         │
+│                                    ▼                         │
+│                      ┌──────────────────────────────┐       │
+│                      │      Plugin Registry         │       │
+│                      │  (dispatches cell content     │       │
+│                      │   to the correct plugin)      │       │
+│                      └──────┬───────────┬───────────┘       │
+│                             │           │                    │
+│                    ┌────────▼──┐   ┌────▼────────┐          │
+│                    │ Math      │   │ Plain Text  │          │
+│                    │ Plugin    │   │ Plugin      │          │
+│                    │ parse()   │   │ parse()     │          │
+│                    │ render()  │   │ render()    │          │
+│                    └───────────┘   └─────────────┘          │
+│                             │           │                    │
+│                             ▼           ▼                    │
+│                      ┌──────────────────────────────┐       │
+│                      │      Table Component         │       │
+│                      │  (renders rows, columns,      │       │
+│                      │   sortable headers)           │       │
+│                      └──────────────────────────────┘       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key design principle:** The CSV reader is purely structural — it splits
+text into rows and cells without interpreting cell content. It knows nothing
+about math syntax, plain text, or any other payload format. The plugin
+system handles all payload interpretation.
+
+---
+
+### `src/plugin/interface.ts` — Plugin Interface
+
+Defines the contract that every data type renderer must implement:
+
+```ts
+interface Plugin {
+    type_id: string;        // unique identifier (e.g. "math", "text")
+    version: string;        // semantic version
+    parse(text: string): ASTNode;      // text → structured data
+    render(ast: ASTNode): HTMLElement;  // structured data → visual output
+}
+```
+
+Every plugin provides two functions:
+- `parse` — transforms raw cell text into an AST (or equivalent structure)
+- `render` — transforms the AST into an HTML element for display
+
+This interface is intentionally minimal. A plugin does not need to know about
+tables, CSV, files, or other plugins. It only knows how to handle its own
+data type.
+
+---
+
+### `src/plugin/math.ts` — Math Syntax Plugin
+
+Wraps the existing parser and renderer (from Phases 1-2) into a conforming
+plugin:
+
+```ts
+export const mathPlugin: Plugin = {
+    type_id: "math",
+    version: "2.0.0",
+    parse(text) { return parser.parse("Expression", text) as ASTNode; },
+    render(ast) { return renderMath(ast); },
+};
+```
+
+No new code — just adapts the existing `parser` and `renderMath` to the
+plugin interface.
+
+---
+
+### `src/plugin/plaintext.ts` — Plain Text Plugin
+
+The identity plugin — renders text as-is with no parsing or formatting:
+
+```ts
+export const plainTextPlugin: Plugin = {
+    type_id: "text",
+    version: "1.0.0",
+    parse(text) { return { type: "PlainText", text } as unknown as ASTNode; },
+    render(ast) {
+        const span = document.createElement("span");
+        span.textContent = (ast as any).text;
+        return span;
+    },
+};
+```
+
+Uses `as unknown as ASTNode` because `PlainTextNode` is not in the AST union
+type — it's a plugin-internal type. This is acceptable because the plugin
+interface is generic; each plugin defines its own internal representation.
+
+Also serves as the **fallback** for unknown plugin types.
+
+---
+
+### `src/plugin/registry.ts` — Plugin Registry
+
+Central dispatch point that routes cell content to the correct plugin:
+
+```ts
+const plugins: Record<string, Plugin> = { math: mathPlugin, text: plainTextPlugin };
+
+function getPlugin(typeId: string): Plugin {
+    return plugins[typeId] ?? plainTextPlugin;  // fallback to text
+}
+
+function renderCell(typeId: string, text: string): HTMLElement {
+    const plugin = getPlugin(typeId);
+    try {
+        const ast = plugin.parse(text);
+        return plugin.render(ast);
+    } catch (e) {
+        // Error handling: show parse error inline without crashing
+        const span = document.createElement("span");
+        span.className = "cell-error";
+        span.innerHTML = `<strong>Parse error:</strong> ${escapeHTML(message)}`;
+        return span;
+    }
+}
+```
+
+**Error handling:** If a math cell contains invalid syntax, `renderCell`
+catches the parse error and renders it as a red inline error message. The
+table continues to render — one bad cell does not crash the entire table.
+
+**`escapeHTML` helper:** Converts special characters to HTML entities and
+preserves formatting:
+- `&` → `&amp;` (must be first to avoid double-escaping)
+- `<` → `&lt;`, `>` → `&gt;` (prevent HTML injection)
+- `\n` → `<br>` (preserve line breaks in error messages)
+- ` ` → `&nbsp;` (preserve whitespace alignment in error carets)
+
+The order of replacements matters: `&nbsp;` must come AFTER `&` escaping,
+otherwise the `&` in `&nbsp;` would be escaped to `&amp;nbsp;`.
+
+---
+
+### `src/csv/reader.ts` — CSV File Reader
+
+Parses CSV text into a structured `CSVData` object.
+
+**File format convention:**
+```
+Row 0: Column headers (display names)
+Row 1: Column types (plugin type_id per column)
+Row 2+: Data rows
+```
+
+Example:
+```csv
+Name,Formula,Domain
+text,math,text
+Pythagorean Theorem,a^2 + b^2 = c^2,Geometry
+```
+
+**The `CSVData` interface:**
+```ts
+interface CSVData {
+    headers: string[];   // ["Name", "Formula", "Domain"]
+    types: string[];     // ["text", "math", "text"]
+    rows: string[][];    // [["Pythagorean Theorem", "a^2 + b^2 = c^2", "Geometry"], ...]
+}
+```
+
+**Parsing algorithm:**
+- Iterates character by character
+- Handles quoted fields (double quotes) with comma and newline support inside
+- Handles escaped quotes (`""` → literal `"`)
+- Handles both LF and CRLF line endings
+- Throws if fewer than 2 rows (need at least headers + types)
+
+**Design note:** The CSV reader is purely structural. It does not interpret
+the `types` row — it just stores it as strings. The table component later
+passes each type string to the plugin registry for dispatch. This means the
+CSV reader can be used independently of the plugin system.
+
+---
+
+### `src/table/table.ts` — Table Component
+
+Renders a `CSVData` object as an interactive HTML table:
+
+```ts
+function createTable(data: CSVData): HTMLElement
+```
+
+**Features:**
+- Renders column headers from `data.headers`
+- Renders each cell using `renderCell(typeId, cellValue)` — dispatching to
+  the correct plugin based on the column's type
+- **Sortable columns:** clicking a header sorts all rows by that column
+  (ascending on first click, descending on second click)
+- Sort indicator (▲/▼) shown in the active header
+
+**Implementation:**
+- Uses a closure over `sortCol`, `sortAsc`, and `rows` state
+- `renderTable()` is called on initial render and after each sort change
+- Sorting uses `localeCompare` on raw cell strings (not rendered output)
+- The entire table is re-rendered on sort (simple and correct for small tables)
+
+---
+
+### `src/main.ts` — Updated Application Entry Point
+
+Phase 3 adds CSV file loading alongside the existing expression renderer:
+
+**File picker:** An `<input type="file" accept=".csv">` element. On change,
+reads the file as text, parses it with `parseCSV`, and renders the table.
+
+**Drag and drop:** The `#table-container` div accepts dropped `.csv` files.
+Visual feedback (border color change) on dragover.
+
+**Error handling:** CSV parse errors are displayed in the error div using
+`textContent` (with `white-space: pre-wrap` CSS for newline preservation).
+
+---
+
+### `index.html` — Updated HTML
+
+Added:
+- `<h2>` section headers for "Expression Renderer" and "Knowledge Table"
+- `<input type="file" id="file-input" accept=".csv">` for file selection
+- `<div id="table-container">` as the table mount point and drop zone
+- `<hr>` separator between the two sections
+
+---
+
+### `style.css` — Updated Styles
+
+Added:
+- `.knowledge-table` — border-collapse table with hover-able headers
+- `.knowledge-table th` — clickable, grey background, cursor pointer
+- `.knowledge-table td .cell-error` — red italic for parse errors
+- `.table-drop-zone` — dashed border, centered text, min-height
+- `.table-drop-zone.drag-over` — blue highlight on drag
+
+---
+
+### `public/sample.csv` — Sample Knowledge File
+
+A demonstration CSV with 8 mathematical concepts:
+
+| Name | Formula (math) | Domain (text) |
+|------|---------------|---------------|
+| Pythagorean Theorem | `a^2 + b^2 = c^2` | Geometry |
+| Quadratic Formula | `x = (-b + \sqrt{...}) / (2a)` | Algebra |
+| Euler's Identity | `e^(\p*\i) + 1 = 0` | Analysis |
+| Derivative Power Rule | `f(x) = x^n -> f'(x) = n*x^(n-1)` | Calculus |
+| Integration by Parts | `\int{a, b, u*v'} = ...` | Calculus |
+| Area of Circle | `A = \p*r^2` | Geometry |
+| Binomial Theorem | `+{k=0, n, \binom{n,k}*a^(n-k)*b^k}` | Algebra |
+| Aleph Null | `\ha_0 = |\\N|` | Set Theory |
+
+---
+
+### Bug fix — Cell error newlines not visible
+
+**Symptom:** Parse errors in table cells showed as a single line with no
+line breaks, making the caret-style error messages unreadable.
+
+**Root cause:** `span.textContent` was used to set the error message. Since
+the span is inside a `<td>`, the browser's default `white-space: normal`
+collapses all whitespace including newlines.
+
+**Fix:** Used `span.innerHTML` with an `escapeHTML` helper that converts
+`\n` to `<br>` and spaces to `&nbsp;`. The escaping order is critical:
+1. `&` → `&amp;` (first, to avoid double-escaping later entities)
+2. `<`, `>`, `"`, `'` → HTML entities (prevent injection)
+3. `\n` → `<br>` (line breaks)
+4. ` ` → `&nbsp;` (preserve whitespace alignment)
+
+---
+
+## Codebase Restructuring — New Architecture
+
+### Motivation
+
+The Phase 3 codebase had grown organically and had several structural problems:
+
+- `src/parser/` mixed the general-purpose PEG engine with the math-specific grammar
+- `src/render/` was math-specific but lived at the top level alongside the engine
+- `src/plugin/` referenced math internals directly, creating tight coupling
+- `src/csv/` was a data format module but lived alongside plugin code
+- `src/table/` mixed UI rendering with data logic
+- `main.ts` handled both expression demo and table loading in one monolith
+
+### New Directory Structure
+
+```
+src/
+├── engine/              # General-purpose PEG engine — no domain knowledge
+│   ├── PEGParser.ts     # The parsing engine (unchanged logic)
+│   └── types.ts         # PEG expression types only (engine-level)
+│
+├── plugins/             # All syntax plugins — each self-contained
+│   ├── interface.ts     # Plugin contract: { type_id, version, parse, render }
+│   ├── registry.ts      # Plugin dispatch + renderCell + escapeHTML
+│   ├── math/            # Math syntax plugin (owns grammar, types, renderer)
+│   │   ├── types.ts     # MathNode union type (replaces ASTNode)
+│   │   ├── grammar.ts   # BobaMath PEG grammar
+│   │   ├── render.ts    # Math renderer
+│   │   ├── el.ts        # DOM helper
+│   │   └── index.ts     # Plugin entry point (conforms to Plugin interface)
+│   └── text/            # Plain text plugin
+│       └── index.ts
+│
+├── data/                # Data layer — format-agnostic, plugin-agnostic
+│   ├── types.ts         # TableData interface
+│   └── csv.ts           # CSV grammar using PEGParser engine
+│
+├── ui/                  # UI components — presentation only, no parsing
+│   ├── table.ts         # Table renderer with sorting
+│   ├── file-loader.ts   # File picker + drag-and-drop
+│   └── expression-input.ts  # Single-expression input + render
+│
+└── main.ts              # App entry — wires UI components together (thin)
+```
+
+### Test Structure (mirrors src)
+
+```
+test/
+├── engine/
+│   └── PEGParser.test.ts
+├── plugins/
+│   └── math/
+│       ├── grammar.test.ts
+│       └── render.test.ts
+├── data/
+│   └── csv.test.ts
+└── ui/
+    └── table.test.ts
+```
+
+### Key Changes Per File
+
+**`src/engine/types.ts`** — now contains ONLY PEG engine types (`PEGExpression`,
+`Grammar`, `MatchResult`, etc.). All AST node types moved to `src/plugins/math/types.ts`.
+
+**`src/plugins/math/types.ts`** — new file. Contains all math AST node types
+under the name `MathNode` (replacing the old `ASTNode` union). The math plugin
+owns its own type definitions — no other module needs to know about them.
+
+**`src/plugins/interface.ts`** — `Plugin.parse()` and `Plugin.render()` now use
+`unknown` instead of `ASTNode`. Each plugin defines its own internal representation.
+The interface is truly generic — it knows nothing about math, text, or any other domain.
+
+**`src/plugins/math/index.ts`** — thin entry point. Calls `parser.parse()` and
+`renderMath()` from the math submodules. Conforms to `Plugin` interface.
+
+**`src/plugins/text/index.ts`** — simplified. `parse()` returns the raw string
+as `unknown`. `render()` creates a span with `textContent`. No `as unknown as ASTNode`
+cast needed since the interface uses `unknown`.
+
+**`src/data/csv.ts`** — moved from `src/csv/reader.ts`. Imports `PEGParser` from
+`../engine/PEGParser.ts`. Produces `TableData` (from `src/data/types.ts`), not
+`CSVData`. The CSV parser knows nothing about plugins.
+
+**`src/ui/table.ts`** — moved from `src/table/table.ts`. Imports `renderCell`
+from `../plugins/registry.ts` and `TableData` from `../data/types.ts`.
+
+**`src/ui/file-loader.ts`** — new file. Extracted from `main.ts`. Handles file
+picker and drag-and-drop. Calls `parseCSV` and `createTable`. Takes DOM element
+references as parameters — no global DOM access.
+
+**`src/ui/expression-input.ts`** — new file. Extracted from `main.ts`. Handles
+the expression input + render button. Takes DOM element references as parameters.
+
+**`src/main.ts`** — reduced to ~12 lines of logic. Gets DOM elements, calls
+`initExpressionInput` and `initFileLoader`, sets up demo test cases.
+
+### Design Principles Enforced
+
+1. **Engine is generic** — `src/engine/` has zero imports from any domain module
+2. **Plugins are self-contained** — `src/plugins/math/` imports only from `engine/`
+3. **Data layer is payload-agnostic** — `src/data/csv.ts` imports only from `engine/`
+4. **UI is presentation-only** — `src/ui/` imports from `plugins/` and `data/` but
+   contains no parsing logic
+5. **main.ts is thin** — only wires components, no business logic

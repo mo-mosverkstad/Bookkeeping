@@ -7,18 +7,29 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="native-math.css" />
     <script type="module" src="/src/main.ts"></script>
-    <title>JavaScript reference sheet visualizer</title>
+    <title>Bookkeeping Webapp</title>
   </head>
   <body>
-    <div id="app">BobaMath input renderer</div>
-    <input
-      type="text"
-      id="input"
-      placeholder="Write your BobaMath plaintext input"
-      style="width: 300px"
-    />
-    <button id="render">Render</button>
-    <div id="result"></div>
-    <div class="error-message" id="error-message"></div>
+    <div id="app">
+      <h2>Expression Renderer</h2>
+      <input
+        type="text"
+        id="input"
+        placeholder="Write your BobaMath plaintext input"
+        style="width: 400px"
+      />
+      <button id="render">Render</button>
+      <div id="result"></div>
+      <pre class="error-message" id="error-message"></pre>
+
+      <hr />
+
+      <h2>Knowledge Table</h2>
+      <label for="file-input">Load CSV file:</label>
+      <input type="file" id="file-input" accept=".csv" />
+      <div id="table-container" class="table-drop-zone">
+        Drop a .csv file here or use the file picker above
+      </div>
+    </div>
   </body>
 </html>

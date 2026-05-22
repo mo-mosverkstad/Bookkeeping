@@ -1,5 +1,55 @@
-.error-message {
-  border: 1px solid darkred;
-  color: darkred;
-  font-weight: bold;
+body {
+  font-family: system-ui, sans-serif;
+  padding: 1em;
 }
+
+.error-message {
+  color: red;
+  white-space: pre-wrap;
+  font-family: monospace;
+  margin-top: 0.5em;
+}
+
+/* Table */
+.knowledge-table {
+  border-collapse: collapse;
+  margin-top: 1em;
+  width: 100%;
+}
+.knowledge-table th,
+.knowledge-table td {
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+.knowledge-table th {
+  background: #f0f0f0;
+  cursor: pointer;
+  user-select: none;
+}
+.knowledge-table th:hover {
+  background: #e0e0e0;
+}
+.knowledge-table td .cell-error {
+  color: red;
+  font-size: 0.85em;
+  font-family: monospace;
+}
+
+/* Drop zone */
+.table-drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 2em;
+  text-align: center;
+  color: #999;
+  margin-top: 1em;
+  min-height: 100px;
+}
+.table-drop-zone.drag-over {
+  border-color: #4a90d9;
+  background: #f0f7ff;
+  color: #4a90d9;
+}
+

@@ -306,3 +306,119 @@ all serving as regression tests for future phases.
 - Render tests: extended with ~30 new test cases covering all Phase 2 renderers
 - All Phase 1 regression tests preserved and passing
 - Tests awaiting execution on target (WSL Ubuntu) per exception.md
+
+
+---
+
+## Phase 3 — Plugin System & CSV Table Display
+
+---
+
+### Implementation
+
+**Added — Plugin system**
+- `src/plugin/interface.ts` — `Plugin` interface: `{ type_id, version, parse(), render() }`
+- `src/plugin/math.ts` — Math syntax plugin wrapping existing parser + renderer
+- `src/plugin/plaintext.ts` — Plain text plugin (identity, fallback)
+- `src/plugin/registry.ts` — Plugin registry with `getPlugin()` and `renderCell()`
+- `escapeHTML()` helper for safe error display with preserved formatting
+
+**Added — CSV reader**
+- `src/csv/reader.ts` — CSV parser producing `CSVData { headers, types, rows }`
+- Handles quoted fields, escaped quotes, CRLF, empty fields
+- Convention: row 0 = headers, row 1 = types, row 2+ = data
+
+**Added — Table component**
+- `src/table/table.ts` — `createTable(data)` renders interactive HTML table
+- Plugin-dispatched cell rendering via `renderCell(typeId, text)`
+- Sortable columns (click header, ascending/descending toggle)
+
+**Added — UI**
+- File picker (`<input type="file" accept=".csv">`)
+- Drag-and-drop zone with visual feedback
+- Table container for rendered output
+
+**Added — Sample data**
+- `public/sample.csv` — 8 mathematical concepts with math and text columns
+
+**Added — Tests**
+- `test/csv/reader.test.ts` — 8 tests for CSV parsing
+- `test/plugin/registry.test.ts` — 7 tests for plugin dispatch and error handling
+- `test/table/table.test.ts` — 8 tests for table rendering and sorting
+
+**Changed**
+- `src/main.ts` — added CSV file loading (picker + drag-and-drop)
+- `index.html` — added file input, table container, section headers
+- `style.css` — added table styles, cell-error, drop-zone styles
+
+---
+
+### Bug fixes
+
+**Cell error newlines:** Parse errors in table cells displayed without line
+breaks. Fixed by using `innerHTML` with `escapeHTML()` that converts `\n` → `<br>`
+and ` ` → `&nbsp;` (after HTML entity escaping to prevent double-escaping).
+
+**Test input for error case:** `"2++invalid"` was partially parseable by the
+math plugin. Changed to `"@@@"` which always fails.
+
+---
+
+### Design decisions
+
+1. **Plugin interface is minimal:** Only `parse()` and `render()` — no
+   knowledge of tables, files, or other plugins required.
+
+2. **CSV reader is payload-agnostic:** It splits text into cells without
+   interpreting content. The types row is just data to the CSV reader.
+
+3. **Graceful degradation:** Unknown plugin types fall back to plain text.
+   Parse errors render inline without crashing the table.
+
+4. **PEGParser is general-purpose:** The same engine could parse CSV as a
+   PEG grammar, but the hand-written parser is simpler for CSV's quoting rules.
+
+---
+
+## Codebase Restructuring
+
+### Motivation
+
+The Phase 3 codebase had grown organically with poor separation of concerns.
+The PEG engine was mixed with math-specific code, plugins referenced internals
+directly, and `main.ts` was a monolith.
+
+### Changes
+
+**Deleted directories:**
+- `src/parser/` — split into `src/engine/` (generic) and `src/plugins/math/` (domain)
+- `src/render/` — moved to `src/plugins/math/render.ts` and `src/plugins/math/el.ts`
+- `src/plugin/` — renamed to `src/plugins/` with restructured contents
+- `src/csv/` — moved to `src/data/csv.ts`
+- `src/table/` — moved to `src/ui/table.ts`
+
+**New directories:**
+- `src/engine/` — PEGParser + engine-level types only
+- `src/plugins/math/` — self-contained math plugin (types, grammar, renderer, entry)
+- `src/plugins/text/` — plain text plugin
+- `src/data/` — format-agnostic data layer (TableData, CSV parser)
+- `src/ui/` — presentation components (table, file-loader, expression-input)
+
+**New files:**
+- `src/ui/file-loader.ts` — extracted from main.ts
+- `src/ui/expression-input.ts` — extracted from main.ts
+- `src/data/types.ts` — TableData interface (renamed from CSVData)
+- `src/plugins/math/types.ts` — MathNode union (moved from engine types)
+
+**Changed:**
+- `Plugin` interface uses `unknown` instead of `ASTNode` — truly generic
+- `main.ts` reduced to ~12 lines — only wires components
+- Test structure mirrors src structure: `test/engine/`, `test/plugins/math/`,
+  `test/data/`, `test/ui/`
+
+### Design decisions
+
+1. **Engine has zero domain imports** — `src/engine/` is a standalone library
+2. **Plugins own their types** — `MathNode` lives in `src/plugins/math/types.ts`
+3. **CSV is a PEG grammar** — demonstrates the engine is truly general-purpose
+4. **UI components take DOM refs as parameters** — no global DOM access in components
