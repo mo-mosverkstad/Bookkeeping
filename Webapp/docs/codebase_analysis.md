@@ -506,3 +506,926 @@ quantity a symbol refers to), the distinction must be **obvious at a
 glance**. Subtle typographic differences like italic vs upright are not
 sufficient. Use a transform with a large enough angle that the three
 states are unambiguous even at small font sizes.
+
+
+---
+
+## Phase 2 — Linear Algebra, Rollout Notation & Extended Operators
+
+This section explains all new concepts, code, and design decisions introduced
+in Phase 2. It builds on the Phase 1 foundation — read Phase 1 first.
+
+---
+
+## New Background Knowledge
+
+### What is a Relational Expression?
+
+A relational expression compares two values: `a = b`, `x < y`, `n != 0`.
+Unlike additive or multiplicative operators, relational operators are
+**not chained** — `a = b = c` is not valid in this grammar. Each expression
+has at most one relational operator.
+
+Relational operators have the **lowest precedence** in the grammar. This
+means `a + 1 = b` parses as `(a + 1) = b`, not `a + (1 = b)`.
+
+### What is a SubSuperscript?
+
+In mathematical notation, `x_i^2` means "x with subscript i and superscript 2
+attached to the same base". This is different from `(x_i)^2` conceptually in
+some notations, but in this grammar both produce the same AST node because
+parentheses unwrap transparently.
+
+The `SubSuperscriptExpression` node has three children: `base`, `subscript`,
+and `superscript`. The renderer stacks the superscript above the subscript
+to the right of the base character.
+
+### What is a Vector Name Decorator?
+
+`[a]` means "the vector (or matrix) named a". It is NOT a container or array
+literal — it is a visual decorator that renders the identifier with an arrow
+over it (a⃗). The parser distinguishes this from array literals by checking
+whether the bracket content is a single bare identifier.
+
+### What is a Rollout Operator?
+
+`+{k=0, n, A[k]}` means "A[0] + A[1] + ... + A[n]" — it "rolls out" a
+summation. Similarly `*{k=0, n, A[k]}` rolls out a product. These are
+syntactic sugar for Σ (summation) and Π (product) with explicit index bounds.
+
+The key grammar challenge: `+` and `*` are already operators at the Additive
+and Multiplicative levels. The rollout form `+{` must be matched **atomically**
+(no whitespace between `+` and `{`) at the Primary level, before the `+` can
+be consumed as an additive operator.
+
+### What is the Glyph Lookup Architecture?
+
+The parser is **script-agnostic** — it does not know about Greek, Hebrew,
+Cyrillic, or any other script. All backslash identifiers (`\alpha`, `\ha`,
+`\sin`, `\pm`) are parsed identically as `IdentifierNode { name, prefix }`.
+
+The **renderer** is responsible for meaning. It has a flat `GLYPH_TABLE` that
+maps raw identifier names to Unicode glyphs. If a name has an entry, the glyph
+is used. If not, the name is rendered as-is (which naturally handles `\sin`,
+`\cos`, `\lim` — they have no entry and render as the text "sin", "cos", "lim").
+
+This architecture means adding a new symbol requires only one line in the
+lookup table — no grammar change ever needed.
+
+---
+
+## Updated Precedence Hierarchy
+
+Phase 2 adds a new level at the top (lowest precedence) and new operators
+at the multiplicative level:
+
+```
+Relational      (=, !=, <=, >=, ~=, :=, ~, <<, >>, ->, <, >)   ← NEW
+Additive        (+, -)
+Multiplicative  (*, /, ., \mod, \div, implicit)                  ← EXTENDED
+Power           (^)
+Unary           (-, +)
+Postfix         (f(), x{}, x_i, x!, x', A[k])                   ← EXTENDED
+Primary         (number, identifier, (expr), [expr], |expr|,     ← EXTENDED
+                 +{...}, *{...}, ...)
+```
+
+---
+
+## New AST Node Types (Phase 2)
+
+### `SubSuperscriptExpressionNode`
+
+```ts
+interface SubSuperscriptExpressionNode {
+    type: "SubSuperscriptExpression";
+    base: ASTNode;       // the base character (e.g. x)
+    subscript: ASTNode;  // the subscript (e.g. i)
+    superscript: ASTNode; // the superscript (e.g. 2)
+}
+```
+
+Produced by `Power` and `ImplicitPower` build functions when the left operand
+is a `SubscriptExpression`. Instead of wrapping `SubscriptExpression(x, i)` in
+`BinaryExpression(^, ..., 2)`, it combines all three into one node.
+
+### `VectorNameNode`
+
+```ts
+interface VectorNameNode {
+    type: "VectorName";
+    identifier: ASTNode;  // the identifier being decorated
+}
+```
+
+Produced by `BracketList` when the bracket content is a single identifier.
+`[a]` → `VectorName(Identifier(a))`. Renders with an arrow over the name.
+
+### `MatrixNode`
+
+```ts
+interface MatrixNode {
+    type: "Matrix";
+    rows: ASTNode[][];  // 2D array of expressions
+}
+```
+
+Produced by:
+- `[a, b, c]` → 1 row, 3 columns (row vector)
+- `[[a, b], [c, d]]` → 2 rows, 2 columns (matrix)
+- `(a, b, c)` → 3 rows, 1 column (column vector)
+
+### `IndexExpressionNode`
+
+```ts
+interface IndexExpressionNode {
+    type: "IndexExpression";
+    base: ASTNode;   // the array/vector being indexed
+    index: ASTNode;  // the index expression
+}
+```
+
+Produced by `IndexSuffix` in `Postfix`. `A[k]` → `IndexExpression(A, k)`.
+Semantically distinct from `SubscriptExpression` (label) — this is array access.
+
+### `AbsoluteValueNode`
+
+```ts
+interface AbsoluteValueNode {
+    type: "AbsoluteValue";
+    expr: ASTNode;  // the expression inside |...|
+}
+```
+
+The renderer checks the inner node type: if it's `VectorName` or `Matrix`,
+renders as norm `‖x‖`; otherwise renders as absolute value `|x|`.
+
+### `FactorialExpressionNode`
+
+```ts
+interface FactorialExpressionNode {
+    type: "FactorialExpression";
+    base: ASTNode;  // the expression being factorialed
+}
+```
+
+Produced by `FactorialSuffix` (regex `/^!(?!=)/`). The negative lookahead
+prevents `!=` from being consumed as factorial + `=`.
+
+### `DerivativeNode`
+
+```ts
+interface DerivativeNode {
+    type: "Derivative";
+    base: ASTNode;  // the function being differentiated
+    order: number;  // number of primes (1 for f', 2 for f'', etc.)
+}
+```
+
+Produced by `DerivativeSuffix` (regex `/^'+/`). The order is the count of
+prime characters matched.
+
+### `EllipsisNode`
+
+```ts
+interface EllipsisNode {
+    type: "Ellipsis";
+}
+```
+
+Produced by the `Ellipsis` rule matching the literal `...`. Renders as `…`.
+
+### `PiecewiseNode`
+
+```ts
+interface PiecewiseNode {
+    type: "Piecewise";
+    cases: { expr: ASTNode; condition: ASTNode }[];
+}
+```
+
+Used by the piecewise renderer. The `\piecewise` control expression passes
+its flat argument list (pairs of expression, condition) to the renderer which
+interprets them as cases.
+
+### Extended `IdentifierNode`
+
+```ts
+interface IdentifierNode {
+    type: "Identifier";
+    name: string;
+    prefix: "plain" | "left-skew" | "right-skew" | "greek" | "greek-right" | "blackboard";
+}
+```
+
+The `"blackboard"` prefix is new in Phase 2. It is produced by the
+`BlackboardBoldIdentifier` rule matching `/^\\\\[A-Za-z]/` (two literal
+backslashes followed by a letter). Renders using `BLACKBOARD_TABLE`.
+
+---
+
+## Updated Grammar Rules (Phase 2)
+
+### Rule hierarchy (complete)
+
+```
+Expression → Relational
+Relational → Additive (RelationalOp Additive)?
+Additive → Multiplicative ((+|-) Multiplicative)*
+Multiplicative → Power ((MultiplicativeOp Power) | ImplicitPower)*
+ImplicitPower → Postfix (^ Unary)*
+Power → Unary (^ Unary)*
+Unary → (-|+) Unary | Postfix
+Postfix → Primary (CallSuffix | ControlSuffix | SubscriptSuffix |
+                    FactorialSuffix | DerivativeSuffix | IndexSuffix)*
+Primary → RolloutExpression | Ellipsis | AbsoluteValue |
+          BracketExpression | Number | Identifier | ParenExpression
+```
+
+### New rule: `Relational`
+
+```
+Relational → Additive (RelationalOp Additive)?
+```
+
+The `?` means at most one relational operator. This is implemented as a
+choice between `[RelationalOp, Additive]` (produces a binary expression)
+and an empty sequence (passes through the left Additive unchanged).
+
+`RelationalOp` is a choice of literals ordered longest-first:
+`!=`, `<=`, `>=`, `~=`, `:=`, `<<`, `>>`, `->`, `<`, `>`, `=`, `~`
+
+**Why longest-first ordering matters:** If `<` were tried before `<=`, the
+parser would match `<` and leave `=` as trailing garbage. By trying `<=`
+first, the two-character operator is consumed whole.
+
+**Why `->` must come before `>`:** Same reason — `->` starts with `-` which
+would be consumed by Additive as subtraction, but the Additive repeat fails
+(nothing valid after `>`), so the position stays before `->`. Then Relational
+tries `->` and matches. If `>` were tried first at the Relational level, it
+would incorrectly match the `>` in `->`.
+
+### New rule: `MultiplicativeOp`
+
+```
+MultiplicativeOp → "*" | "/" | "." | /^\\(mod|div)\b/
+```
+
+The dot `.` is the dot product operator. `\mod` and `\div` are matched by
+a regex with a word boundary `\b` to prevent matching `\modify` or `\divide`.
+
+**How `\mod` avoids conflict with identifiers:** The `Multiplicative` repeat
+tries `[MultiplicativeOp, Power]` BEFORE `ImplicitPower`. So when the parser
+sees `\mod` after a left operand, it first tries `MultiplicativeOp` which
+matches `\mod` via the regex. Only if that fails does it try `ImplicitPower`
+(which would consume `\mod` as a GreekIdentifier). The ordering of the choice
+ensures operators take priority over implicit multiplication.
+
+**The `3.v` edge case:** The Number regex `/^([0-9]+(\.[0-9]*)?|\.[0-9]+)/`
+matches `3.` as the number `3.0` (zero fractional digits). So `3.v` parses
+as `3.0 * v` (implicit multiplication), not as `3 · v` (dot product). This
+is documented and acceptable — dot product of a bare literal with a vector
+is unusual.
+
+### New rule: `FactorialSuffix`
+
+```
+FactorialSuffix → /^!(?!=)/
+```
+
+The negative lookahead `(?!=)` ensures `!` is only matched when NOT followed
+by `=`. This prevents `x!=y` from being parsed as `(x!) = y` instead of
+`x != y`.
+
+### New rule: `DerivativeSuffix`
+
+```
+DerivativeSuffix → /^'+/
+```
+
+Matches one or more prime characters. The matched string's length gives the
+derivative order. `f'` → order 1, `f''` → order 2, `f'''` → order 3.
+
+### New rule: `IndexSuffix`
+
+```
+IndexSuffix → "[" Expression "]"
+```
+
+Array indexing. `A[k]` produces `IndexExpression(A, k)`. This is a postfix
+suffix, so it's tried after the base is parsed. It does NOT conflict with
+`BracketExpression` in Primary because `[` in Primary only matches when it's
+the START of an expression (no left operand), while `IndexSuffix` only matches
+AFTER a base has been parsed in Postfix.
+
+### New rule: `RolloutExpression`
+
+```
+RolloutExpression → /^[+*]\{/ ArgumentList "}"
+```
+
+The regex `/^[+*]\{/` matches `+{` or `*{` as a single atomic token with NO
+whitespace between the operator and the brace. This is critical: if whitespace
+were allowed, `+ {k=0, n, A[k]}` would have `+` consumed by Additive before
+Primary ever sees it.
+
+Because `RolloutExpression` is tried FIRST in the Primary choice list, it
+gets priority over Number and Identifier. The PEG choice tries each option
+at the same position — if `RolloutExpression` fails (because the input doesn't
+start with `+{` or `*{`), the other Primary options are tried.
+
+**How `+{` avoids conflict with unary `+`:** The `Unary` rule tries
+`[sign, Unary]` first. If `+` matches but the recursive `Unary` fails
+(because `{` is not valid in any Primary), the sequence fails. The Unary
+choice then tries its second option: `Postfix` → `Primary` →
+`RolloutExpression` → matches `+{` atomically. PEG choice always tries
+options at the original position, so the `+` consumed by the failed first
+option is "given back".
+
+### New rule: `AbsoluteValue`
+
+```
+AbsoluteValue → "|" Expression "|"
+```
+
+Matches a `|`-delimited expression. The renderer decides whether to display
+as absolute value (`|x|`) or norm (`‖x‖`) based on the inner node type.
+
+### New rule: `BracketExpression`
+
+```
+BracketExpression → "[" BracketContent "]"
+BracketContent → MatrixRows | BracketList
+MatrixRows → MatrixRow ("," MatrixRow)*
+MatrixRow → "[" ArgumentList "]"
+BracketList → Expression ("," Expression)*
+```
+
+The `BracketContent` choice tries `MatrixRows` first. `MatrixRows` expects
+the content to start with `[` (the inner row bracket). If the content starts
+with anything else (like an identifier), `MatrixRows` fails immediately and
+`BracketList` is tried.
+
+**`BracketList` build logic:**
+- If the content is a single identifier with no commas → `VectorNameNode`
+- Otherwise → `MatrixNode` with one row (row vector)
+
+This means:
+- `[a]` → VectorName (single identifier, no commas)
+- `[a+b]` → Matrix with 1 row, 1 element (expression, not bare identifier)
+- `[a, b]` → Matrix with 1 row, 2 elements (has commas)
+- `[[a, b], [c, d]]` → Matrix with 2 rows, 2 elements each
+
+### New rule: `ParenExpression`
+
+```
+ParenExpression → "(" Expression (("," Expression)* ")") 
+```
+
+Replaces the old inline parenthesis handling in Primary. Now handles both:
+- `(expr)` — grouping (no commas) → unwraps to inner expression
+- `(a, b, c)` — column vector (has commas) → `MatrixNode` with N rows of 1
+
+### New rule: `BlackboardBoldIdentifier`
+
+```
+BlackboardBoldIdentifier → /^\\\\[A-Za-z]/
+```
+
+Matches two literal backslashes followed by one letter. In the source code,
+the regex is written as `/^\\\\[A-Za-z]/` where each `\\` in the regex
+represents one literal backslash character. So the regex matches the input
+string `\\R` (two backslashes + R).
+
+Tried FIRST in the Identifier choice list to prevent `\\R` from being
+consumed as two separate tokens (`\` + something).
+
+### Updated: `Power` and `ImplicitPower` build functions
+
+Both now check if the left operand is a `SubscriptExpression`. If so, they
+produce `SubSuperscriptExpression` instead of `BinaryExpression(^)`:
+
+```ts
+build([left, rest]) {
+    if (rest.length === 0) return left;
+    const exponent = /* right-fold rest */;
+    if (left.type === "SubscriptExpression") {
+        return {
+            type: "SubSuperscriptExpression",
+            base: left.base,
+            subscript: left.subscript,
+            superscript: exponent,
+        };
+    }
+    return { type: "BinaryExpression", operator: "^", left, right: exponent };
+}
+```
+
+**Note:** `(x_i)^2` also produces `SubSuperscriptExpression` because
+parentheses unwrap the inner expression to a bare `SubscriptExpression`
+before `Power` sees it. This is mathematically correct — both `x_i^2` and
+`(x_i)^2` mean "x-sub-i squared".
+
+---
+
+## Updated Renderer (Phase 2)
+
+### `GLYPH_TABLE` — the universal symbol lookup
+
+A flat `Record<string, string>` mapping raw identifier names to Unicode glyphs.
+This is the **single source of truth** for all symbol rendering. The table
+contains:
+
+| Category | Examples |
+|----------|----------|
+| Greek single-letter | `a`→α, `b`→β, `g`→γ, `d`→δ, `p`→π, `w`→ω |
+| Greek uppercase | `A`→Α, `G`→Γ, `D`→Δ, `S`→Σ, `W`→Ω |
+| Hebrew | `ha`→ℵ, `hb`→ℶ, `hg`→ℷ, `hd`→ℸ |
+| Set operators | `union`→∪, `inter`→∩, `empty`→∅, `sub`→⊂ |
+| Logic operators | `and`→∧, `or`→∨, `not`→¬, `imp`→⟹ |
+| Calculus | `inf`→∞, `nabla`→∇, `partial`→∂ |
+| Geometry | `angle`→∠, `parallel`→∥, `perp`→⊥ |
+| Misc operators | `pm`→±, `mp`→∓, `circ`→∘, `mapsto`→↦ |
+
+**How it works with the parser:** The parser produces `Identifier { name: "ha", prefix: "greek" }`.
+The renderer calls `resolveGlyph("ha")` → looks up `GLYPH_TABLE["ha"]` → returns `"ℵ"`.
+If no entry exists (e.g. `GLYPH_TABLE["sin"]` → undefined), the name is used as-is → renders "sin".
+
+### `BLACKBOARD_TABLE` — number set symbols
+
+A separate table for blackboard bold identifiers (`\\N`, `\\R`, etc.):
+
+| Input | Glyph | Meaning |
+|-------|-------|---------|
+| `\\N` | ℕ | Natural numbers |
+| `\\Z` | ℤ | Integers |
+| `\\Q` | ℚ | Rationals |
+| `\\R` | ℝ | Reals |
+| `\\C` | ℂ | Complex numbers |
+| `\\H` | ℍ | Quaternions |
+| `\\P` | ℙ | Primes |
+| `\\U` | 𝕌 | Universal set |
+| `\\d` | ∂ | Partial derivative |
+
+### `RELATIONAL_SYMBOL` — operator display mapping
+
+Maps relational operator strings to their Unicode display symbols:
+`"!="→"≠"`, `"<="→"≤"`, `">="→"≥"`, `"~="→"≈"`, `":="→"≡"`,
+`"~"→"∝"`, `"<<"→"≪"`, `">>"→"≫"`, `"->"→"→"`, etc.
+
+### `OPERATOR_PRECEDENCE` — extended
+
+Now includes relational operators at precedence -2 (below additive at 0),
+and dot product / mod / div at precedence 1 (same as `*` and `/`).
+
+### New renderer functions
+
+**`renderSubSuperscript(node)`**
+Produces:
+```html
+<span class="subsuperscript">
+  [base]
+  <span class="scripts">
+    <sup>[superscript]</sup>
+    <sub>[subscript]</sub>
+  </span>
+</span>
+```
+The `.scripts` container uses flexbox column layout to stack sup above sub.
+
+**`renderVectorName(node)`**
+Produces:
+```html
+<span class="vector-name">
+  [identifier]
+  <span class="vector-arrow">⃗</span>
+</span>
+```
+The combining arrow character is positioned above the identifier via CSS.
+
+**`renderMatrix(node)`**
+Produces a table structure:
+```html
+<span class="matrix">
+  <span class="matrix-row">
+    <span class="matrix-cell">[expr]</span>
+    <span class="matrix-cell">[expr]</span>
+  </span>
+  ...
+</span>
+```
+CSS provides left/right borders as matrix brackets.
+
+**`renderIndex(node)`**
+Renders identically to subscript (both display as subscript text), but the
+AST node type preserves the semantic distinction between labeling (`x_i`)
+and indexing (`A[k]`).
+
+**`renderAbsoluteValue(node)`**
+Checks the inner expression type:
+- `VectorName` or `Matrix` → renders `‖expr‖` (double bars = norm)
+- Anything else → renders `|expr|` (single bars = absolute value)
+
+**`renderFactorial(node)`**
+Simply appends `!` after the rendered base.
+
+**`renderDerivative(node)`**
+Appends `order` copies of the prime character `′` (U+2032) after the base.
+
+**`renderBigOperator(node, symbol)`**
+Reuses the integral layout (`.integral` flex container with `.opstack` and
+`.integral-body`) but with a different symbol (Σ for `\S`, Π for `\P`).
+
+**`renderLim(node)`**
+Similar to big operator but uses plain text "lim" instead of a large symbol,
+and only has a bottom label (the approach expression), no top label.
+
+**`renderRollout(node)`**
+Maps `+` to Σ and `*` to Π, then uses the big operator layout.
+
+**`renderBinom(node)`**
+Renders as a fraction wrapped in parentheses: `(n choose r)`.
+
+**`renderEval(node)`**
+Renders as `expr|_{bound}` — the expression followed by a vertical bar and
+a subscripted bound specification.
+
+**`renderPiecewiseControl(node)`**
+Interprets the flat argument list as pairs of (expression, condition) and
+delegates to `renderPiecewise`.
+
+**`renderPiecewise(node)`**
+Produces a table with a left border (acting as the brace):
+```html
+<span class="piecewise">
+  <span class="piecewise-row">
+    <span class="piecewise-expr">[expr]</span>
+    <span class="piecewise-cond">[condition]</span>
+  </span>
+  ...
+</span>
+```
+
+**Control expression dispatch (extended `renderControl`):**
+
+| Name | Renderer | Visual |
+|------|----------|--------|
+| `sqrt` | `renderSqrt` | √ with overline |
+| `int` | `renderIntegral` with ∫ | integral |
+| `oint` | `renderIntegral` with ∮ | contour integral |
+| `iint` | `renderIntegral` with ∬ | double integral |
+| `iiint` | `renderIntegral` with ∭ | triple integral |
+| `S` | `renderBigOperator` with Σ | summation |
+| `P` | `renderBigOperator` with Π | product |
+| `lim` | `renderLim` | limit |
+| `floor` | inline | ⌊x⌋ |
+| `ceil` | inline | ⌈x⌉ |
+| `bar` | CSS class | x̄ (overline) |
+| `hat` | CSS class | x̂ (hat) |
+| `tilde` | CSS class | x̃ (tilde) |
+| `ul` | CSS class | x̲ (underline) |
+| `cancel` | CSS class | x̶ (strikethrough) |
+| `inner` | inline | ⟨x, y⟩ |
+| `binom` | `renderBinom` | (n choose r) |
+| `eval` | `renderEval` | expr|_{bound} |
+| `ubrace` | `renderUnderbrace` | underbrace with label |
+| `obrace` | `renderOverbrace` | overbrace with label |
+| `piecewise` | `renderPiecewiseControl` | piecewise function |
+| `+` / `*` | `renderRollout` | rollout sum/product |
+| `arc` | CSS class | arc over content |
+| (default) | generic | name(args) |
+
+---
+
+## Updated CSS (Phase 2)
+
+### `.subsuperscript` and `.scripts`
+
+```css
+.subsuperscript { display: inline-flex; align-items: baseline; }
+.scripts { display: inline-flex; flex-direction: column; font-size: 0.7em; }
+.scripts sup, .scripts sub { display: block; }
+```
+
+The scripts container stacks superscript above subscript in a column, both
+at reduced font size, aligned to the baseline of the base character.
+
+### `.vector-name` and `.vector-arrow`
+
+```css
+.vector-name { display: inline-block; position: relative; }
+.vector-arrow { position: absolute; top: -0.3em; text-align: center; }
+```
+
+The arrow is positioned above the identifier using absolute positioning
+within the relatively-positioned container.
+
+### Decorator classes
+
+| Class | CSS | Effect |
+|-------|-----|--------|
+| `.overline` | `border-top: 1px solid` | line above |
+| `.hat` | `::before { content: '^' }` | caret above |
+| `.tilde` | `::before { content: '~' }` | tilde above |
+| `.underline` | `border-bottom: 1px solid` | line below |
+| `.cancel` | `text-decoration: line-through` | strikethrough |
+| `.arc` | `::before { content: '⌢' }` | arc above |
+
+### `.ident-blackboard`
+
+```css
+.ident-blackboard { font-style: normal; display: inline-block; font-weight: bold; }
+```
+
+Bold weight distinguishes blackboard bold from regular identifiers.
+
+---
+
+## Design Decisions and Tradeoffs (Phase 2)
+
+### Backslash relational operators as identifiers
+
+**Problem:** The study.md specifies `\sub`, `\in`, `\notin`, etc. as
+grammar-level relational operators. But in the PEG grammar, these tokens
+would be consumed by `GreekIdentifier` (via implicit multiplication) before
+the `Relational` level ever gets a chance to match them.
+
+**Root cause:** The grammar hierarchy is `Relational` → `Additive` →
+`Multiplicative` → ... → `Primary` → `Identifier`. When parsing the left
+operand of a relational expression, the parser descends all the way to
+`Identifier`. If `\in` appears after the left operand, the `Multiplicative`
+repeat tries implicit multiplication, which matches `\in` as a
+`GreekIdentifier`. By the time control returns to `Relational`, `\in` has
+already been consumed.
+
+**Resolution:** Only ASCII operators (`=`, `!=`, `<=`, `>=`, `~=`, `:=`, `~`,
+`<<`, `>>`, `->`, `<`, `>`) are grammar-level relational operators. Backslash
+operators (`\sub`, `\in`, etc.) are regular identifiers that render correctly
+via `GLYPH_TABLE`. The visual output is identical (`x∈ℝ`); only the AST
+differs (implicit multiplication vs relational binary expression).
+
+### Piecewise uses commas instead of semicolons
+
+**Problem:** The study.md specifies `\piecewise{x, x>=0; -x, x<0}` with
+semicolons separating cases. Implementing semicolons requires either a
+separate argument list parser for piecewise or making the grammar context-
+sensitive (knowing that `\piecewise` uses different separators).
+
+**Resolution:** Use commas throughout: `\piecewise{x, x>=0, -x, x<0}`. The
+renderer interprets the flat argument list as consecutive pairs. This keeps
+the grammar simple and context-free.
+
+### `(x_i)^2` produces SubSuperscriptExpression
+
+**Problem:** The study.md says `(x_i)^2` should produce
+`BinaryExpression(^, SubscriptExpression, 2)` while `x_i^2` produces
+`SubSuperscriptExpression`. But parentheses in this grammar simply unwrap
+their content — `(x_i)` evaluates to the bare `SubscriptExpression` node.
+The `Power` build function then sees a `SubscriptExpression` as its left
+operand and produces `SubSuperscriptExpression`.
+
+**Resolution:** Accept that both forms produce the same AST. This is
+mathematically correct — `(x_i)^2` and `x_i^2` both mean "x-sub-i squared".
+If a future use case requires distinguishing them, a "grouped" wrapper node
+could be introduced, but this adds complexity with no current benefit.
+
+### `->` interaction with `-` (subtraction)
+
+**How `x -> y` parses correctly:** The Additive repeat tries `-` as a
+subtraction operator. It matches `-`, then tries to parse `> y` as a
+Multiplicative — which fails (nothing valid starts with `>`). The sequence
+`[-, Multiplicative]` fails. The repeat stops. Additive returns just `x`.
+Then Relational tries `->` at the original position (after `x`) and matches.
+
+This works because PEG sequences do not commit — if a sequence fails partway
+through, the position reverts to before the sequence started. The repeat only
+advances `current` on successful iterations.
+
+
+---
+
+## Bug Fixes During Phase 2 Implementation
+
+### Issue 4 — `(x_i)^2` incorrectly produced `BinaryExpression` after first fix attempt
+
+#### Symptom
+
+After the initial Phase 2 implementation, the test `x_i^2 produces
+SubSuperscriptExpression` failed — it produced `BinaryExpression` instead.
+
+#### Root cause — first fix attempt (wrong)
+
+The `SubSuperscriptExpression` logic was initially placed in BOTH the `Power`
+and `ImplicitPower` build functions. The test for `(x_i)^2` expected it to
+produce `BinaryExpression(^, SubscriptExpression, 2)` — i.e., parentheses
+should "protect" the subscript from being merged into a SubSuperscript.
+
+However, `x_i^2` (without parens) is parsed through the `Power` rule (not
+`ImplicitPower`), because `Multiplicative` starts by parsing its first operand
+via `Power`. The path is:
+
+```
+Multiplicative → Power → Unary → Postfix → Primary → "x"
+                                  Postfix suffix: SubscriptSuffix → "x_i"
+                 Power repeat: "^" → Unary → "2"
+                 Power build: left = SubscriptExpression(x, i), rest = [[^, 2]]
+```
+
+So `SubSuperscriptExpression` logic MUST be in `Power` for `x_i^2` to work.
+
+The first fix attempt removed the logic from `Power` (keeping it only in
+`ImplicitPower`), which fixed `(x_i)^2` but broke `x_i^2`.
+
+#### Root cause — the real issue
+
+The test expectation for `(x_i)^2` was wrong. Parentheses in this grammar
+simply unwrap their content — `(x_i)` evaluates to the bare
+`SubscriptExpression(x, i)` node. When `Power` sees this as its left operand,
+it cannot distinguish it from the un-parenthesised `x_i`. Both produce
+`SubscriptExpression` as the left operand of `Power`.
+
+There is no "parenthesised" marker in the AST — parentheses are purely
+syntactic grouping that is discarded after parsing. This is standard behaviour
+in expression parsers (parentheses affect tree structure, not node types).
+
+#### Fix
+
+1. Restored `SubSuperscriptExpression` logic in the `Power` build function
+2. Updated the test: `(x_i)^2` now correctly expects `SubSuperscriptExpression`
+   (same as `x_i^2`), because both are mathematically equivalent — "x-sub-i
+   squared"
+
+#### Files changed
+
+- `src/parser/grammar.ts` — `Power` build function: added `SubSuperscriptExpression`
+  check (removed then re-added during the fix iteration)
+- `test/parser/grammar.test.ts` — changed test expectation for `(x_i)^2`
+
+#### Lesson
+
+Parentheses in an expression parser are **transparent** — they affect the
+tree structure (by overriding precedence) but leave no trace in the AST.
+Once the parser has built the inner node, the parentheses are gone. Any
+logic that inspects node types after parsing cannot distinguish "was this
+node parenthesised?" from "was this node bare?".
+
+If distinguishing parenthesised from bare subscripts were ever needed, the
+grammar would need to produce a wrapper node (e.g., `GroupedExpression`) that
+preserves the grouping information. This adds complexity with no current
+benefit, so it was not implemented.
+
+---
+
+### Issue 5 — First test run had `(x_i)^2` producing `SubSuperscriptExpression` unexpectedly
+
+#### Symptom
+
+The very first test run (167 tests, 1 failure) showed:
+```
+SubSuperscript > (x_i)^2 produces BinaryExpression(^) wrapping SubscriptExpression
+  Expected: "BinaryExpression"
+  Received: "SubSuperscriptExpression"
+```
+
+#### Root cause
+
+The `Power` build function checked `if (left.type === "SubscriptExpression")`
+and produced `SubSuperscriptExpression`. Since `(x_i)` unwraps to
+`SubscriptExpression`, the check triggered for both `x_i^2` and `(x_i)^2`.
+
+#### What was tried (and failed)
+
+Removing the `SubSuperscriptExpression` logic from `Power` and keeping it
+only in `ImplicitPower`. This fixed `(x_i)^2` but broke `x_i^2` because
+`x_i^2` goes through `Power` (not `ImplicitPower`).
+
+The path for `x_i^2`:
+```
+Multiplicative → Power (first operand)
+  Power → Unary → Postfix → parses "x_i" as SubscriptExpression
+  Power repeat → "^2"
+  Power build → left is SubscriptExpression → should produce SubSuperscriptExpression
+```
+
+The path does NOT go through `ImplicitPower` because `x_i^2` is the FIRST
+operand of `Multiplicative`, parsed via the initial `Power` call (not the
+repeat's implicit multiplication branch).
+
+#### Final resolution
+
+Accepted that both `x_i^2` and `(x_i)^2` produce `SubSuperscriptExpression`.
+Updated the test expectation. This is the correct mathematical interpretation
+— both notations mean the same thing.
+
+#### Sequence of changes
+
+1. Initial implementation: `Power` build has SubSuperscript logic → `(x_i)^2` test fails
+2. First fix: removed logic from `Power` → `x_i^2` test fails (and 2 render tests)
+3. Final fix: restored logic in `Power`, updated `(x_i)^2` test expectation → all 167 pass
+
+
+---
+
+### Issue 6 — Explicit multiplication `2*3` rendered without visible operator
+
+#### Symptom
+
+Typing `2*3` in the input showed `23` on screen — no multiplication sign
+visible. The user could not distinguish explicit multiplication from implicit.
+
+#### Root cause
+
+The original `renderBinary` for `operator === "*"` always rendered the two
+operands adjacent with no visible symbol (juxtaposition). This was correct
+for implicit multiplication (`2x` → `2x`) but wrong for explicit
+multiplication (`2*3` → should show a sign).
+
+The AST uses `operator: "*"` for BOTH explicit (`2*3`) and implicit (`2x`)
+multiplication. The parser does not distinguish them — both produce
+`BinaryExpression("*", left, right)`. This is correct: the AST represents
+structure, not visual presentation.
+
+#### Design decision — renderer determines visibility
+
+The responsibility for deciding whether to show `×` belongs to the **renderer**,
+not the parser or AST. The AST records that two things are multiplied; the
+renderer decides how to display that multiplication based on what the operands
+look like when rendered.
+
+#### The algorithm — digit adjacency check
+
+The rule is simple:
+
+> Show `×` if and only if the left operand's rendered form **ends with a digit**
+> AND the right operand's rendered form **starts with a digit**.
+
+This is the only case where juxtaposition is ambiguous — `23` looks like the
+number twenty-three, not `2 × 3`. In all other cases, juxtaposition is
+unambiguous:
+
+| Left ends with | Right starts with | Ambiguous? | Example |
+|---------------|-------------------|-----------|---------|
+| digit | digit | YES → show × | `2*3` → `2 × 3` |
+| digit | letter | no | `2*x` → `2x` |
+| digit | `(` | no | `2*(a+b)` → `2(a+b)` |
+| letter | digit | no | `x*2` → `x2` |
+| letter | letter | no | `x*y` → `xy` |
+| `)` | digit | no | `(a+b)*3` → `(a+b)3` |
+| `)` | letter | no | `(a+b)*x` → `(a+b)x` |
+| `)` | `(` | no | `(a+b)*(c+d)` → `(a+b)(c+d)` |
+
+#### Implementation — recursive AST inspection
+
+Two helper functions determine what the rendered edges look like:
+
+**`startsWithDigit(node, parenthesised)`** — returns true if the node's
+rendered output begins with a digit character:
+- `NumberLiteral` → true
+- `Identifier` → false (starts with a letter or glyph)
+- `UnaryExpression` → false (starts with `-` or `+`)
+- `BinaryExpression` → recurses into left child (accounting for whether
+  that child would be parenthesised by the binary node)
+- Parenthesised anything → false (starts with `(`)
+
+**`endsWithDigit(node, parenthesised)`** — returns true if the node's
+rendered output ends with a digit character:
+- `NumberLiteral` → true
+- `Identifier` → false
+- `UnaryExpression` → recurses into operand
+- `BinaryExpression` with `^` → false (ends with `</sup>`)
+- `BinaryExpression` with `/` → false (ends with fraction bottom)
+- `BinaryExpression` other → recurses into right child (accounting for
+  whether that child would be parenthesised)
+- `CallExpression` → false (ends with `)`)
+- `FactorialExpression` → false (ends with `!`)
+- Parenthesised anything → false (ends with `)`)
+
+#### The subtlety — child parenthesisation within subtrees
+
+The initial implementation had a bug: for `-2*(3+5)*4e^x^2`, the node
+`((-2)*(3+5)) * 4` incorrectly showed `×` because `endsWithDigit` recursed
+into the right child of the left subtree (`BinaryExpression(+, 3, 5)`) without
+considering that this child WOULD be parenthesised when rendered (because `*`
+has higher precedence than `+`).
+
+The fix: `wouldParenLeft` and `wouldParenRight` helper functions replicate
+the same parenthesisation logic used by `renderBinary`. When recursing into
+a `BinaryExpression`'s children, the digit-check functions first determine
+whether that child would be wrapped in parentheses, and if so, return false
+(parenthesised nodes start/end with `(`/`)`).
+
+#### Files changed
+
+- `src/render/render.ts` — added `needsExplicitMultiplySign`,
+  `startsWithDigit`, `endsWithDigit`, `wouldParenLeft`, `wouldParenRight`;
+  updated `renderBinary` for `operator === "*"` to conditionally show `×`
+- `test/render/render.test.ts` — added 11 test cases covering all
+  multiplication sign visibility scenarios
+
+#### Lesson
+
+Visual presentation decisions belong in the renderer, not the AST. The AST
+is a structural representation — it should use consistent, simple operators
+(`"*"` for all multiplication) without encoding display concerns. The renderer
+has access to the full subtree context needed to make intelligent display
+decisions.

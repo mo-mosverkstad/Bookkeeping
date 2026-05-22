@@ -90,13 +90,7 @@ export interface UnaryExpressionNode {
 export interface IdentifierNode {
     type: "Identifier";
     name: string;
-    // prefix encodes the visual form:
-    //   "plain"        — upright Latin (a)
-    //   "left-skew"    — italic Latin (`a)
-    //   "right-skew"   — right-skewed Latin (`1a)
-    //   "greek"        — upright Greek (\a = α)
-    //   "greek-right"  — right-skewed Greek (\1a)
-    prefix: "plain" | "left-skew" | "right-skew" | "greek" | "greek-right";
+    prefix: "plain" | "left-skew" | "right-skew" | "greek" | "greek-right" | "blackboard";
 }
 
 export interface CallExpressionNode {
@@ -117,6 +111,54 @@ export interface SubscriptExpressionNode {
     subscript: ASTNode;
 }
 
+export interface SubSuperscriptExpressionNode {
+    type: "SubSuperscriptExpression";
+    base: ASTNode;
+    subscript: ASTNode;
+    superscript: ASTNode;
+}
+
+export interface VectorNameNode {
+    type: "VectorName";
+    identifier: ASTNode;
+}
+
+export interface MatrixNode {
+    type: "Matrix";
+    rows: ASTNode[][];
+}
+
+export interface IndexExpressionNode {
+    type: "IndexExpression";
+    base: ASTNode;
+    index: ASTNode;
+}
+
+export interface AbsoluteValueNode {
+    type: "AbsoluteValue";
+    expr: ASTNode;
+}
+
+export interface FactorialExpressionNode {
+    type: "FactorialExpression";
+    base: ASTNode;
+}
+
+export interface DerivativeNode {
+    type: "Derivative";
+    base: ASTNode;
+    order: number;
+}
+
+export interface EllipsisNode {
+    type: "Ellipsis";
+}
+
+export interface PiecewiseNode {
+    type: "Piecewise";
+    cases: { expr: ASTNode; condition: ASTNode }[];
+}
+
 export type ASTNode =
     | NumberLiteralNode
     | IdentifierNode
@@ -124,4 +166,13 @@ export type ASTNode =
     | UnaryExpressionNode
     | CallExpressionNode
     | ControlExpressionNode
-    | SubscriptExpressionNode;
+    | SubscriptExpressionNode
+    | SubSuperscriptExpressionNode
+    | VectorNameNode
+    | MatrixNode
+    | IndexExpressionNode
+    | AbsoluteValueNode
+    | FactorialExpressionNode
+    | DerivativeNode
+    | EllipsisNode
+    | PiecewiseNode;

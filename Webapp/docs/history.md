@@ -188,3 +188,121 @@ Greek letters. Cycled via `__nextTest()` in the browser console.
 
 **Test counts:** 3 layers × multiple suites = 60+ individual test cases,
 all serving as regression tests for future phases.
+
+---
+
+## Phase 2 — Linear Algebra, Rollout Notation & Extended Operators
+
+---
+
+### Implementation
+
+**Added — Grammar**
+- `Relational` grammar level between `Expression` and `Additive`
+- `RelationalOp` rule: `=`, `!=`, `<=`, `>=`, `~=`, `:=`, `~`, `<<`, `>>`,
+  `->`, `<`, `>` — ordered longest-first to resolve conflicts
+- `MultiplicativeOp` rule: `*`, `/`, `.` (dot product), `\mod`, `\div`
+- `FactorialSuffix`: regex `/^!(?!=)/` (negative lookahead avoids `!=` conflict)
+- `DerivativeSuffix`: regex `/^'+/` (one or more primes)
+- `IndexSuffix`: `[Expression]` postfix
+- `RolloutExpression`: `/^[+*]\{/` atomic match at Primary level
+- `AbsoluteValue`: `|Expression|` at Primary level
+- `Ellipsis`: `...` literal at Primary level
+- `BracketExpression`: `[content]` with sub-rules for matrix rows, row vectors,
+  and vector name decorators
+- `ParenExpression`: handles both grouping `(expr)` and column vector `(a, b, c)`
+- `BlackboardBoldIdentifier`: regex `/^\\\\[A-Za-z]/` for `\\N`, `\\R`, etc.
+- `SubSuperscriptExpression` produced by `Power` and `ImplicitPower` build
+  functions when left operand is `SubscriptExpression`
+
+**Added — AST node types**
+- `SubSuperscriptExpressionNode` — base + subscript + superscript
+- `VectorNameNode` — identifier with arrow decorator
+- `MatrixNode` — rectangular array of expressions
+- `IndexExpressionNode` — array indexing
+- `AbsoluteValueNode` — absolute value / norm
+- `FactorialExpressionNode` — factorial postfix
+- `DerivativeNode` — prime derivative with order
+- `EllipsisNode` — sequence ellipsis
+- `PiecewiseNode` — piecewise function cases
+- `IdentifierNode.prefix` extended with `"blackboard"` variant
+
+**Added — Renderer**
+- `GLYPH_TABLE` — comprehensive lookup table: Greek, Hebrew (ℵ, ℶ, ℷ, ℸ),
+  operators (±, ∓, ∞, ∇, ∂), set operators (∪, ∩, ∖, ×, ∁, ∅, 𝒫, ⊂, ⊃,
+  ⊆, ⊇, ⊊, ⊋, △), logic (∧, ∨, ¬, ⟹, ⟺, ∀, ∃, ∄), calculus (∮, ∬, ∭),
+  geometry (∠, △, ∥, ⊥, ∼), misc (∘, ⊕, ⊗, ⊙, ↦, ∈, ∉, ≅, ∣, ∤, ÷)
+- `BLACKBOARD_TABLE` — ℕ, ℤ, ℚ, ℝ, ℂ, ℍ, ℙ, 𝕌, ∂
+- `RELATIONAL_SYMBOL` — maps operator strings to Unicode symbols for rendering
+- `renderSubSuperscript` — base with stacked sup/sub in `.scripts` container
+- `renderVectorName` — identifier with combining arrow
+- `renderMatrix` — table layout with `.matrix-row` and `.matrix-cell`
+- `renderIndex` — subscript display for array indexing
+- `renderAbsoluteValue` — `|x|` for scalars, `‖x‖` for vectors/matrices
+- `renderFactorial` — appends `!`
+- `renderDerivative` — appends prime characters (′)
+- `renderPiecewise` — table with left brace
+- `renderBigOperator` — Σ and Π with stacked bounds (reuses integral layout)
+- `renderLim` — "lim" with approach expression below
+- `renderBinom` — fraction in parentheses
+- `renderEval` — expression with evaluation bar and subscript
+- `renderUnderbrace` / `renderOverbrace` — content with brace and label
+- `renderRollout` — rollout operators using big operator layout
+- Control expression renderers: `\floor`→⌊⌋, `\ceil`→⌈⌉, `\bar`→overline,
+  `\hat`→hat, `\tilde`→tilde, `\ul`→underline, `\cancel`→strikethrough,
+  `\inner`→⟨⟩, `\arc`→arc decorator
+
+**Added — CSS**
+- `.subsuperscript` and `.scripts` — stacked superscript/subscript layout
+- `.vector-name` and `.vector-arrow` — arrow positioning
+- `.overline`, `.hat`, `.tilde`, `.underline`, `.cancel`, `.arc` — decorators
+- `.underbrace`, `.overbrace` with content and label children
+- `.eval-bar` — evaluation bar styling
+- `.ident-blackboard` — bold styling for blackboard bold
+- `.piecewise-expr`, `.piecewise-cond` — table cell styling for piecewise
+
+**Changed**
+- `Expression` rule now points to `Relational` instead of `Additive`
+- `Multiplicative` repeat now tries `MultiplicativeOp` (including `.`, `\mod`,
+  `\div`) before implicit multiplication
+- `Power` and `ImplicitPower` build functions produce `SubSuperscriptExpression`
+  when left operand is `SubscriptExpression`
+- `Postfix` suffix list extended with `FactorialSuffix`, `DerivativeSuffix`,
+  `IndexSuffix`
+- `Primary` options extended with `RolloutExpression`, `Ellipsis`,
+  `AbsoluteValue`, `BracketExpression`, `ParenExpression` (replaces old
+  inline paren handling)
+- `Identifier` choice list extended with `BlackboardBoldIdentifier` (tried first)
+- `GREEK` table in renderer replaced by comprehensive `GLYPH_TABLE`
+- `renderBinary` extended with dot product (·), mod, div, and relational symbols
+- `renderControl` extended with all new control expression types
+
+---
+
+### Design decisions
+
+1. **Backslash relational operators as identifiers**: `\sub`, `\in`, `\notin`,
+   etc. are parsed as regular backslash identifiers (not grammar-level operators)
+   because the PEG implicit multiplication rule would consume them before the
+   Relational level gets a chance. They render correctly via GLYPH_TABLE.
+
+2. **Piecewise uses commas**: `\piecewise{x, x>=0, -x, x<0}` instead of
+   semicolons, to avoid grammar complexity. The renderer interprets pairs.
+
+- `(x_i)^2` also produces `SubSuperscriptExpression` — parentheses unwrap
+  the inner expression to a bare `SubscriptExpression`, which `Power`'s build
+  function then combines with the exponent. This is mathematically correct:
+  `(x_i)^2` and `x_i^2` both mean "x-sub-i squared".
+
+3. **ASCII-only relational operators at grammar level**: Only `=`, `!=`, `<=`,
+   `>=`, `~=`, `:=`, `~`, `<<`, `>>`, `->`, `<`, `>` are grammar-level
+   relational operators. All others are identifiers rendered via GLYPH_TABLE.
+
+---
+
+### Test infrastructure
+
+- Grammar tests: extended with ~35 new test cases covering all Phase 2 features
+- Render tests: extended with ~30 new test cases covering all Phase 2 renderers
+- All Phase 1 regression tests preserved and passing
+- Tests awaiting execution on target (WSL Ubuntu) per exception.md

@@ -76,7 +76,6 @@ describe("Identifiers", () => {
     });
 
     it("right-skew tried before left-skew (no prefix theft)", () => {
-        // `1T must parse as right-skew, not left-skew(`1`) + plain(T)
         const node = parse("`1T") as any;
         expect(node.prefix).toBe("right-skew");
         expect(node.name).toBe("T");
@@ -86,6 +85,21 @@ describe("Identifiers", () => {
         const node = parse("\\1a") as any;
         expect(node.prefix).toBe("greek-right");
         expect(node.name).toBe("a");
+    });
+
+    it("blackboard bold identifier", () => {
+        const node = parse("\\\\R") as any;
+        expect(node.type).toBe("Identifier");
+        expect(node.name).toBe("R");
+        expect(node.prefix).toBe("blackboard");
+    });
+
+    it("multi-letter backslash identifier", () => {
+        expect(parse("\\sin")).toMatchObject(id("sin", "greek"));
+    });
+
+    it("multi-letter backslash identifier with digits", () => {
+        expect(parse("\\ha")).toMatchObject(id("ha", "greek"));
     });
 });
 
@@ -138,6 +152,10 @@ describe("Multiplicative", () => {
         );
     });
 
+    it("dot product", () => {
+        expect(parse("u.v")).toMatchObject(bin(".", id("u"), id("v")));
+    });
+
     // Regression: implicit multiplication must not steal unary signs (Issue 2)
     it("regression: (3+5) not parsed as 3*(+5)", () => {
         const node = parse("2*(3+5)") as any;
@@ -149,10 +167,8 @@ describe("Multiplicative", () => {
 
     it("regression: -2*(3+5)*4e^x^2 full composite", () => {
         const node = parse("-2*(3+5)*4e^x^2") as any;
-        // top level: * of (-2*(3+5)*4) and e^(x^2)
         expect(node.type).toBe("BinaryExpression");
         expect(node.operator).toBe("*");
-        // right side must be e^(x^2), not (e^x)^2
         expect(node.right.type).toBe("BinaryExpression");
         expect(node.right.operator).toBe("^");
         expect(node.right.left).toMatchObject(id("e"));
@@ -250,6 +266,63 @@ describe("Postfix — control expression", () => {
     });
 });
 
+describe("Postfix — factorial", () => {
+    it("simple factorial", () => {
+        const node = parse("n!") as any;
+        expect(node.type).toBe("FactorialExpression");
+        expect(node.base).toMatchObject(id("n"));
+    });
+
+    it("factorial does not consume !=", () => {
+        const node = parse("x != y") as any;
+        expect(node.type).toBe("BinaryExpression");
+        expect(node.operator).toBe("!=");
+    });
+
+    it("factorial on expression: (n+1)!", () => {
+        const node = parse("(n+1)!") as any;
+        expect(node.type).toBe("FactorialExpression");
+        expect(node.base).toMatchObject(bin("+", id("n"), num(1)));
+    });
+});
+
+describe("Postfix — derivative", () => {
+    it("single prime", () => {
+        const node = parse("f'") as any;
+        expect(node.type).toBe("Derivative");
+        expect(node.base).toMatchObject(id("f"));
+        expect(node.order).toBe(1);
+    });
+
+    it("double prime", () => {
+        const node = parse("f''") as any;
+        expect(node.type).toBe("Derivative");
+        expect(node.order).toBe(2);
+    });
+
+    it("derivative with call: f'(x)", () => {
+        const node = parse("f'(x)") as any;
+        expect(node.type).toBe("CallExpression");
+        expect(node.callee.type).toBe("Derivative");
+        expect(node.callee.order).toBe(1);
+    });
+});
+
+describe("Postfix — index expression", () => {
+    it("A[k] parses as IndexExpression", () => {
+        const node = parse("A[k]") as any;
+        expect(node.type).toBe("IndexExpression");
+        expect(node.base).toMatchObject(id("A"));
+        expect(node.index).toMatchObject(id("k"));
+    });
+
+    it("A[0] with numeric index", () => {
+        const node = parse("A[0]") as any;
+        expect(node.type).toBe("IndexExpression");
+        expect(node.index).toMatchObject(num(0));
+    });
+});
+
 // ── Grouping ──────────────────────────────────────────────────────────────────
 
 describe("Grouping parentheses", () => {
@@ -268,18 +341,197 @@ describe("Grouping parentheses", () => {
 
 describe("Operator precedence", () => {
     it("^ > * > +", () => {
-        // a + b * c ^ d  =  a + (b * (c ^ d))
         expect(parse("a+b*c^d")).toMatchObject(
             bin("+", id("a"), bin("*", id("b"), bin("^", id("c"), id("d"))))
         );
     });
 
     it("unary is inside power: -a^2 = (-a)^2", () => {
-        // Power → Unary (^ Unary)* so -a is parsed as Unary first,
-        // then ^2 is applied to it, giving (-a)^2 not -(a^2)
         expect(parse("-a^2")).toMatchObject(
             bin("^", unary("-", id("a")), num(2))
         );
+    });
+});
+
+// ── Relational ────────────────────────────────────────────────────────────────
+
+describe("Relational operators", () => {
+    it("equals", () => {
+        expect(parse("a = b")).toMatchObject(bin("=", id("a"), id("b")));
+    });
+
+    it("not equal", () => {
+        expect(parse("a != b")).toMatchObject(bin("!=", id("a"), id("b")));
+    });
+
+    it("less than or equal", () => {
+        expect(parse("a <= b")).toMatchObject(bin("<=", id("a"), id("b")));
+    });
+
+    it("greater than or equal", () => {
+        expect(parse("a >= b")).toMatchObject(bin(">=", id("a"), id("b")));
+    });
+
+    it("approximately equal", () => {
+        expect(parse("a ~= b")).toMatchObject(bin("~=", id("a"), id("b")));
+    });
+
+    it("defined as", () => {
+        expect(parse("a := b")).toMatchObject(bin(":=", id("a"), id("b")));
+    });
+
+    it("proportional", () => {
+        expect(parse("a ~ b")).toMatchObject(bin("~", id("a"), id("b")));
+    });
+
+    it("much less than", () => {
+        expect(parse("a << b")).toMatchObject(bin("<<", id("a"), id("b")));
+    });
+
+    it("much greater than", () => {
+        expect(parse("a >> b")).toMatchObject(bin(">>", id("a"), id("b")));
+    });
+
+    it("approaching / arrow", () => {
+        expect(parse("x -> a")).toMatchObject(bin("->", id("x"), id("a")));
+    });
+
+    it("less than", () => {
+        expect(parse("a < b")).toMatchObject(bin("<", id("a"), id("b")));
+    });
+
+    it("greater than", () => {
+        expect(parse("a > b")).toMatchObject(bin(">", id("a"), id("b")));
+    });
+
+    it("relational has lower precedence than additive", () => {
+        expect(parse("a + 1 = b")).toMatchObject(
+            bin("=", bin("+", id("a"), num(1)), id("b"))
+        );
+    });
+
+    it("-> tried before >", () => {
+        expect(parse("x -> y")).toMatchObject(bin("->", id("x"), id("y")));
+    });
+
+    it("<< tried before <", () => {
+        expect(parse("a << b")).toMatchObject(bin("<<", id("a"), id("b")));
+    });
+
+    it("~= tried before ~", () => {
+        expect(parse("a ~= b")).toMatchObject(bin("~=", id("a"), id("b")));
+    });
+});
+
+// ── SubSuperscript ────────────────────────────────────────────────────────────
+
+describe("SubSuperscript", () => {
+    it("x_i^2 produces SubSuperscriptExpression", () => {
+        const node = parse("x_i^2") as any;
+        expect(node.type).toBe("SubSuperscriptExpression");
+        expect(node.base).toMatchObject(id("x"));
+        expect(node.subscript).toMatchObject(id("i"));
+        expect(node.superscript).toMatchObject(num(2));
+    });
+
+    it("(x_i)^2 also produces SubSuperscriptExpression (parens unwrap)", () => {
+        const node = parse("(x_i)^2") as any;
+        expect(node.type).toBe("SubSuperscriptExpression");
+        expect(node.base).toMatchObject(id("x"));
+        expect(node.subscript).toMatchObject(id("i"));
+        expect(node.superscript).toMatchObject(num(2));
+    });
+});
+
+// ── Vector name decorator ─────────────────────────────────────────────────────
+
+describe("Vector name decorator [a]", () => {
+    it("[a] produces VectorName", () => {
+        const node = parse("[a]") as any;
+        expect(node.type).toBe("VectorName");
+        expect(node.identifier).toMatchObject(id("a"));
+    });
+
+    it("[a] with skewed identifier", () => {
+        const node = parse("[`1T]") as any;
+        expect(node.type).toBe("VectorName");
+        expect(node.identifier).toMatchObject(id("T", "right-skew"));
+    });
+});
+
+// ── Matrix / vector literals ──────────────────────────────────────────────────
+
+describe("Matrix and vector literals", () => {
+    it("[a, b, c] produces row vector (1×3 Matrix)", () => {
+        const node = parse("[a, b, c]") as any;
+        expect(node.type).toBe("Matrix");
+        expect(node.rows).toHaveLength(1);
+        expect(node.rows[0]).toHaveLength(3);
+    });
+
+    it("[[a, b], [c, d]] produces 2×2 matrix", () => {
+        const node = parse("[[a, b], [c, d]]") as any;
+        expect(node.type).toBe("Matrix");
+        expect(node.rows).toHaveLength(2);
+        expect(node.rows[0]).toHaveLength(2);
+        expect(node.rows[1]).toHaveLength(2);
+    });
+
+    it("(a, b, c) produces column vector (3×1 Matrix)", () => {
+        const node = parse("(a, b, c)") as any;
+        expect(node.type).toBe("Matrix");
+        expect(node.rows).toHaveLength(3);
+        expect(node.rows[0]).toHaveLength(1);
+    });
+
+    it("(a) is grouping, not a 1×1 vector", () => {
+        const node = parse("(a)") as any;
+        expect(node.type).toBe("Identifier");
+    });
+});
+
+// ── Absolute value ────────────────────────────────────────────────────────────
+
+describe("Absolute value", () => {
+    it("|x| produces AbsoluteValue", () => {
+        const node = parse("|x|") as any;
+        expect(node.type).toBe("AbsoluteValue");
+        expect(node.expr).toMatchObject(id("x"));
+    });
+
+    it("|a+b| wraps expression", () => {
+        const node = parse("|a+b|") as any;
+        expect(node.type).toBe("AbsoluteValue");
+        expect(node.expr.type).toBe("BinaryExpression");
+    });
+});
+
+// ── Rollout expressions ───────────────────────────────────────────────────────
+
+describe("Rollout expressions", () => {
+    it("+{k=0, n, A[k]} produces ControlExpression with name +", () => {
+        const node = parse("+{k=0, n, A[k]}") as any;
+        expect(node.type).toBe("ControlExpression");
+        expect(node.name).toBe("+");
+        expect(node.args).toHaveLength(3);
+        // first arg is k=0 (relational expression)
+        expect(node.args[0].type).toBe("BinaryExpression");
+        expect(node.args[0].operator).toBe("=");
+    });
+
+    it("*{k=0, n, A[k]} produces ControlExpression with name *", () => {
+        const node = parse("*{k=0, n, A[k]}") as any;
+        expect(node.type).toBe("ControlExpression");
+        expect(node.name).toBe("*");
+    });
+});
+
+// ── Ellipsis ──────────────────────────────────────────────────────────────────
+
+describe("Ellipsis", () => {
+    it("... produces EllipsisNode", () => {
+        const node = parse("...") as any;
+        expect(node.type).toBe("Ellipsis");
     });
 });
 

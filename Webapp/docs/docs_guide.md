@@ -93,13 +93,56 @@ Contents:
 
 ---
 
+### `theory.md`
+The theoretical foundation document. Explains the computer science theory
+behind the parser and grammar system from first principles, written for
+readers with no prior knowledge of parsing theory or formal languages.
+
+Contents:
+- Related academic fields and university courses
+- Formal languages, alphabets, strings
+- Grammars and the Chomsky hierarchy
+- Context-free grammars (CFG) and ambiguity
+- Parsing Expression Grammars (PEG) — definition, operators, comparison with CFG
+- Recursive descent parsing
+- How the PEG engine works internally
+- The BobaMath grammar design philosophy
+- Operator precedence via grammar structure
+- Left vs right associativity and how build functions implement them
+- Implicit multiplication — the hard problem and its solution
+- The script-agnostic identifier system
+- Scannerless parsing vs traditional tokenisation
+- Abstract Syntax Trees — structure, purpose, node types
+- The rendering pipeline from AST to visual HTML
+- Why existing tools (PEG.js, ANTLR, MathJax, KaTeX) were not used
+- Summary of design principles
+
+---
+
+### `exception.md`
+Documents deviations from the standard workflow when the AI assistant
+operates in a different environment (SUSE Linux) from the target runtime
+(WSL Ubuntu without desktop). Defines what the assistant does (write code,
+tests, docs, instructions) and what it does not do (execute tests, run
+dev server, install dependencies).
+
+Contents:
+- Current environment situation
+- What the assistant must and must not do
+- Modified workflow with split responsibilities
+- Instructions for running tests and demos on the target
+
+---
+
 ## Reading Order
 
 | Goal | Start here |
 |------|-----------|
 | Understand the project vision | `study.md` |
+| Learn the CS theory behind the system | `theory.md` |
 | Learn how the code works | `codebase_analysis.md` |
 | Run or demo the app | `demos.md` |
 | Check test results | `testing.md` |
 | See what changed recently | `history.md` |
 | Set up the dev environment | `environment_setup.md` |
+| Understand cross-environment constraints | `exception.md` |

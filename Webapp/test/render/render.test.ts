@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, renderMath } from "../../src/render/render.ts";
+import { renderMath } from "../../src/render/render.ts";
 import { parser } from "../../src/parser/grammar.ts";
 import type { ASTNode } from "../../src/parser/types.ts";
 
@@ -56,6 +56,22 @@ describe("Renderer — Identifier", () => {
         expect(el).not.toBeNull();
         expect(el!.textContent).toBe("β");
     });
+
+    it("blackboard bold renders correct glyph", () => {
+        expect(html("\\\\R")).toContain("ℝ");
+    });
+
+    it("blackboard bold has ident-blackboard class", () => {
+        expect(query("\\\\R", ".ident-blackboard")).not.toBeNull();
+    });
+
+    it("Hebrew identifier \\ha renders ℵ", () => {
+        expect(html("\\ha")).toContain("ℵ");
+    });
+
+    it("multi-letter identifier \\sin renders as text sin", () => {
+        expect(html("\\sin")).toContain("sin");
+    });
 });
 
 // ── Binary — fraction ─────────────────────────────────────────────────────────
@@ -98,7 +114,7 @@ describe("Renderer — power", () => {
     });
 });
 
-// ── Binary — addition/subtraction ─────────────────────────────────────────────
+// ── Binary — additive ─────────────────────────────────────────────────────────
 
 describe("Renderer — additive operators", () => {
     it("addition renders + operator text", () => {
@@ -107,6 +123,38 @@ describe("Renderer — additive operators", () => {
 
     it("subtraction renders - operator text", () => {
         expect(html("a-b")).toContain("-");
+    });
+});
+
+// ── Binary — dot product ──────────────────────────────────────────────────────
+
+describe("Renderer — dot product", () => {
+    it("dot product renders centre dot ·", () => {
+        expect(html("u.v")).toContain("·");
+    });
+});
+
+// ── Relational operators ──────────────────────────────────────────────────────
+
+describe("Renderer — relational operators", () => {
+    it("!= renders ≠", () => {
+        expect(html("a != b")).toContain("≠");
+    });
+
+    it("<= renders ≤", () => {
+        expect(html("a <= b")).toContain("≤");
+    });
+
+    it(">= renders ≥", () => {
+        expect(html("a >= b")).toContain("≥");
+    });
+
+    it("-> renders →", () => {
+        expect(html("x -> a")).toContain("→");
+    });
+
+    it("= renders =", () => {
+        expect(html("a = b")).toContain("=");
     });
 });
 
@@ -127,6 +175,22 @@ describe("Renderer — subscript", () => {
 
     it("subscript text is correct", () => {
         expect(query("x_i", "sub")!.textContent).toBe("i");
+    });
+});
+
+// ── SubSuperscript ────────────────────────────────────────────────────────────
+
+describe("Renderer — SubSuperscript", () => {
+    it("x_i^2 renders .subsuperscript container", () => {
+        expect(query("x_i^2", ".subsuperscript")).not.toBeNull();
+    });
+
+    it("x_i^2 has .scripts with sup and sub", () => {
+        const el = renderInput("x_i^2");
+        const scripts = el.querySelector(".scripts");
+        expect(scripts).not.toBeNull();
+        expect(scripts!.querySelector("sup")).not.toBeNull();
+        expect(scripts!.querySelector("sub")).not.toBeNull();
     });
 });
 
@@ -154,13 +218,11 @@ describe("Renderer — integral", () => {
         expect(query("\\int{0, 1, x}", ".integral .opstack")).not.toBeNull();
     });
 
-    // Regression: body must be beside the sign, not inside opstack (Issue 3)
     it("regression: body is .integral-body sibling, not child of opstack", () => {
         const el = renderInput("\\int{0, 1, x}");
         const opstack = el.querySelector(".opstack")!;
         const body = el.querySelector(".integral-body");
         expect(body).not.toBeNull();
-        // integral-body must NOT be inside opstack
         expect(opstack.querySelector(".integral-body")).toBeNull();
     });
 
@@ -193,6 +255,190 @@ describe("Renderer — sqrt", () => {
     });
 });
 
+// ── Control — floor/ceil ──────────────────────────────────────────────────────
+
+describe("Renderer — floor and ceil", () => {
+    it("floor renders ⌊ and ⌋", () => {
+        const h = html("\\floor{x}");
+        expect(h).toContain("⌊");
+        expect(h).toContain("⌋");
+    });
+
+    it("ceil renders ⌈ and ⌉", () => {
+        const h = html("\\ceil{x}");
+        expect(h).toContain("⌈");
+        expect(h).toContain("⌉");
+    });
+});
+
+// ── Control — inner product ───────────────────────────────────────────────────
+
+describe("Renderer — inner product", () => {
+    it("\\inner{x, y} renders angle brackets", () => {
+        const h = html("\\inner{x, y}");
+        expect(h).toContain("⟨");
+        expect(h).toContain("⟩");
+    });
+});
+
+// ── Control — big operators ───────────────────────────────────────────────────
+
+describe("Renderer — big operators", () => {
+    it("\\S renders Σ", () => {
+        expect(html("\\S{k=0, n, k}")).toContain("Σ");
+    });
+
+    it("\\S renders .integral container (same layout as integral)", () => {
+        expect(query("\\S{k=0, n, k}", ".integral")).not.toBeNull();
+    });
+});
+
+// ── Control — lim ─────────────────────────────────────────────────────────────
+
+describe("Renderer — lim", () => {
+    it("\\lim renders lim text", () => {
+        expect(html("\\lim{x, f(x)}")).toContain("lim");
+    });
+});
+
+// ── Vector name ───────────────────────────────────────────────────────────────
+
+describe("Renderer — vector name", () => {
+    it("[a] renders .vector-name", () => {
+        expect(query("[a]", ".vector-name")).not.toBeNull();
+    });
+
+    it("[a] renders arrow ⃗", () => {
+        expect(html("[a]")).toContain("⃗");
+    });
+});
+
+// ── Matrix ────────────────────────────────────────────────────────────────────
+
+describe("Renderer — matrix", () => {
+    it("[[a, b], [c, d]] renders .matrix", () => {
+        expect(query("[[a, b], [c, d]]", ".matrix")).not.toBeNull();
+    });
+
+    it("matrix has correct number of rows", () => {
+        const el = renderInput("[[a, b], [c, d]]");
+        const rows = el.querySelectorAll(".matrix-row");
+        expect(rows.length).toBe(2);
+    });
+
+    it("matrix has correct number of cells", () => {
+        const el = renderInput("[[a, b], [c, d]]");
+        const cells = el.querySelectorAll(".matrix-cell");
+        expect(cells.length).toBe(4);
+    });
+});
+
+// ── Absolute value / norm ─────────────────────────────────────────────────────
+
+describe("Renderer — absolute value and norm", () => {
+    it("|x| renders | delimiters", () => {
+        const h = html("|x|");
+        expect(h).toContain("|");
+    });
+
+    it("|[a]| renders ‖ (norm)", () => {
+        const h = html("|[a]|");
+        expect(h).toContain("‖");
+    });
+});
+
+// ── Factorial ─────────────────────────────────────────────────────────────────
+
+describe("Renderer — factorial", () => {
+    it("n! renders !", () => {
+        expect(html("n!")).toContain("!");
+    });
+});
+
+// ── Derivative ────────────────────────────────────────────────────────────────
+
+describe("Renderer — derivative", () => {
+    it("f' renders prime ′", () => {
+        expect(html("f'")).toContain("′");
+    });
+
+    it("f'' renders two primes", () => {
+        const h = html("f''");
+        expect((h.match(/′/g) || []).length).toBe(2);
+    });
+});
+
+// ── Ellipsis ──────────────────────────────────────────────────────────────────
+
+describe("Renderer — ellipsis", () => {
+    it("... renders …", () => {
+        expect(html("...")).toContain("…");
+    });
+});
+
+// ── Multiplication sign visibility ────────────────────────────────────────────
+
+describe("Renderer — multiplication sign visibility", () => {
+    // × shown: bare number adjacent to bare number
+    it("2*3 shows × (digit-digit)", () => {
+        expect(html("2*3")).toContain("×");
+    });
+
+    it("42*7 shows × (multi-digit)", () => {
+        expect(html("42*7")).toContain("×");
+    });
+
+    // × hidden: number × identifier
+    it("2*x hides sign (digit-letter)", () => {
+        expect(html("2*x")).not.toContain("×");
+    });
+
+    // × hidden: identifier × identifier
+    it("x*y hides sign (letter-letter)", () => {
+        expect(html("x*y")).not.toContain("×");
+    });
+
+    // × hidden: identifier × number (letter then digit — unambiguous)
+    it("x*2 hides sign (letter-digit)", () => {
+        expect(html("x*2")).not.toContain("×");
+    });
+
+    // × hidden: parenthesised × number (paren then digit)
+    it("(a+b)*3 hides sign (paren-digit)", () => {
+        expect(html("(a+b)*3")).not.toContain("×");
+    });
+
+    // × hidden: number × parenthesised (digit then paren)
+    it("2*(a+b) hides sign (digit-paren)", () => {
+        expect(html("2*(a+b)")).not.toContain("×");
+    });
+
+    // × hidden: parenthesised × parenthesised
+    it("(a+b)*(c+d) hides sign (paren-paren)", () => {
+        expect(html("(a+b)*(c+d)")).not.toContain("×");
+    });
+
+    // × hidden: parenthesised × identifier
+    it("(a+b)*x hides sign (paren-letter)", () => {
+        expect(html("(a+b)*x")).not.toContain("×");
+    });
+
+    // × hidden: number × function call (digit then letter)
+    it("2*f(x) hides sign (digit-call)", () => {
+        expect(html("2*f(x)")).not.toContain("×");
+    });
+
+    // × hidden: implicit multiplication (2x)
+    it("2x hides sign (implicit)", () => {
+        expect(html("2x")).not.toContain("×");
+    });
+
+    // × hidden: identifier × parenthesised
+    it("x*(a+b) hides sign (letter-paren)", () => {
+        expect(html("x*(a+b)")).not.toContain("×");
+    });
+});
+
 // ── Parenthesisation ──────────────────────────────────────────────────────────
 
 describe("Renderer — automatic parenthesisation", () => {
@@ -201,9 +447,7 @@ describe("Renderer — automatic parenthesisation", () => {
     });
 
     it("a+b*c does NOT wrap b*c in parens", () => {
-        // multiplication is higher precedence, no parens needed on right
         const h = html("a+b*c");
-        // count parens — should be zero since no grouping needed
         expect((h.match(/\(/g) || []).length).toBe(0);
     });
 

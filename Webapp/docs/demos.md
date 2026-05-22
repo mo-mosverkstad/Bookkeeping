@@ -135,3 +135,79 @@ Or copy the project to a native Linux path as described in `environ-setup.md`.
 Run `npx tsc --noEmit` to see all type errors. The most common cause is a
 missing import after adding a new file. Check that all types used in a file
 are imported from `../parser/types.ts`.
+
+---
+
+## Phase 2 — Math Syntax: Linear Algebra, Rollout Notation & Extended Operators
+
+---
+
+## How to Run the Demo
+
+Same as Phase 1:
+
+```bash
+cd Webapp
+npm install    # first time only
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser. Call `__nextTest()` in
+the browser console to cycle through all test cases.
+
+---
+
+## Expected Results (Phase 2 test cases)
+
+| # | Input | Expected visual |
+|---|-------|-----------------|
+| 7 | `[a]` | a with arrow over it (a⃗) |
+| 8 | `[[a, b], [c, d]]` | 2×2 matrix with brackets |
+| 9 | `(a, b, c)` | 3×1 column vector |
+| 10 | `A[k]` | A with subscript k (index) |
+| 11 | `u.v` | u · v (centre dot) |
+| 12 | `+{k=0, n, A[k]}` | Σ with k=0 below, n above, body A[k] |
+| 13 | `*{k=0, n, A[k]}` | Π with k=0 below, n above, body A[k] |
+| 14 | `x_i^2` | x with subscript i and superscript 2 stacked |
+| 15 | `a <= b` | a ≤ b |
+| 16 | `x != y` | x ≠ y |
+| 17 | `x \in \\R` | x∈ℝ (implicit multiplication rendering) |
+| 18 | `\ha_0` | ℵ with subscript 0 |
+| 19 | `n!` | n! |
+| 20 | `f'(x)` | f′(x) |
+| 21 | `f''(x)` | f′′(x) |
+| 22 | `|x|` | |x| |
+| 23 | `[a_1, ..., a_n]` | row vector [a₁, …, aₙ] |
+| 24 | `\floor{x+1}` | ⌊x+1⌋ |
+| 25 | `\ceil{x}` | ⌈x⌉ |
+| 26 | `\bar{x}` | x with overline |
+| 27 | `\hat{x}` | x with hat |
+| 28 | `\inner{x, y}` | ⟨x, y⟩ |
+| 29 | `\binom{n, r}` | binomial coefficient (n over r) |
+| 30 | `\S{k=0, n, k^2}` | Σ from k=0 to n of k² |
+| 31 | `\lim{x->0, f(x)}` | lim with x→0 below, body f(x) |
+
+---
+
+## Design Notes for Phase 2
+
+### Backslash relational operators
+
+The study.md specifies `\sub`, `\in`, `\notin`, etc. as relational operators
+at the grammar level. In the implementation, these are handled as regular
+backslash identifiers that render via `GLYPH_TABLE`. The visual output is
+correct (`x∈ℝ`) but the AST represents them as implicit multiplication
+rather than a relational binary expression.
+
+This is a deliberate implementation compromise: the PEG grammar cannot
+distinguish `\in` as an operator from `\in` as an identifier without
+complex negative lookaheads in the implicit multiplication rule. The
+visual rendering is identical either way. A future semantic pass could
+reinterpret these nodes if needed.
+
+### Piecewise syntax
+
+The study.md specifies semicolons as separators: `\piecewise{x, x>=0; -x, x<0}`.
+The implementation uses commas throughout: `\piecewise{x, x>=0, -x, x<0}`.
+The renderer interprets the flat argument list as pairs of (expression, condition).
+This avoids grammar complexity while producing the same visual output.

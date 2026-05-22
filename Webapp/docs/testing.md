@@ -492,3 +492,127 @@ This is recorded as a known design characteristic for Phase 2 review.
 ```
 
 **Verdict: ✅ All 97 tests pass.**
+
+---
+
+## Phase 2 — Math Syntax: Linear Algebra, Rollout Notation & Extended Operators
+
+---
+
+### Automated test files
+
+| File | What is covered |
+|------|-----------------|
+| `test/parser/PEGParser.test.ts` | PEG engine primitives (unchanged from Phase 1) |
+| `test/parser/grammar.test.ts` | All Phase 1 regression tests + Phase 2: relational operators, blackboard bold, factorial, derivative, index expression, SubSuperscript, vector name, matrix/vector literals, absolute value, rollout, ellipsis, dot product |
+| `test/render/render.test.ts` | All Phase 1 regression tests + Phase 2: blackboard bold rendering, Hebrew glyph, relational symbols (≠, ≤, ≥, →), dot product (·), SubSuperscript layout, vector name with arrow, matrix grid, absolute value/norm, factorial, derivative primes, ellipsis, floor/ceil, inner product, big operators (Σ), lim |
+
+### How to run
+
+```bash
+cd Webapp
+npm install    # first time only
+npm test       # run all tests once
+```
+
+Expected output (if all pass):
+```
+✓ test/parser/PEGParser.test.ts
+✓ test/parser/grammar.test.ts
+✓ test/render/render.test.ts
+
+Test Files  3 passed (3)
+```
+
+---
+
+### Phase 2 test cases
+
+#### Grammar tests added
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Blackboard bold | `\\R` | `Identifier { name: "R", prefix: "blackboard" }` |
+| Multi-letter backslash | `\sin` | `Identifier { name: "sin", prefix: "greek" }` |
+| Hebrew identifier | `\ha` | `Identifier { name: "ha", prefix: "greek" }` |
+| Dot product | `u.v` | `BinaryExpression(".", u, v)` |
+| Relational = | `a = b` | `BinaryExpression("=", a, b)` |
+| Relational != | `a != b` | `BinaryExpression("!=", a, b)` |
+| Relational <= | `a <= b` | `BinaryExpression("<=", a, b)` |
+| Relational >= | `a >= b` | `BinaryExpression(">=", a, b)` |
+| Relational ~= | `a ~= b` | `BinaryExpression("~=", a, b)` |
+| Relational := | `a := b` | `BinaryExpression(":=", a, b)` |
+| Relational ~ | `a ~ b` | `BinaryExpression("~", a, b)` |
+| Relational << | `a << b` | `BinaryExpression("<<", a, b)` |
+| Relational >> | `a >> b` | `BinaryExpression(">>", a, b)` |
+| Relational -> | `x -> a` | `BinaryExpression("->", x, a)` |
+| Relational < | `a < b` | `BinaryExpression("<", a, b)` |
+| Relational > | `a > b` | `BinaryExpression(">", a, b)` |
+| Relational precedence | `a + 1 = b` | `BinaryExpression("=", a+1, b)` |
+| -> before > | `x -> y` | `BinaryExpression("->")` not `BinaryExpression(">")` |
+| << before < | `a << b` | `BinaryExpression("<<")` not `BinaryExpression("<")` |
+| ~= before ~ | `a ~= b` | `BinaryExpression("~=")` not `BinaryExpression("~")` |
+| Factorial | `n!` | `FactorialExpression(n)` |
+| Factorial vs != | `x != y` | `BinaryExpression("!=")` not factorial |
+| Factorial on group | `(n+1)!` | `FactorialExpression(n+1)` |
+| Derivative single | `f'` | `Derivative(f, 1)` |
+| Derivative double | `f''` | `Derivative(f, 2)` |
+| Derivative + call | `f'(x)` | `CallExpression(Derivative(f,1), [x])` |
+| Index expression | `A[k]` | `IndexExpression(A, k)` |
+| Index numeric | `A[0]` | `IndexExpression(A, 0)` |
+| SubSuperscript | `x_i^2` | `SubSuperscriptExpression(x, i, 2)` |
+| Explicit paren power | `(x_i)^2` | `SubSuperscriptExpression(x, i, 2)` — parens unwrap, same result |
+| Vector name | `[a]` | `VectorName(a)` |
+| Vector name skewed | `` [`1T] `` | `VectorName(T, right-skew)` |
+| Row vector | `[a, b, c]` | `Matrix { rows: [[a,b,c]] }` |
+| Matrix 2×2 | `[[a,b],[c,d]]` | `Matrix { rows: [[a,b],[c,d]] }` |
+| Column vector | `(a, b, c)` | `Matrix { rows: [[a],[b],[c]] }` |
+| Grouping not vector | `(a)` | `Identifier(a)` |
+| Absolute value | `|x|` | `AbsoluteValue(x)` |
+| Abs with expr | `|a+b|` | `AbsoluteValue(a+b)` |
+| Rollout + | `+{k=0, n, A[k]}` | `ControlExpression("+", [k=0, n, A[k]])` |
+| Rollout * | `*{k=0, n, A[k]}` | `ControlExpression("*", [k=0, n, A[k]])` |
+| Ellipsis | `...` | `Ellipsis` |
+
+#### Render tests added
+
+| Test | Input | Verified |
+|------|-------|----------|
+| Blackboard bold glyph | `\\R` | Contains "ℝ" |
+| Blackboard bold class | `\\R` | Has `.ident-blackboard` |
+| Hebrew glyph | `\ha` | Contains "ℵ" |
+| Multi-letter as text | `\sin` | Contains "sin" |
+| Dot product symbol | `u.v` | Contains "·" |
+| != symbol | `a != b` | Contains "≠" |
+| <= symbol | `a <= b` | Contains "≤" |
+| >= symbol | `a >= b` | Contains "≥" |
+| -> symbol | `x -> a` | Contains "→" |
+| = symbol | `a = b` | Contains "=" |
+| SubSuperscript container | `x_i^2` | Has `.subsuperscript` |
+| SubSuperscript scripts | `x_i^2` | `.scripts` has sup and sub |
+| Vector name class | `[a]` | Has `.vector-name` |
+| Vector name arrow | `[a]` | Contains "⃗" |
+| Matrix class | `[[a,b],[c,d]]` | Has `.matrix` |
+| Matrix rows | `[[a,b],[c,d]]` | 2 `.matrix-row` elements |
+| Matrix cells | `[[a,b],[c,d]]` | 4 `.matrix-cell` elements |
+| Abs value delimiters | `|x|` | Contains "|" |
+| Norm delimiters | `|[a]|` | Contains "‖" |
+| Factorial | `n!` | Contains "!" |
+| Derivative prime | `f'` | Contains "′" |
+| Derivative double | `f''` | Two "′" characters |
+| Ellipsis glyph | `...` | Contains "…" |
+| Floor brackets | `\floor{x}` | Contains "⌊" and "⌋" |
+| Ceil brackets | `\ceil{x}` | Contains "⌈" and "⌉" |
+| Inner product | `\inner{x,y}` | Contains "⟨" and "⟩" |
+| Big operator Σ | `\S{k=0,n,k}` | Contains "Σ", has `.integral` |
+| Lim text | `\lim{x,f(x)}` | Contains "lim" |
+
+---
+
+### Test run results
+
+**Status: awaiting execution on target (WSL Ubuntu)**
+
+Per `docs/exception.md`, tests are written by the assistant and executed
+by the user on the target environment. Results will be recorded here after
+the user runs `npm test`.
