@@ -860,3 +860,13 @@ Tests       218 passed (218)
 Per `docs/exception.md`, tests are written by the assistant and executed
 by the user on the target environment. Results will be recorded here after
 the user runs `npm test`.
+
+---
+
+## Phase 6 — Binary Format (Skipped)
+
+Phase 6 was skipped. No binary format tests exist.
+
+The system supports CSV only. All existing tests from Phases 1–5 remain
+the complete test suite. No regression was introduced by skipping Phase 6
+— the codebase is identical to the end of Phase 5.

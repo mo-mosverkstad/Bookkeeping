@@ -1650,39 +1650,64 @@ identical to before export.
 
 ---
 
-#### Phase 6 — Binary Format
+#### Phase 6 — Binary Format ⚠️ *skipped*
+
+> **This phase was skipped due to planning constraints and implementation
+> cost exceeding the current business target. The goals and tasks below
+> are preserved as the original specification for future reference.
+> Performance and disk storage efficiency are sacrificed as a result.
+> The system currently supports CSV only.**
 
 **Goal:** Define and implement the binary file format for compact storage.
 The system can read and write binary files and round-trip losslessly
 with the CSV/DSL format.
 
 **Concrete tasks:**
-- [ ] Design the binary file format: file header (magic bytes, format
+- [ ] ~~Design the binary file format: file header (magic bytes, format
       version, schema version), table section, association section,
-      blob section (typed binary blobs per cell)
-- [ ] Design the binary encoding for math syntax expressions: opcode
+      blob section (typed binary blobs per cell)~~ *skipped*
+- [ ] ~~Design the binary encoding for math syntax expressions: opcode
       assignments for operators, identifiers, numbers; variable-length
-      integer encoding; versioned encoding tied to grammar version
-- [ ] Implement binary writer: serialize in-memory table + graph to
-      binary file
-- [ ] Implement binary reader: deserialize binary file back to in-memory
-      table + graph
-- [ ] Implement lossless round-trip test: CSV → in-memory → binary →
-      in-memory → CSV, compare before and after
-- [ ] Add binary file support to the file open UI (detect by file
-      extension or magic bytes)
-- [ ] Document the binary format specification in `codebase_analysis.md`
+      integer encoding; versioned encoding tied to grammar version~~ *skipped*
+- [ ] ~~Implement binary writer: serialize in-memory table + graph to
+      binary file~~ *skipped*
+- [ ] ~~Implement binary reader: deserialize binary file back to in-memory
+      table + graph~~ *skipped*
+- [ ] ~~Implement lossless round-trip test: CSV → in-memory → binary →
+      in-memory → CSV, compare before and after~~ *skipped*
+- [ ] ~~Add binary file support to the file open UI (detect by file
+      extension or magic bytes)~~ *skipped*
+- [ ] ~~Document the binary format specification in `codebase_analysis.md`~~
+      *skipped*
 
 **Completion criteria:**
-- Binary files are smaller than equivalent CSV files for non-trivial tables
-- Round-trip is lossless: no data is lost or corrupted
-- Binary files from an older format version are still readable
-- The format version is visible in the file header
+- ~~Binary files are smaller than equivalent CSV files for non-trivial tables~~
+- ~~Round-trip is lossless: no data is lost or corrupted~~
+- ~~Binary files from an older format version are still readable~~
+- ~~The format version is visible in the file header~~
 
-**Demo:** Load a CSV file, export it as binary, reload the binary file.
+**Demo:** ~~Load a CSV file, export it as binary, reload the binary file.
 The table is identical. Show the file sizes side by side. Open a hex
 dump of the binary file and identify the header, a math expression blob,
-and an association entry by their byte offsets.
+and an association entry by their byte offsets.~~ *skipped*
+
+**Why skipped:** The binary format specification proved too ambiguous and
+too costly to implement correctly within the current planning horizon.
+Multiple design iterations were explored (flat TLV, block-offset format,
+1KiB columnar block format with token streams) but none reached a stable,
+unambiguous byte-level specification that could be implemented without
+further extended design work. The implementation cost exceeded the
+business target for this phase.
+
+**Accepted tradeoffs:**
+- CSV is the sole file format — no compact binary storage
+- Math expressions are re-parsed from source text on every load
+- Files are larger than necessary; disk storage is not optimised
+- Load performance is not optimised
+
+**Future:** Revisit when the grammar is fully stable, real knowledge data
+exists to measure actual file sizes, and sufficient design time is
+available to specify the format unambiguously from byte level upward.
 
 ---
 

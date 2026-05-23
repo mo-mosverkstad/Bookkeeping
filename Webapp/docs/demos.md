@@ -554,3 +554,22 @@ or the first column if no `onEntityClick` handler is set.
 Ctrl+Z is handled by a `keydown` listener on `document` in `main.ts`.
 If focus is inside a `contenteditable` cell, the browser may intercept
 Ctrl+Z for its own undo. Press Escape first to exit the cell, then Ctrl+Z.
+
+---
+
+## Phase 6 — Binary Format (Skipped)
+
+Phase 6 was skipped. There is no binary file demo.
+
+The application loads and saves CSV files only. The file picker accepts
+`.csv` files. Exported files are `.csv` text files.
+
+**Current file format support:**
+
+| Format | Load | Save | Notes |
+|--------|------|------|-------|
+| CSV    | ✅   | ✅   | Only supported format |
+| Binary | ❌   | ❌   | Phase skipped — not implemented |
+
+To load data: use the file picker or drag a `.csv` file onto the drop zone.
+To save data: use the **⬇ Export CSV** button below any table.

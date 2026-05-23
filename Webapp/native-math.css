@@ -64,7 +64,7 @@
   position: relative;
 }
 .native-math .sqrt::before {
-  content: '√';
+  content: '\221A';
   position: absolute;
   left: -0.7em;
 }

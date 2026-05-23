@@ -634,3 +634,40 @@ redirecting Vite's cache directory to the Linux home filesystem via
    controller, not the view. The view only calls `editCell`, `addRow`,
    `deleteRow`; the controller decides what to record. This keeps the view
    stateless with respect to history.
+
+---
+
+## Phase 6 — Binary Format (Skipped)
+
+**Status: skipped — deferred indefinitely.**
+
+Phase 6 was planned to introduce a compact binary file format for storage
+and loading of knowledge tables. Multiple design iterations were explored,
+including:
+
+- A simple BK01 format with length-prefixed UTF-8 cell values
+- A BK02 block-offset format with typed cell blobs
+- A BK03 1KiB block-based columnar format with token streams, embedded
+  segments, and RLE compression
+
+All iterations were abandoned. The binary format specification proved too
+ambiguous and too complex to implement correctly within the current
+development scope. The layered architecture (block storage → token stream
+→ embedded TLV → math AST binary) introduced too many interdependent
+design decisions that could not be resolved cleanly without a much longer
+design phase.
+
+**Business decision:** Phase 6 is skipped to maintain delivery momentum.
+The system continues to use CSV as the sole file format.
+
+**Accepted tradeoffs:**
+- No compact binary storage — files are larger than necessary
+- No fast load path — math expressions are re-parsed from source text on
+  every load rather than decoded from a pre-parsed binary representation
+- No disk storage optimisation — performance and storage efficiency are
+  sacrificed in favour of simplicity and correctness
+
+**Future:** Binary format remains on the roadmap. It should be revisited
+when the grammar is fully stable, real knowledge data exists to measure
+actual file sizes, and sufficient design time is available to specify the
+format unambiguously from byte level upward.
