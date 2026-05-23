@@ -5,32 +5,35 @@
 
 /** A single cell in a table. */
 export class Cell {
-    constructor(
-        public readonly value: string,
-        public readonly typeId: string,
-    ) {}
+    value: string;
+    readonly typeId: string;
+    constructor(value: string, typeId: string) {
+        this.value = value;
+        this.typeId = typeId;
+    }
 }
 
 /** A column definition. */
 export class Column {
-    constructor(
-        public readonly name: string,
-        public readonly typeId: string,
-    ) {}
+    readonly name: string;
+    readonly typeId: string;
+    constructor(name: string, typeId: string) {
+        this.name = name;
+        this.typeId = typeId;
+    }
 }
 
 /** A row (entity) in a table. */
 export class Row {
-    constructor(
-        public readonly cells: Cell[],
-    ) {}
+    cells: Cell[];
+    constructor(cells: Cell[]) {
+        this.cells = cells;
+    }
 
-    /** Get the entity ID (first cell value). */
     get entityId(): string {
         return this.cells[0]?.value ?? "";
     }
 
-    /** Get cell value by column index. */
     getCellValue(colIdx: number): string {
         return this.cells[colIdx]?.value ?? "";
     }
@@ -38,28 +41,27 @@ export class Row {
 
 /** A knowledge table — the core business object. */
 export class Table {
-    constructor(
-        public readonly name: string,
-        public readonly columns: Column[],
-        public readonly rows: Row[],
-    ) {}
+    readonly name: string;
+    readonly columns: Column[];
+    rows: Row[];
+    constructor(name: string, columns: Column[], rows: Row[]) {
+        this.name = name;
+        this.columns = columns;
+        this.rows = rows;
+    }
 
-    /** Get column index by name. Returns -1 if not found. */
     getColumnIndex(name: string): number {
         return this.columns.findIndex(c => c.name === name);
     }
 
-    /** Get all entity IDs (first column values). */
     getEntityIds(): string[] {
         return this.rows.map(r => r.entityId);
     }
 
-    /** Get a subset of rows by entity IDs. */
     filterByEntityIds(ids: Set<string>): Row[] {
         return this.rows.filter(r => ids.has(r.entityId));
     }
 
-    /** Sort rows by column index. Returns a new sorted array (does not mutate). */
     sortedRows(colIdx: number, ascending: boolean): Row[] {
         return [...this.rows].sort((a, b) => {
             const av = a.getCellValue(colIdx);
@@ -71,20 +73,26 @@ export class Table {
 
 /** An association (edge) between two entities. */
 export class Association {
-    constructor(
-        public readonly source: string,
-        public readonly relation: string,
-        public readonly target: string,
-    ) {}
+    readonly source: string;
+    readonly relation: string;
+    readonly target: string;
+    constructor(source: string, relation: string, target: string) {
+        this.source = source;
+        this.relation = relation;
+        this.target = target;
+    }
 }
 
 /** A relation type definition. */
 export class RelationType {
-    constructor(
-        public readonly name: string,
-        public readonly inverse: string,
-        public readonly symmetric: boolean,
-    ) {}
+    readonly name: string;
+    readonly inverse: string;
+    readonly symmetric: boolean;
+    constructor(name: string, inverse: string, symmetric: boolean) {
+        this.name = name;
+        this.inverse = inverse;
+        this.symmetric = symmetric;
+    }
 }
 
 /** The association graph — stores all relationships between entities. */
@@ -104,7 +112,6 @@ export class AssociationGraph {
         this.edges.push(new Association(source, relation, target));
     }
 
-    /** Parse association column values and store edges. */
     addFromColumn(entityIds: string[], associationValues: string[]): void {
         for (let i = 0; i < entityIds.length; i++) {
             const value = associationValues[i];
@@ -117,7 +124,6 @@ export class AssociationGraph {
         }
     }
 
-    /** Alias for addFromColumn (backward compat). */
     addAssociations(entityIds: string[], associationValues: string[]): void {
         this.addFromColumn(entityIds, associationValues);
     }
@@ -152,10 +158,43 @@ export class AssociationGraph {
     clear(): void { this.edges = []; }
 }
 
+/** A single edit action for undo/redo. */
+export type EditAction =
+    | { type: "cell"; tableIdx: number; rowIdx: number; colIdx: number; oldValue: string; newValue: string }
+    | { type: "addRow"; tableIdx: number; row: Row }
+    | { type: "deleteRow"; tableIdx: number; rowIdx: number; row: Row };
+
+/** Undo/redo history stack. */
+export class EditHistory {
+    private past: EditAction[] = [];
+    private future: EditAction[] = [];
+
+    push(action: EditAction): void {
+        this.past.push(action);
+        this.future = [];
+    }
+
+    undo(): EditAction | undefined {
+        const action = this.past.pop();
+        if (action) this.future.push(action);
+        return action;
+    }
+
+    redo(): EditAction | undefined {
+        const action = this.future.pop();
+        if (action) this.past.push(action);
+        return action;
+    }
+
+    canUndo(): boolean { return this.past.length > 0; }
+    canRedo(): boolean { return this.future.length > 0; }
+    clear(): void { this.past = []; this.future = []; }
+}
+
 /** The knowledge base — top-level container for all loaded data. */
 export class KnowledgeBase {
-    public readonly tables: Table[] = [];
-    public readonly graph = new AssociationGraph();
+    readonly tables: Table[] = [];
+    readonly graph = new AssociationGraph();
 
     addTable(table: Table): void {
         this.tables.push(table);
@@ -170,5 +209,17 @@ export class KnowledgeBase {
     clear(): void {
         this.tables.length = 0;
         this.graph.clear();
+    }
+
+    exportTableAsCSV(tableIdx: number): string {
+        const table = this.tables[tableIdx];
+        if (!table) return "";
+        const escape = (v: string) => v.includes(",") || v.includes('"') || v.includes("\n")
+            ? `"${v.replace(/"/g, '""')}"`
+            : v;
+        const headerRow = table.columns.map(c => escape(c.name)).join(",");
+        const typeRow = table.columns.map(c => escape(c.typeId)).join(",");
+        const dataRows = table.rows.map(r => r.cells.map(c => escape(c.value)).join(","));
+        return [headerRow, typeRow, ...dataRows].join("\n");
     }
 }

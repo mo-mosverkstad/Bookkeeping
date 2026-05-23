@@ -519,3 +519,118 @@ This allows chaining relational operators (e.g., equation `->` equation).
 2. **Controller mediates** — views never access model directly for mutations
 3. **Views are stateless** (except sort state) — they re-render from model on each call
 4. **Backward compat preserved** — all 218 existing tests pass without modification
+
+---
+
+## Phase 5 — Inline Editor
+
+---
+
+### Implementation
+
+**Changed — Model (`src/model/index.ts`)**
+- `Cell.value` and `Row.cells` made mutable (removed `readonly`) — required
+  for in-place edits without reconstructing the entire model
+- `Table.rows` made mutable — required for add/delete row
+- All classes rewritten to use explicit property declarations instead of
+  constructor parameter shorthand — required by `erasableSyntaxOnly` compiler flag
+- Added `EditAction` union type: `cell | addRow | deleteRow`
+- Added `EditHistory` class — `push`, `undo`, `redo`, `canUndo`, `canRedo`, `clear`
+- Added `KnowledgeBase.exportTableAsCSV()` — serializes a table to CSV text
+  with correct quoting for commas, double quotes, and newlines
+
+**Changed — Controller (`src/controller/index.ts`)**
+- Added `history: EditHistory` (public, for testing)
+- Added `editCell(tableIdx, rowIdx, colIdx, newValue)` — mutates cell value,
+  records undo action; no-op if value is unchanged
+- Added `addRow(tableIdx)` — appends empty row with correct column count,
+  records undo action
+- Added `deleteRow(tableIdx, rowIdx)` — splices row out, records undo action
+- Added `undo()` — pops last action from history, applies inverse mutation,
+  calls `showAll()` to re-render
+- Added `redo()` — pops from redo stack, re-applies mutation, calls `showAll()`
+- Added `exportCSV(tableIdx)` — delegates to `KnowledgeBase.exportTableAsCSV`
+
+**Rewritten — TableView (`src/view/table-view.ts`)**
+- Constructor now takes `editBar` and `editPreview` DOM elements in addition
+  to the container
+- Added `setController()` method
+- One active cell at a time — clicking a new cell cancels/commits the current one
+- All cells (text and syntax) use `contenteditable` directly in the `<td>` as
+  the source editor; Enter = commit, Escape = cancel, blur = commit
+- Syntax cells additionally show a live rendered preview in the top bar as the
+  user types; the preview updates on every `input` event
+- Text cells and idle state: top bar is hidden
+- Each row has a ✕ delete button (with confirmation dialog)
+- Below each table: "+ Add Row" and "⬇ Export CSV" buttons
+- Filtered view (from graph filter) is read-only — no edit controls
+- `cancelActive()` and `commitActive()` are public — called by `main.ts`
+  on outside click and Ctrl+Z/Y respectively
+
+**Changed — `index.html`**
+- Added `#cell-edit-bar` div with `#cell-edit-preview` inside — hidden by
+  default, shown only when a syntax cell is active
+- Removed the input field from the edit bar — the bar is read-only
+
+**Changed — `main.ts`**
+- Passes `editBar` and `editPreview` to `TableView` constructor
+- Calls `tableView.setController(controller)`
+- Added global `keydown` handler: Ctrl+Z = `controller.undo()`,
+  Ctrl+Y / Ctrl+Shift+Z = `controller.redo()`
+- Added `document` click handler: calls `tableView.cancelActive()` to
+  cancel any active edit when clicking outside the table
+
+**Changed — `style.css`**
+- Added `.cell-edit-bar`, `.cell-edit-bar-label`, `.cell-edit-bar-preview` —
+  top bar layout (flex row, blue border, hidden when idle)
+- Added `.editable-cell` — cursor pointer, hover highlight
+- Added `.cell-active` — blue outline on the currently edited cell
+- Added `.row-actions`, `.row-delete-btn` — delete button column
+- Added `.table-toolbar` — add row / export button bar below each table
+
+**Added — Tests**
+- `test/model/edit-history.test.ts` — 8 tests for `EditHistory`,
+  4 tests for `exportTableAsCSV`
+- `test/controller/edit.test.ts` — 13 tests for `editCell`, `undo`, `redo`,
+  `addRow`, `deleteRow`, `exportCSV`
+
+---
+
+### Bug fixes
+
+**`erasableSyntaxOnly` compiler errors:** All model classes used TypeScript
+constructor parameter shorthand (`public readonly x: T` in constructor params).
+This syntax is forbidden by the `erasableSyntaxOnly` flag in `tsconfig.json`.
+Fixed by rewriting all classes with explicit property declarations above the
+constructor and plain assignments inside it.
+
+**Vite `EACCES` rename error on WSL:** Running `npm run dev` from a project
+path under `/mnt/c/` (Windows NTFS filesystem) caused Vite's dependency
+optimiser to fail with `EACCES: permission denied, rename`. Fixed by
+redirecting Vite's cache directory to the Linux home filesystem via
+`cacheDir` in `vite.config.ts`.
+
+---
+
+### Design decisions
+
+1. **Cell is the source editor** — the `<td>` itself becomes `contenteditable`
+   when active. No separate input overlay is needed. This keeps the table
+   layout stable and avoids z-index / positioning complexity.
+
+2. **Top bar is read-only rendered preview** — it shows what the current source
+   will look like when committed. It has no input field. The user always types
+   in the cell, not in the bar.
+
+3. **Top bar hidden for text cells and when idle** — text cells have no syntax
+   to render, so showing the bar would be meaningless. The bar only appears
+   when a syntax cell (e.g. `math`) is active.
+
+4. **One active cell at a time** — activating a new cell automatically
+   commits the previous one. This avoids the complexity of tracking multiple
+   dirty cells and simplifies the undo stack (each commit is one action).
+
+5. **Undo/redo at controller level** — the history stack lives in the
+   controller, not the view. The view only calls `editCell`, `addRow`,
+   `deleteRow`; the controller decides what to record. This keeps the view
+   stateless with respect to history.

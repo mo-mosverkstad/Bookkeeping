@@ -796,3 +796,67 @@ and always fails immediately.
 Test Files  7 passed (7)
 Tests       218 passed (218)
 ```
+
+---
+
+## Phase 5 — Inline Editor
+
+---
+
+### Automated test files
+
+| File | What is covered |
+|------|-----------------|
+| `test/model/edit-history.test.ts` | `EditHistory` push/undo/redo/clear, `KnowledgeBase.exportTableAsCSV` including quoting |
+| `test/controller/edit.test.ts` | `editCell`, `addRow`, `deleteRow`, `undo`, `redo`, `exportCSV` on `AppController` |
+
+### Phase 5 test cases
+
+#### EditHistory tests
+
+| Test | Action | Expected |
+|------|--------|----------|
+| Starts empty | new EditHistory() | `canUndo()` = false, `canRedo()` = false |
+| Push enables undo | push one action | `canUndo()` = true, `canRedo()` = false |
+| Undo returns action | push then undo | returned action equals pushed action; `canRedo()` = true |
+| Redo returns action | push, undo, redo | returned action equals original; `canUndo()` = true |
+| Push clears redo | push, undo, push new | `canRedo()` = false |
+| Undo on empty | undo with no history | returns `undefined` |
+| Redo on empty | redo with no history | returns `undefined` |
+| Clear empties stacks | push then clear | `canUndo()` = false |
+
+#### exportTableAsCSV tests
+
+| Test | Setup | Expected |
+|------|-------|----------|
+| Header + types + data | 2-col, 2-row table | Lines 0-3 match exactly |
+| Comma in field | cell value `a,b` | Field quoted as `"a,b"` |
+| Quote in field | cell value `say "hi"` | Field quoted as `"say ""hi"""` |
+| Invalid tableIdx | `exportTableAsCSV(99)` | Returns `""` |
+
+#### AppController edit tests
+
+| Test | Action | Expected |
+|------|--------|----------|
+| editCell updates value | editCell(0,0,1,"z^3") | cell value = "z^3" |
+| editCell same value | editCell with unchanged value | no undo action recorded |
+| editCell records undo | editCell then canUndo | `canUndo()` = true |
+| undo restores old value | editCell then undo | cell value restored to original |
+| redo re-applies edit | editCell, undo, redo | cell value = new value again |
+| multiple undos in order | two edits, two undos | values restored in reverse order |
+| addRow appends row | addRow(0) | `rows.length` increases by 1 |
+| addRow correct cells | addRow(0) | new row has correct column count, empty values |
+| undo addRow | addRow then undo | `rows.length` back to original |
+| deleteRow removes row | deleteRow(0,0) | `rows.length` decreases by 1, correct row gone |
+| undo deleteRow | deleteRow then undo | row restored at correct index |
+| exportCSV | 2-col, 2-row table | CSV lines match headers, types, data |
+
+---
+
+### Test run results
+
+**Status: awaiting execution on target (WSL Ubuntu)**
+
+Per `docs/exception.md`, tests are written by the assistant and executed
+by the user on the target environment. Results will be recorded here after
+the user runs `npm test`.

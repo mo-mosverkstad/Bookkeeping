@@ -12,6 +12,8 @@ window.addEventListener("load", () => {
     const errorEl = document.getElementById("error-message")!;
     const fileInput = document.getElementById("file-input") as HTMLInputElement;
     const tableContainer = document.getElementById("table-container")!;
+    const editBar = document.getElementById("cell-edit-bar") as HTMLElement;
+    const editPreview = document.getElementById("cell-edit-preview") as HTMLElement;
 
     // ── MVC wiring ───────────────────────────────────────────────────────────
     const controller = new AppController();
@@ -21,7 +23,7 @@ window.addEventListener("load", () => {
     tableArea.id = "table-area";
     tableContainer.appendChild(tableArea);
 
-    const tableView = new TableView(tableArea);
+    const tableView = new TableView(tableArea, editBar, editPreview);
     const graphFilterView = new GraphFilterView(tableContainer, controller);
 
     // Move table area after filter (filter was appended first)
@@ -29,9 +31,24 @@ window.addEventListener("load", () => {
 
     controller.setTableView(tableView);
     controller.setGraphFilterView(graphFilterView);
+    tableView.setController(controller);
 
     // Entity click → show associations
     tableView.setEntityClickHandler((entityId) => graphFilterView.showEntityAssociations(entityId));
+
+    // Cancel active cell edit when clicking outside the table area
+    document.addEventListener("click", () => tableView.cancelActive());
+
+    // ── Undo / Redo ──────────────────────────────────────────────────────────
+    document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+            e.preventDefault();
+            controller.undo();
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+            e.preventDefault();
+            controller.redo();
+        }
+    });
 
     // ── File loading ─────────────────────────────────────────────────────────
     function loadFile(file: File) {

@@ -1,4 +1,4 @@
-import { KnowledgeBase, Table, Column, Row, Cell } from "../model/index.ts";
+import { KnowledgeBase, Table, Column, Row, Cell, EditHistory } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
 import type { TableView } from "../view/table-view.ts";
 import type { GraphFilterView } from "../view/graph-filter-view.ts";
@@ -11,6 +11,7 @@ export class AppController {
     private knowledgeBase = new KnowledgeBase();
     private tableView: TableView | null = null;
     private graphFilterView: GraphFilterView | null = null;
+    readonly history = new EditHistory();
 
     setTableView(view: TableView): void { this.tableView = view; }
     setGraphFilterView(view: GraphFilterView): void { this.graphFilterView = view; }
@@ -49,6 +50,76 @@ export class AppController {
 
     getInverse(relation: string): string | null {
         return this.knowledgeBase.graph.getInverse(relation);
+    }
+
+    /** Edit a single cell value. Records undo action. */
+    editCell(tableIdx: number, rowIdx: number, colIdx: number, newValue: string): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table) return;
+        const cell = table.rows[rowIdx]?.cells[colIdx];
+        if (!cell) return;
+        const oldValue = cell.value;
+        if (oldValue === newValue) return;
+        this.history.push({ type: "cell", tableIdx, rowIdx, colIdx, oldValue, newValue });
+        cell.value = newValue;
+        this.showAll();
+    }
+
+    /** Append an empty row to a table. Records undo action. */
+    addRow(tableIdx: number): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table) return;
+        const row = new Row(table.columns.map(c => new Cell("", c.typeId)));
+        this.history.push({ type: "addRow", tableIdx, row });
+        table.rows.push(row);
+        this.showAll();
+    }
+
+    /** Delete a row by index. Records undo action. */
+    deleteRow(tableIdx: number, rowIdx: number): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table) return;
+        const [row] = table.rows.splice(rowIdx, 1);
+        if (!row) return;
+        this.history.push({ type: "deleteRow", tableIdx, rowIdx, row });
+        this.showAll();
+    }
+
+    /** Undo the last edit action. */
+    undo(): void {
+        const action = this.history.undo();
+        if (!action) return;
+        const table = this.knowledgeBase.tables[action.tableIdx];
+        if (!table) return;
+        if (action.type === "cell") {
+            table.rows[action.rowIdx].cells[action.colIdx].value = action.oldValue;
+        } else if (action.type === "addRow") {
+            table.rows.pop();
+        } else if (action.type === "deleteRow") {
+            table.rows.splice(action.rowIdx, 0, action.row);
+        }
+        this.showAll();
+    }
+
+    /** Redo the last undone action. */
+    redo(): void {
+        const action = this.history.redo();
+        if (!action) return;
+        const table = this.knowledgeBase.tables[action.tableIdx];
+        if (!table) return;
+        if (action.type === "cell") {
+            table.rows[action.rowIdx].cells[action.colIdx].value = action.newValue;
+        } else if (action.type === "addRow") {
+            table.rows.push(action.row);
+        } else if (action.type === "deleteRow") {
+            table.rows.splice(action.rowIdx, 1);
+        }
+        this.showAll();
+    }
+
+    /** Export a table as CSV text. */
+    exportCSV(tableIdx: number): string {
+        return this.knowledgeBase.exportTableAsCSV(tableIdx);
     }
 
     private refreshViews(): void {

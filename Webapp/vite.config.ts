@@ -1,3 +1,7 @@
 import { defineConfig } from "vite";
+import os from "os";
+import path from "path";
 
-export default defineConfig({});
+export default defineConfig({
+    cacheDir: path.join(os.homedir(), ".vite-cache", "Webapp"),
+});

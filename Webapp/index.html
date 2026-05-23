@@ -27,6 +27,12 @@
       <h2>Knowledge Table</h2>
       <label for="file-input">Load CSV file(s):</label>
       <input type="file" id="file-input" accept=".csv" multiple />
+
+      <div id="cell-edit-bar" class="cell-edit-bar" hidden>
+        <span class="cell-edit-bar-label">Preview:</span>
+        <div id="cell-edit-preview" class="cell-edit-bar-preview"></div>
+      </div>
+
       <div id="table-container" class="table-drop-zone">
         Drop a .csv file here or use the file picker above
       </div>

@@ -444,3 +444,113 @@ Fundamental Theorem of Calculus,"...",Calculus,uses:derivative;uses:integral
 
 Without a vocabulary file, the graph still works — inverse names just won't
 be resolved in the detail panel.
+
+---
+
+## Phase 5 — Inline Editor
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Load a CSV file
+
+1. Click the file picker and select `Webapp/public/sample.csv`
+   (or drag it onto the drop zone)
+2. The table appears as before
+
+### 2. Edit a text cell
+
+1. Click any cell in a `text`-type column (e.g. the Name column)
+2. The cell becomes a source editor — the text is directly editable in place
+3. Type a new value
+4. Press **Enter** to commit — the cell updates
+5. Click the same cell again, change the value, press **Escape** — the
+   original value is restored
+
+### 3. Edit a math cell
+
+1. Click any cell in the `math`-type column (e.g. the Formula column)
+2. The cell becomes a source editor showing the raw BobaMath source
+3. The **Preview bar** appears above the table showing the live rendered
+   output of the current source — it updates as you type
+4. Edit the source (e.g. change `x^2` to `x^3 + 1`)
+5. The preview bar updates in real time
+6. Press **Enter** to commit — the cell switches back to rendered view
+7. Press **Escape** to cancel — the original source and rendered view are restored
+
+### 4. Verify one-cell-at-a-time constraint
+
+1. Click a math cell — it enters edit mode, preview bar appears
+2. Click a different cell without pressing Enter or Escape
+3. The first cell commits and returns to rendered view; the new cell
+   enters edit mode
+
+### 5. Verify preview bar is blank for text cells and when idle
+
+1. With no cell active: the preview bar is hidden
+2. Click a text cell: the preview bar remains hidden (text cells have no
+   syntax rendering)
+3. Click a math cell: the preview bar appears with the rendered formula
+4. Press Escape: the preview bar disappears again
+
+### 6. Undo and redo
+
+1. Edit a cell and commit (Enter)
+2. Press **Ctrl+Z** — the cell reverts to its previous value
+3. Press **Ctrl+Y** (or Ctrl+Shift+Z) — the edit is re-applied
+4. Make several edits across different cells, then undo each one in order
+
+### 7. Add a row
+
+1. Click **+ Add Row** below the table
+2. A new empty row appears at the bottom
+3. Click cells in the new row to fill them in
+4. Press **Ctrl+Z** — the added row is removed
+
+### 8. Delete a row
+
+1. Click the **✕** button at the right end of any row
+2. A confirmation dialog appears: "Delete row \"...\"?"
+3. Confirm — the row is removed
+4. Press **Ctrl+Z** — the row is restored at its original position
+
+### 9. Export CSV
+
+1. Make some edits (add a row, change a cell value)
+2. Click **⬇ Export CSV** below the table
+3. A `.csv` file is downloaded with the table's current name
+4. Open the downloaded file in a text editor — verify it contains the
+   updated values, with the correct header row, types row, and data rows
+5. Drag the downloaded file back onto the drop zone — the table reloads
+   with the exported data intact (round-trip verification)
+
+---
+
+## Troubleshooting
+
+### Preview bar does not appear when editing a math cell
+Check that `id="cell-edit-bar"` and `id="cell-edit-preview"` exist in
+`index.html`. The bar is hidden by default (`hidden` attribute) and shown
+by `TableView` when a syntax cell is activated.
+
+### Clicking a cell does not enter edit mode
+The first column of each row is reserved for entity navigation (click =
+show associations). Edit mode is triggered by clicking any other column,
+or the first column if no `onEntityClick` handler is set.
+
+### Undo does not work
+Ctrl+Z is handled by a `keydown` listener on `document` in `main.ts`.
+If focus is inside a `contenteditable` cell, the browser may intercept
+Ctrl+Z for its own undo. Press Escape first to exit the cell, then Ctrl+Z.

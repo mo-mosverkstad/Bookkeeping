@@ -2086,3 +2086,319 @@ modify the model directly.
 - `src/data/graph.ts` — re-exports `AssociationGraph` from model for existing tests
 - `AssociationGraph.addAssociations()` — alias for `addFromColumn()` for test compat
 - `AssociationGraph.setVocabulary()` — accepts both `RelationType[]` and `{ relations: [...] }`
+
+---
+
+## Phase 5 — Inline Editor
+
+---
+
+### Overview
+
+Phase 5 adds in-place cell editing to the knowledge table. The design
+principle is: **the cell is the editor**. There is no separate input overlay
+or modal dialog. Clicking a cell turns it into a `contenteditable` source
+editor. For syntax cells (e.g. `math`), a read-only preview bar above the
+table shows the live rendered output as the user types.
+
+---
+
+### New Concepts
+
+#### What is `contenteditable`?
+
+`contenteditable` is an HTML attribute that makes any element directly
+editable by the user, like a text input but without the constraints of an
+`<input>` element. Setting `element.contentEditable = "true"` allows the
+user to click into the element and type. The current text is read back via
+`element.textContent`.
+
+Advantages over `<input>` for table cells:
+- The cell keeps its position and size in the table layout
+- No need to position an overlay element
+- The browser handles cursor, selection, and keyboard input natively
+
+#### What is an Undo/Redo Stack?
+
+An undo/redo stack records every edit action as a reversible operation.
+Each action stores enough information to both apply and reverse itself:
+
+- `cell` action: stores `tableIdx`, `rowIdx`, `colIdx`, `oldValue`, `newValue`
+  — undo sets the cell back to `oldValue`, redo sets it to `newValue`
+- `addRow` action: stores `tableIdx` and the `Row` object
+  — undo removes the last row, redo pushes it back
+- `deleteRow` action: stores `tableIdx`, `rowIdx`, and the `Row` object
+  — undo splices the row back at `rowIdx`, redo splices it out again
+
+The stack has two arrays: `past` (actions that can be undone) and `future`
+(actions that can be redone). Pushing a new action clears the `future` array
+— once you make a new edit after undoing, the undone actions are gone.
+
+---
+
+### Model Changes — `src/model/index.ts`
+
+#### Mutability
+
+In Phase 4, `Cell.value`, `Row.cells`, and `Table.rows` were `readonly`. This
+prevented in-place mutation — editing a cell would require reconstructing the
+entire model. Phase 5 removes `readonly` from these fields so the controller
+can mutate them directly.
+
+This is a deliberate tradeoff: mutability enables simple, efficient edits
+(one field assignment) at the cost of losing immutability guarantees. The
+undo/redo stack compensates by recording every mutation, making all changes
+reversible.
+
+#### `erasableSyntaxOnly` Compliance
+
+The TypeScript compiler flag `erasableSyntaxOnly` forbids constructor
+parameter shorthand (`public readonly x: T` in constructor params). This
+syntax is a TypeScript-only feature that cannot be erased to plain JavaScript
+without transformation. All model classes were rewritten to use explicit
+property declarations:
+
+```ts
+// Before (forbidden by erasableSyntaxOnly):
+class Cell {
+    constructor(public value: string, public readonly typeId: string) {}
+}
+
+// After (compliant):
+class Cell {
+    value: string;
+    readonly typeId: string;
+    constructor(value: string, typeId: string) {
+        this.value = value;
+        this.typeId = typeId;
+    }
+}
+```
+
+#### `EditAction` Type
+
+A discriminated union type representing every reversible operation:
+
+```ts
+type EditAction =
+    | { type: "cell"; tableIdx: number; rowIdx: number; colIdx: number;
+        oldValue: string; newValue: string }
+    | { type: "addRow"; tableIdx: number; row: Row }
+    | { type: "deleteRow"; tableIdx: number; rowIdx: number; row: Row };
+```
+
+The `type` discriminant allows TypeScript to narrow the union in `if`/`switch`
+statements, giving full type safety when accessing action-specific fields.
+
+#### `EditHistory` Class
+
+```ts
+class EditHistory {
+    private past: EditAction[] = [];
+    private future: EditAction[] = [];
+
+    push(action): void  // add action, clear future
+    undo(): EditAction | undefined  // pop from past, push to future
+    redo(): EditAction | undefined  // pop from future, push to past
+    canUndo(): boolean
+    canRedo(): boolean
+    clear(): void
+}
+```
+
+#### `KnowledgeBase.exportTableAsCSV(tableIdx)`
+
+Serializes a table back to CSV text. The output format matches the input
+format: header row, types row, data rows. Fields containing commas, double
+quotes, or newlines are quoted:
+
+```ts
+const escape = (v: string) =>
+    v.includes(",") || v.includes('"') || v.includes("\n")
+        ? `"${v.replace(/"/g, '""')}"`
+        : v;
+```
+
+Double quotes inside a field are escaped by doubling them (`"` → `""`),
+which is the standard CSV quoting convention.
+
+---
+
+### Controller Changes — `src/controller/index.ts`
+
+#### `editCell(tableIdx, rowIdx, colIdx, newValue)`
+
+Mutates the cell value and records an undo action. If the new value equals
+the old value, the method is a no-op (no action recorded, no re-render).
+This prevents spurious undo entries when a user clicks a cell and presses
+Enter without changing anything.
+
+#### `addRow(tableIdx)`
+
+Creates a new `Row` with empty `Cell` objects (one per column, using the
+correct `typeId` from the column definition). Pushes it to `table.rows`
+and records an `addRow` action.
+
+#### `deleteRow(tableIdx, rowIdx)`
+
+Splices the row out of `table.rows` using `Array.splice`. Records a
+`deleteRow` action storing the removed `Row` object so it can be restored
+on undo.
+
+#### `undo()` and `redo()`
+
+Apply the inverse (or forward) mutation directly to the model, then call
+`showAll()` to re-render. The mutations are:
+
+| Action type | Undo | Redo |
+|-------------|------|------|
+| `cell` | `cell.value = oldValue` | `cell.value = newValue` |
+| `addRow` | `table.rows.pop()` | `table.rows.push(row)` |
+| `deleteRow` | `table.rows.splice(rowIdx, 0, row)` | `table.rows.splice(rowIdx, 1)` |
+
+---
+
+### View Changes — `src/view/table-view.ts`
+
+#### One Active Cell at a Time
+
+The view tracks the currently active cell in `this.activeCell`. When a new
+cell is clicked, `cancelActive()` is called first to close the current edit
+before opening the new one. This ensures only one `contenteditable` is active
+at any time.
+
+#### Cell Activation Flow
+
+```
+User clicks cell
+    ↓
+cancelActive() — closes any currently open cell
+    ↓
+activateCell(td, originalValue, typeId, onCommit)
+    ↓
+td.contentEditable = "true"
+td.textContent = originalValue
+td.focus()
+    ↓
+if syntax cell: showPreview(originalValue, typeId)
+                td.addEventListener("input", → showPreview(td.textContent, typeId))
+    ↓
+User types in cell
+    ↓
+Enter → commit(td.textContent)  → onCommit(value) → controller.editCell(...)
+Escape → cancel() → restore original rendered view
+Blur → commit(td.textContent)  → same as Enter
+```
+
+#### Preview Bar (Syntax Cells Only)
+
+The `#cell-edit-bar` element in `index.html` is hidden by default. When a
+syntax cell is activated:
+1. `showPreview(value, typeId)` renders the current source via `renderCell`
+   and inserts the result into `#cell-edit-preview`
+2. The bar is made visible (`hidden = false`)
+3. An `input` event listener on the `<td>` calls `showPreview` on every
+   keystroke, updating the preview in real time
+4. On commit or cancel, `hidePreview()` clears the preview and hides the bar
+
+The bar has no input field — it is purely a display element. The user always
+types in the cell, not in the bar.
+
+#### Event Listener Cleanup
+
+The `keydown` and `blur` listeners added to the `<td>` during activation
+are removed in a `cleanup()` function called at the start of both `commit`
+and `cancel`. This prevents stale listeners from firing after the cell
+returns to rendered view.
+
+The `input` listener for the preview is stored on the element as
+`td.__onInput` and removed in the commit/cancel path. This is a pragmatic
+choice — storing the function reference on the element avoids needing a
+closure variable that would require restructuring the activation flow.
+
+#### Add Row and Export CSV
+
+Below each editable table, a toolbar is rendered with two buttons:
+- **+ Add Row** — calls `controller.addRow(tableIdx)`
+- **⬇ Export CSV** — calls `controller.exportCSV(tableIdx)`, creates a
+  `Blob`, generates an object URL, triggers a download via a temporary
+  `<a>` element, then revokes the URL
+
+#### Delete Row
+
+Each row has an extra `<td>` at the right end containing a ✕ button.
+Clicking it shows a `confirm()` dialog. On confirmation, calls
+`controller.deleteRow(tableIdx, rowIdx)`.
+
+The `rowIdx` is determined at render time by `table.rows.indexOf(row)`,
+which finds the row's current position in the model array. This is correct
+because the table re-renders after every mutation.
+
+---
+
+### HTML Changes — `index.html`
+
+Added the `#cell-edit-bar` element above the table container:
+
+```html
+<div id="cell-edit-bar" class="cell-edit-bar" hidden>
+  <span class="cell-edit-bar-label">Preview:</span>
+  <div id="cell-edit-preview" class="cell-edit-bar-preview"></div>
+</div>
+```
+
+The `hidden` attribute hides it by default. `TableView` removes it when a
+syntax cell is active and restores it on commit/cancel.
+
+---
+
+### CSS Changes — `style.css`
+
+| Selector | Purpose |
+|----------|---------|
+| `.cell-edit-bar` | Flex row, blue border, hidden when idle |
+| `.cell-edit-bar-label` | "Preview:" label, small text |
+| `.cell-edit-bar-preview` | Flex-grow container for rendered output |
+| `.editable-cell` | Cursor pointer, hover highlight |
+| `.cell-active` | Blue outline on the currently edited cell |
+| `.row-actions` | Narrow column for the delete button |
+| `.row-delete-btn` | Invisible background, red on hover |
+| `.table-toolbar` | Flex row below each table for add/export buttons |
+
+---
+
+### `main.ts` Changes
+
+- Retrieves `#cell-edit-bar` and `#cell-edit-preview` DOM elements
+- Passes them to `TableView` constructor
+- Calls `tableView.setController(controller)` after construction
+- Adds global `keydown` handler for Ctrl+Z (undo) and Ctrl+Y / Ctrl+Shift+Z (redo)
+- Adds `document` click handler that calls `tableView.cancelActive()` to
+  commit any open edit when the user clicks outside the table
+
+---
+
+### Design Decisions
+
+#### Why `contenteditable` instead of `<input>`?
+
+An `<input>` element inside a `<td>` disrupts the table layout — it has its
+own sizing, border, and padding that fight with the cell's CSS. Positioning
+an absolutely-placed input overlay requires tracking cell coordinates.
+`contenteditable` on the `<td>` itself avoids all of this: the cell keeps
+its exact position and size, and the browser handles all text editing natively.
+
+#### Why is the preview bar read-only?
+
+The source and the rendered output are two different representations of the
+same data. Allowing the user to edit the rendered output would require a
+reverse-renderer (rendered HTML → source text), which is complex and fragile.
+The clean separation is: **source in the cell, rendered output in the bar**.
+The user always edits source; the bar is purely informational.
+
+#### Why does blur commit instead of cancel?
+
+Blur fires when the user clicks outside the cell (e.g., on another cell or
+the toolbar). Committing on blur means the user's work is never silently
+discarded. If the user wants to cancel, they press Escape explicitly.
+This matches the behaviour of spreadsheet applications.
