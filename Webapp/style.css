@@ -167,3 +167,136 @@ body {
   font-size: 0.9em;
   cursor: pointer;
 }
+
+/* Session banner */
+.session-banner {
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 0.5em 0.75em;
+  margin-bottom: 0.75em;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+.session-banner button {
+  padding: 2px 8px;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+/* Search */
+.search-container {
+  margin-top: 0.75em;
+  margin-bottom: 0.5em;
+}
+.search-bar {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 0.5em;
+}
+.search-input {
+  padding: 4px 8px;
+  font: inherit;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 220px;
+  outline: none;
+}
+.search-input:focus { border-color: #4a90d9; }
+.search-btn {
+  padding: 4px 10px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.search-btn-clear {
+  color: #666;
+}
+
+/* Search results */
+.search-results {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5em 0.75em;
+  margin-bottom: 0.5em;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.search-results-header {
+  font-size: 0.85em;
+  color: #555;
+  margin-bottom: 0.4em;
+}
+.search-results-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.search-result-item {
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9em;
+}
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item:hover { background: #f0f7ff; }
+.search-result-location {
+  display: block;
+  color: #555;
+  font-size: 0.82em;
+  margin-bottom: 1px;
+}
+.search-result-value {
+  font-family: monospace;
+  font-size: 0.88em;
+}
+.search-result-value mark {
+  background: #fef08a;
+  border-radius: 2px;
+}
+
+/* Neighbourhood panel */
+.neighbourhood-panel {
+  background: #f0f7ff;
+  border: 1px solid #4a90d9;
+  border-radius: 4px;
+  padding: 0.5em 0.75em;
+  margin-bottom: 0.5em;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.neighbourhood-header {
+  font-size: 0.85em;
+  font-weight: bold;
+  color: #1e40af;
+  margin-bottom: 0.4em;
+}
+.neighbourhood-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.neighbourhood-item {
+  padding: 3px 0;
+  border-bottom: 1px solid #dde;
+  font-size: 0.88em;
+}
+.neighbourhood-item:last-child { border-bottom: none; }
+.neighbourhood-item:hover { background: #e0eeff; }
+.neighbourhood-hops {
+  font-size: 0.78em;
+  color: #888;
+  margin-right: 4px;
+}
+.neighbourhood-relation {
+  color: #2563eb;
+  font-style: italic;
+}
+.neighbourhood-table {
+  font-size: 0.8em;
+  color: #888;
+}

@@ -1,5 +1,7 @@
 import { KnowledgeBase, Table, Column, Row, Cell, EditHistory } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
+import { searchText, searchByIdentifier, getNeighbourhood, crossTableJoin } from "../search/index.ts";
+import type { SearchHit, NeighbourHit, JoinHit } from "../search/index.ts";
 import type { TableView } from "../view/table-view.ts";
 import type { GraphFilterView } from "../view/graph-filter-view.ts";
 
@@ -120,6 +122,31 @@ export class AppController {
     /** Export a table as CSV text. */
     exportCSV(tableIdx: number): string {
         return this.knowledgeBase.exportTableAsCSV(tableIdx);
+    }
+
+    /** Full-text search across all text cells. */
+    searchText(query: string): SearchHit[] {
+        return searchText(this.knowledgeBase, query);
+    }
+
+    /** Structural search: find entities whose math cells contain a given identifier. */
+    searchByIdentifier(name: string): SearchHit[] {
+        return searchByIdentifier(this.knowledgeBase, name);
+    }
+
+    /** Graph neighbourhood: all entities within maxHops of startEntityId. */
+    getNeighbourhood(startEntityId: string, maxHops: number): NeighbourHit[] {
+        return getNeighbourhood(this.knowledgeBase, startEntityId, maxHops);
+    }
+
+    /** Cross-table join: entity pairs from two tables linked by a relation. */
+    crossTableJoin(leftTableIdx: number, rightTableIdx: number, relation: string): JoinHit[] {
+        return crossTableJoin(this.knowledgeBase, leftTableIdx, rightTableIdx, relation);
+    }
+
+    /** Names of all currently loaded files (for session persistence). */
+    getLoadedFileNames(): string[] {
+        return this.knowledgeBase.tables.map(t => t.name);
     }
 
     private refreshViews(): void {

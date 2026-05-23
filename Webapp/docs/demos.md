@@ -573,3 +573,95 @@ The application loads and saves CSV files only. The file picker accepts
 
 To load data: use the file picker or drag a `.csv` file onto the drop zone.
 To save data: use the **⬇ Export CSV** button below any table.
+
+---
+
+## Phase 7 — Search, Indexing & Tooling
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Load a multi-table knowledge base
+
+1. Click the file picker and hold Ctrl to select both `theorems.csv` and
+   `definitions.csv` from `Webapp/public/`
+2. Both tables appear as before
+
+### 2. Full-text search
+
+1. In the **Search text cells…** input, type `rate`
+2. Click **Search**
+3. The results panel shows the "derivative" entity from the definitions table
+   with the word "rate" highlighted in yellow
+4. Click the result row — the neighbourhood panel appears showing connected
+   entities
+
+### 3. Symbol search (domain tool)
+
+1. In the **Find symbol…** input, type `int`
+2. Click **Find Symbol**
+3. The results panel shows all theorems whose math cells contain `\int`
+   (the Fundamental Theorem of Calculus)
+4. Try `derivative` — shows all theorems using the derivative identifier
+
+### 4. Graph neighbourhood
+
+1. Click any entity name in the table (underlined first column)
+2. The neighbourhood panel appears showing all entities within 2 hops
+3. Each entry shows: hop count, relation name, direction arrow, entity name,
+   and which table it belongs to
+4. Click any entry in the neighbourhood panel to navigate to that entity's
+   neighbourhood
+
+### 5. Session persistence
+
+1. Load `theorems.csv` and `definitions.csv`
+2. Close the browser tab
+3. Reopen `http://localhost:5173`
+4. A yellow banner appears: "Last session: theorems, definitions — reload
+   these files to restore your knowledge base."
+5. Click Dismiss to hide the banner, or reload the files manually
+
+### 6. Cross-table join (via console)
+
+The cross-table join is available programmatically via the controller.
+Open the browser console and run:
+
+```js
+// Access the controller (exposed for debugging)
+// Load theorems (idx 0) and definitions (idx 1), then:
+// This is accessible via the app's internal state
+```
+
+The join is used internally when the neighbourhood panel shows cross-table
+connections.
+
+---
+
+## Troubleshooting
+
+### Search returns no results
+Check that at least one CSV file is loaded. The search runs over the
+in-memory model — if no files are loaded, there is nothing to search.
+
+### Symbol search finds nothing
+The identifier name must match the raw name in the math source exactly.
+`\int` has raw name `int`, `\alpha` has raw name `a`, `\ha` has raw name `ha`.
+Try the raw name without the backslash.
+
+### Session banner does not appear
+`localStorage` must be available. In private/incognito mode, `localStorage`
+may be disabled. The banner only appears if files were loaded in a previous
+session.

@@ -2402,3 +2402,311 @@ Blur fires when the user clicks outside the cell (e.g., on another cell or
 the toolbar). Committing on blur means the user's work is never silently
 discarded. If the user wants to cancel, they press Escape explicitly.
 This matches the behaviour of spreadsheet applications.
+
+---
+
+## Phase 7 — Search, Indexing & Tooling
+
+This section explains all new code introduced in Phase 7: the search engine,
+search view, and session persistence module.
+
+---
+
+### Overview
+
+Phase 7 adds the ability to actively query the loaded knowledge base. Four
+operations are provided:
+
+1. **Full-text search** — find all text cells whose value contains a query string
+2. **Structural search** — find all math cells whose AST contains a given identifier
+3. **Graph neighbourhood** — find all entities within N hops of a starting entity
+4. **Cross-table join** — find entity pairs from two tables linked by a relation
+
+All four are implemented as pure functions in `src/search/index.ts` that
+operate on the in-memory `KnowledgeBase` model. They do not index, cache, or
+modify any state — they scan on every call. For the current scale (hundreds
+of entities) this is instantaneous.
+
+A `SearchView` class in `src/view/search-view.ts` wires the search functions
+to the DOM. A `session.ts` module in `src/view/` persists the names of loaded
+files to `localStorage` so the user can be reminded to reload them on next open.
+
+---
+
+### `src/search/index.ts` — Search Engine
+
+#### Result types
+
+Three result interfaces are defined:
+
+**`SearchHit`** — returned by `searchText` and `searchByIdentifier`:
+```ts
+interface SearchHit {
+    tableIdx: number;    // index into kb.tables
+    tableName: string;
+    rowIdx: number;
+    entityId: string;    // first-column value of the row
+    colIdx: number;
+    colName: string;
+    value: string;       // the raw cell value that matched
+    matchStart: number;  // start index of the match within value
+    matchEnd: number;    // end index (exclusive)
+}
+```
+
+**`NeighbourHit`** — returned by `getNeighbourhood`:
+```ts
+interface NeighbourHit {
+    entityId: string;
+    tableName: string;
+    relation: string;    // the relation name (or its inverse) on the edge
+    direction: "outgoing" | "incoming";
+    hops: number;        // how many hops from the start entity
+}
+```
+
+**`JoinHit`** — returned by `crossTableJoin`:
+```ts
+interface JoinHit {
+    leftEntityId: string;
+    rightEntityId: string;
+    relation: string;
+}
+```
+
+---
+
+#### `searchText(kb, query)`
+
+Scans every cell in every table. Only cells whose `typeId` is `"text"`,
+`"plain"`, or `"plaintext"` are searched — math cells are excluded because
+their raw source text is not meaningful to a plain-text query.
+
+The comparison is case-insensitive: both the query and the cell value are
+lowercased before `indexOf`. The match position (`matchStart`, `matchEnd`)
+is recorded in the original (non-lowercased) value's coordinate space so
+the view can highlight the correct substring.
+
+A blank or whitespace-only query returns an empty array immediately.
+
+---
+
+#### `searchByIdentifier(kb, identifierName)`
+
+Scans every math cell (`typeId === "math"`). For each non-empty cell, it
+calls `parser.parse("Expression", cell.value)` to get the AST, then walks
+the AST with `astContainsIdentifier` looking for any `IdentifierNode` whose
+`name` field equals the query.
+
+**`astContainsIdentifier(node, name)`** is a recursive switch over all
+`MathNode` types. It returns `true` as soon as any `Identifier` node with
+the matching name is found. Cells that fail to parse are silently skipped
+(the `try/catch` around the parse call discards unparseable cells).
+
+This function is the "domain tool" described in the phase spec: it answers
+"which entities use this symbol?" by searching the parsed AST rather than
+the raw source text. Searching the raw text would produce false positives
+(e.g. searching for `a` would match `\\nabla` as a substring).
+
+---
+
+#### `getNeighbourhood(kb, startEntityId, maxHops)`
+
+Performs a **breadth-first search** (BFS) over the association graph starting
+from `startEntityId`. Both outgoing and incoming edges are traversed.
+
+A `visited` set prevents revisiting entities. The BFS queue holds
+`{ entityId, hops }` pairs. When an entity is dequeued, if `hops >= maxHops`
+the loop continues without expanding further — this enforces the hop limit.
+
+For each unvisited neighbour:
+- **Outgoing edge** (`source → target`): the neighbour is `edge.target`,
+  direction is `"outgoing"`, relation name is `edge.relation`
+- **Incoming edge** (`source → target` where target = current entity):
+  the neighbour is `edge.source`, direction is `"incoming"`, relation name
+  is the inverse looked up via `kb.graph.getInverse(edge.relation)` (falls
+  back to the forward name if no inverse is defined)
+
+An `entityTable` map (built once before the BFS) maps each entity ID to its
+table name for display in the neighbourhood panel.
+
+The start entity itself is never included in the results (it is pre-added
+to `visited` before the BFS begins).
+
+---
+
+#### `crossTableJoin(kb, leftTableIdx, rightTableIdx, relation)`
+
+Finds all entity pairs `(leftEntity, rightEntity)` where `leftEntity` is in
+the left table, `rightEntity` is in the right table, and there is an edge
+`leftEntity --relation--> rightEntity` in the graph.
+
+Implementation:
+1. Build a `Set` of all entity IDs in the right table
+2. For each row in the left table, call `kb.graph.filterBySource(relation, row.entityId)`
+   to get all targets of that entity via the given relation
+3. For each target, check if it is in the right table's ID set
+4. If yes, emit a `JoinHit`
+
+Returns an empty array if either table index is out of bounds.
+
+---
+
+### `src/view/search-view.ts` — Search View
+
+`SearchView` is a class that builds and manages the search UI. It is
+constructed with a container element and the `AppController` reference.
+
+**DOM structure built by the constructor:**
+
+```
+container
+├── div.search-bar
+│   ├── input#search-input          (text search)
+│   ├── button "Search"
+│   ├── input#search-ident-input    (identifier search)
+│   ├── button "Find Symbol"
+│   └── button "Clear"
+├── div.search-results              (hidden initially)
+└── div.neighbourhood-panel         (hidden initially)
+```
+
+**`showTextResults(hits)`** — renders a `SearchHit[]` into the results panel.
+For each hit, it builds a `<li>` with:
+- A location line: `tableName › entityId › colName`
+- The cell value with the matched substring wrapped in `<mark>` for
+  yellow highlighting
+
+Clicking any result item calls `showNeighbourhood(hit.entityId)`.
+
+**`showNeighbourhood(entityId)`** — calls `controller.getNeighbourhood(entityId, 2)`
+and renders the results into the neighbourhood panel. Each entry shows the
+hop count, relation name, direction arrow (`→` or `←`), entity ID, and
+table name. Clicking any entry navigates to that entity's neighbourhood
+(recursive call to `showNeighbourhood`).
+
+**`escapeHtml(s)`** — a module-private helper that escapes `&`, `<`, `>`,
+and `"` to prevent HTML injection when inserting user-controlled strings
+via `innerHTML`.
+
+---
+
+### `src/view/session.ts` — Session Persistence
+
+Saves and restores the list of loaded file names using `localStorage`.
+
+**`saveSession(fileNames)`** — serialises `{ fileNames, savedAt }` to JSON
+and stores it under the key `"bookkeeping_session_v1"`. Called after every
+successful file load. Errors (private browsing, storage full) are silently
+ignored.
+
+**`loadSession()`** — reads and parses the stored JSON. Returns `null` if
+nothing is stored or if parsing fails.
+
+**`clearSession()`** — removes the key from `localStorage`.
+
+**Why only file names are stored:** The browser's security model prevents
+a web page from reading arbitrary files from the filesystem. Only the user
+can open files via a file picker or drag-and-drop. The session therefore
+stores only the names of previously loaded files and shows a banner asking
+the user to reload them — it cannot reload them automatically.
+
+---
+
+### Controller additions — `src/controller/index.ts`
+
+Five thin delegator methods were added to `AppController`:
+
+| Method | Delegates to |
+|--------|-------------|
+| `searchText(query)` | `searchText(this.knowledgeBase, query)` |
+| `searchByIdentifier(name)` | `searchByIdentifier(this.knowledgeBase, name)` |
+| `getNeighbourhood(startId, maxHops)` | `getNeighbourhood(this.knowledgeBase, startId, maxHops)` |
+| `crossTableJoin(left, right, rel)` | `crossTableJoin(this.knowledgeBase, left, right, rel)` |
+| `getLoadedFileNames()` | `this.knowledgeBase.tables.map(t => t.name)` |
+
+These methods keep the view layer decoupled from the search module — the
+view calls the controller, the controller calls the search engine.
+
+---
+
+### `src/main.ts` additions
+
+- Imports `SearchView` and `saveSession`/`loadSession` from their modules
+- Constructs `SearchView` with `#search-container` and the controller
+- Wires the entity click handler on `TableView` to also call
+  `searchView.showNeighbourhood(entityId)` — clicking an entity in the
+  table now shows both the association detail panel (Phase 4) and the
+  neighbourhood panel (Phase 7) simultaneously
+- Calls `saveSession(controller.getLoadedFileNames())` after each
+  successful file load
+- On page load, calls `loadSession()` and if a previous session exists,
+  populates and shows `#session-banner` with the file names and a Dismiss button
+
+---
+
+### `index.html` additions
+
+- `<div id="session-banner" hidden>` — amber banner shown when a previous
+  session is detected; hidden by default
+- `<div id="search-container">` — mount point for `SearchView`, placed
+  above the edit bar
+
+---
+
+### `style.css` additions
+
+| Selector | Purpose |
+|----------|---------|
+| `.session-banner` | Amber background warning bar with padding |
+| `.search-bar` | Flex row containing the two search inputs and buttons |
+| `.search-input` | Styled text input for search queries |
+| `.search-btn` | Search and Find Symbol buttons |
+| `.search-btn-clear` | Clear button (lighter styling) |
+| `.search-results` | Container for the results list |
+| `.search-results-header` | Result count line |
+| `.search-results-list` | `<ul>` with no list-style |
+| `.search-result-item` | Individual result row, cursor pointer |
+| `.search-result-location` | Grey location breadcrumb |
+| `.search-result-value` | Cell value with highlighted match |
+| `.neighbourhood-panel` | Container for the neighbourhood list |
+| `.neighbourhood-header` | Title line for the neighbourhood panel |
+| `.neighbourhood-list` | `<ul>` for neighbourhood entries |
+| `.neighbourhood-item` | Individual hop entry |
+| `.neighbourhood-hops` | Hop count badge |
+| `.neighbourhood-relation` | Relation name in the entry |
+| `.neighbourhood-table` | Table name in parentheses |
+
+---
+
+### Design Decisions
+
+**1. No indexing — scan on every call.**
+All search functions iterate the in-memory model on every invocation. For
+the current scale (hundreds of entities, millisecond parse times) this is
+instantaneous. A persistent index would be premature optimisation and would
+require cache invalidation logic whenever cells are edited.
+
+**2. Structural search parses on demand.**
+`searchByIdentifier` re-parses each math cell's source text during the
+search. This is correct because the source text is the canonical form of
+the data. The parsed AST is not cached between calls — caching would
+require invalidating entries on every `editCell` call, adding complexity
+with no measurable benefit at current scale.
+
+**3. BFS for neighbourhood.**
+Breadth-first traversal guarantees that the shortest path to each entity
+is found first and that hop counts are correct. Depth-first would also
+work but would not guarantee shortest paths.
+
+**4. Session stores names only.**
+The browser cannot access the filesystem without user interaction. Storing
+file contents in `localStorage` would be unreliable (storage limits) and
+unnecessary (the user has the files on disk). The banner is a reminder,
+not an automatic restore.
+
+**5. `SearchView` is self-contained.**
+The view builds its own DOM inside the container element passed to the
+constructor. It does not depend on any pre-existing HTML structure beyond
+the container div. This matches the pattern established by `GraphFilterView`
+and `TableView`.

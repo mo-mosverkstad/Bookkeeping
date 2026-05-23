@@ -671,3 +671,82 @@ The system continues to use CSV as the sole file format.
 when the grammar is fully stable, real knowledge data exists to measure
 actual file sizes, and sufficient design time is available to specify the
 format unambiguously from byte level upward.
+
+---
+
+## Phase 7 — Search, Indexing & Tooling
+
+---
+
+### Implementation
+
+**Added — `src/search/index.ts`**
+- `searchText(kb, query)` — full-text search across all text-type cell values,
+  case-insensitive, returns `SearchHit[]` with match position
+- `searchByIdentifier(kb, name)` — structural search: parses each math cell's
+  source text, walks the AST, returns cells containing an `IdentifierNode`
+  with the given raw name (e.g. `"int"` finds all cells using `\int`)
+- `getNeighbourhood(kb, entityId, maxHops)` — BFS over the association graph,
+  returns all entities within `maxHops` hops with direction and hop count
+- `crossTableJoin(kb, leftTableIdx, rightTableIdx, relation)` — finds entity
+  pairs from two tables connected by a given relation type
+
+**Added — `src/view/search-view.ts`**
+- Search bar with two inputs: text search and symbol/identifier search
+- Results panel with highlighted match text and clickable entity rows
+- Neighbourhood panel showing connected entities up to 2 hops, triggered
+  by clicking any entity (from search results or table first column)
+
+**Added — `src/view/session.ts`**
+- `saveSession(fileNames)` — persists loaded file names to `localStorage`
+- `loadSession()` — retrieves session data on next open
+- `clearSession()` — removes session data
+
+**Changed — `src/controller/index.ts`**
+- Added `searchText(query)`, `searchByIdentifier(name)`,
+  `getNeighbourhood(entityId, maxHops)`, `crossTableJoin(...)`,
+  `getLoadedFileNames()` — thin delegators to the search engine
+
+**Changed — `src/main.ts`**
+- Wires `SearchView` into the page
+- Entity click handler now also triggers `searchView.showNeighbourhood()`
+- Calls `saveSession()` after each file load
+- Shows session restore banner on page load if a previous session exists
+
+**Changed — `index.html`**
+- Added `#session-banner` div (hidden by default)
+- Added `#search-container` div above the edit bar
+
+**Changed — `style.css`**
+- Added `.session-banner` — amber warning bar
+- Added `.search-bar`, `.search-input`, `.search-btn` — search controls
+- Added `.search-results`, `.search-result-item`, `.search-result-value` —
+  results list with highlighted matches
+- Added `.neighbourhood-panel`, `.neighbourhood-item` — hop graph display
+
+**Added — `test/search/search.test.ts`**
+- 15 tests covering: text search (match, multi-table, no match, blank query,
+  match positions, math cells excluded), identifier search (found, not found,
+  blank), neighbourhood (hop 1, hop 0, no self, hop count), cross-table join
+
+---
+
+### Design decisions
+
+1. **Search does not index** — all search functions scan the in-memory model
+   on every call. For the current scale (hundreds of entities), this is
+   instantaneous. A persistent index would be premature optimisation.
+
+2. **Structural search parses on demand** — math cells are re-parsed during
+   `searchByIdentifier`. This is correct because the source text is the
+   canonical form. Parsing is fast enough for interactive use.
+
+3. **Neighbourhood uses BFS** — breadth-first traversal ensures the shortest
+   path is found first and hop counts are correct.
+
+4. **Session stores file names only** — the browser cannot access the
+   filesystem directly. The session banner tells the user which files to
+   reload; it does not reload them automatically.
+
+5. **Domain tool = symbol search** — `searchByIdentifier` is the first
+   domain tool. It answers "which theorems use this symbol?" directly.

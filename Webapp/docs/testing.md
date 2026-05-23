@@ -870,3 +870,65 @@ Phase 6 was skipped. No binary format tests exist.
 The system supports CSV only. All existing tests from Phases 1–5 remain
 the complete test suite. No regression was introduced by skipping Phase 6
 — the codebase is identical to the end of Phase 5.
+
+---
+
+## Phase 7 — Search, Indexing & Tooling
+
+---
+
+### Automated test files
+
+| File | What is covered |
+|------|-----------------|
+| `test/search/search.test.ts` | `searchText`, `searchByIdentifier`, `getNeighbourhood`, `crossTableJoin` |
+
+### Phase 7 test cases
+
+#### searchText tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Finds matching text cell | query="rate" | 1 hit, entityId="derivative" |
+| Multiple hits across tables | query="angle" | 1 hit in definitions |
+| No match | query="zzznomatch" | empty array |
+| Blank query | query="   " | empty array |
+| Match positions correct | query="area" | matchStart=0, matchEnd=4 |
+| Does not search math cells | query="integral" | only text cells match |
+
+#### searchByIdentifier tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Finds math cells with identifier | name="int" | ftc row found |
+| Finds derivative base identifier | name="f" | at least 1 hit |
+| Unknown identifier | name="zzznomatch" | empty array |
+| Blank query | name="" | empty array |
+
+#### getNeighbourhood tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Direct neighbours hop 1 | start="ftc", hops=1 | integral, derivative in results |
+| Outgoing edge found | start="pythagorean", hops=1 | right-triangle found |
+| Start entity not in results | start="ftc", hops=2 | no hit with entityId="ftc" |
+| maxHops=0 returns nothing | start="ftc", hops=0 | empty array |
+| Hop count correct | start="ftc", hops=1 | all hits have hops=1 |
+
+#### crossTableJoin tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Finds cross-table pairs | left=0, right=1, rel="uses" | ftc→integral found |
+| Non-existent relation | rel="proves" | empty array |
+| Invalid table index | left=99 | empty array |
+
+---
+
+### Test run results
+
+**Status: awaiting execution on target (WSL Ubuntu)**
+
+Per `docs/exception.md`, tests are written by the assistant and executed
+by the user on the target environment. Results will be recorded here after
+the user runs `npm test`.

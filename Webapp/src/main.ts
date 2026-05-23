@@ -1,9 +1,11 @@
 import { AppController } from "./controller/index.ts";
 import { TableView } from "./view/table-view.ts";
 import { GraphFilterView } from "./view/graph-filter-view.ts";
+import { SearchView } from "./view/search-view.ts";
 import { mathPlugin } from "./plugins/math/index.ts";
 import type { MathNode } from "./plugins/math/types.ts";
 import { renderMath } from "./plugins/math/render.ts";
+import { saveSession, loadSession } from "./view/session.ts";
 
 window.addEventListener("load", () => {
     const input = document.getElementById("input") as HTMLInputElement;
@@ -12,6 +14,8 @@ window.addEventListener("load", () => {
     const errorEl = document.getElementById("error-message")!;
     const fileInput = document.getElementById("file-input") as HTMLInputElement;
     const tableContainer = document.getElementById("table-container")!;
+    const searchContainer = document.getElementById("search-container")!;
+    const sessionBanner = document.getElementById("session-banner") as HTMLElement;
     const editBar = document.getElementById("cell-edit-bar") as HTMLElement;
     const editPreview = document.getElementById("cell-edit-preview") as HTMLElement;
 
@@ -33,8 +37,14 @@ window.addEventListener("load", () => {
     controller.setGraphFilterView(graphFilterView);
     tableView.setController(controller);
 
-    // Entity click → show associations
-    tableView.setEntityClickHandler((entityId) => graphFilterView.showEntityAssociations(entityId));
+    // ── Search view ───────────────────────────────────────────────────────────
+    const searchView = new SearchView(searchContainer, controller);
+
+    // Entity click → show associations + neighbourhood
+    tableView.setEntityClickHandler((entityId) => {
+        graphFilterView.showEntityAssociations(entityId);
+        searchView.showNeighbourhood(entityId);
+    });
 
     // Cancel active cell edit when clicking outside the table area
     document.addEventListener("click", () => tableView.cancelActive());
@@ -57,6 +67,7 @@ window.addEventListener("load", () => {
             try {
                 controller.loadCSV(file.name, reader.result as string);
                 errorEl.textContent = "";
+                saveSession(controller.getLoadedFileNames());
             } catch (e) { errorEl.textContent = (e as Error).message; }
         };
         reader.readAsText(file);
@@ -74,6 +85,19 @@ window.addEventListener("load", () => {
         const files = e.dataTransfer?.files;
         if (files) for (let i = 0; i < files.length; i++) loadFile(files[i]);
     });
+
+    // ── Session restore ─────────────────────────────────────────────────────
+    const session = loadSession();
+    if (session && session.fileNames.length > 0) {
+        sessionBanner.hidden = false;
+        sessionBanner.innerHTML =
+            `<span>Last session: <strong>${session.fileNames.join(", ")}</strong> — ` +
+            `reload these files to restore your knowledge base.</span> ` +
+            `<button id="dismiss-session">Dismiss</button>`;
+        document.getElementById("dismiss-session")?.addEventListener("click", () => {
+            sessionBanner.hidden = true;
+        });
+    }
 
     // ── Expression renderer ──────────────────────────────────────────────────
     button.addEventListener("click", () => {

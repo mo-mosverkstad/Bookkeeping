@@ -1711,7 +1711,7 @@ available to specify the format unambiguously from byte level upward.
 
 ---
 
-#### Phase 7 — Search, Indexing & Tooling
+#### Phase 7 — Search, Indexing & Tooling ✅ *complete*
 
 **Goal:** Make the stored knowledge actively useful. Full-text and
 structural search across all loaded tables, plus the first domain-specific
