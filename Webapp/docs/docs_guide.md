@@ -93,7 +93,7 @@ Contents:
 
 ---
 
-## Source Structure (after Phase 9 refactoring)
+## Source Structure (after Phase 10 refactoring)
 
 ```
 src/
@@ -124,7 +124,12 @@ src/
 │   │   ├── types.ts     # GeoStatement union + all node interfaces
 │   │   ├── grammar.ts   # PEG grammar + exported parser + parseGeometry()
 │   │   ├── render.ts    # AST → SVG
-│   │   ├── el.ts        # SVG element helpers
+│   │   ├── el.ts        # SVG element helpers (shared with physics)
+│   │   └── index.ts     # Plugin entry point
+│   ├── physics/         # Physics free-body plugin
+│   │   ├── types.ts     # PhysicsProgram + all node interfaces
+│   │   ├── grammar.ts   # PEG grammar + line partitioner + parsePhysics()
+│   │   ├── render.ts    # Extends geometry SVG renderer
 │   │   └── index.ts     # Plugin entry point
 │   └── text/            # Plain text plugin (fallback)
 ├── data/            # Data persistence (CSV parser, types)
@@ -136,7 +141,8 @@ test/                # Mirrors src structure
 ├── engine/
 ├── plugins/
 │   ├── math/
-│   └── geometry/
+│   ├── geometry/
+│   └── physics/
 ├── data/
 └── ui/
 ```

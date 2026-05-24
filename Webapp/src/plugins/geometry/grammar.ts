@@ -351,8 +351,8 @@ export function parseGeometry(source: string): GeometryProgram {
     const normalised = source
         .split(/\r?\n/)
         .map(l => l.trimEnd())
-        .join("\n")
-        .trim();
+        .filter(l => l.trim().length > 0)  // drop truly empty lines
+        .join("\n");
     if (!normalised) return { type: "GeometryProgram", statements: [] };
     return parser.parse("Program", normalised) as GeometryProgram;
 }

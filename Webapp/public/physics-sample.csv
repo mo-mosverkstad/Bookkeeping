@@ -1,0 +1,29 @@
+Name,Diagram,Notes
+text,physics,text
+Block on surface,"Point(A,B,C,D)
+Point(A)=(0,0)
+Point(B)=(3,0)
+Point(C)=(3,2)
+Point(D)=(0,2)
+Polygon(A,B,C,D)
+Body(B1)=mass(m)
+Force(W,A,\d)=mg
+Force(N,A,\u)=N
+Force(f,A,\r)=f",Weight down + normal up + friction right
+Inclined plane,"Point(A,B,C)
+Point(A)=(0,0)
+Point(B)=(4,0)
+Point(C)=(4,3)
+Triangle(A,B,C)
+Body(block)=mass(m)
+Force(W,C,\d)=mg
+Force(N,C,\u)=N
+Fixed(A)
+Roller(B,\u)",Block on inclined plane with pin at A and roller at B
+Spring-mass,"Point(A,B)
+Point(A)=(0,1)
+Point(B)=(3,1)
+Fixed(A)
+Spring(A,B)=k
+Body(m1)=mass(m)
+Force(W,B,\d)=mg",Spring-mass: fixed wall + spring k + hanging mass m

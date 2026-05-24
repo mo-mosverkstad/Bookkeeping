@@ -840,3 +840,128 @@ The circumference points `(A,B,C)` must be declared and have coordinates
 (or be auto-laid-out) before the circle can compute its radius. If all
 points land at the same auto-layout position, the radius will be zero.
 Add explicit coordinates: `Point(A)=(2,0)`, `Point(O)=(0,0)`, etc.
+
+---
+
+## Phase 10 — Physics Free-Body Syntax Plugin
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Load the physics sample CSV
+
+1. Click **📂 Open** in the menu bar
+2. Navigate to `Webapp/public/physics-sample.csv`
+3. Select and open
+
+The table appears with three columns: **Name** (text), **Diagram** (physics), **Notes** (text). Each Diagram cell renders as an SVG free-body diagram combining geometry and physics elements.
+
+---
+
+### 2. Verify rendered diagrams
+
+| Row | Expected diagram |
+|-----|-----------------|
+| Block on surface | Rectangle (polygon), three force arrows: W downward (red), N upward (red), f rightward (red) |
+| Inclined plane | Triangle, two force arrows, pin joint circle at A, roller triangle at B |
+| Spring-mass | Two points, pin joint at A, purple zigzag spring between A and B, downward force at B |
+
+---
+
+### 3. Physics syntax reference
+
+A physics cell mixes geometry declarations and physics statements freely on separate lines. Geometry lines are parsed by the geometry plugin; physics lines are parsed by the physics plugin.
+
+**Bodies:**
+```
+Body(B1)                      — declare a rigid body
+Body(B1)=mass(m)              — body with mass
+Body(B1)=mass(m),moment(I)    — body with mass and moment of inertia
+```
+
+**Forces** (red arrows):
+```
+Force(F1,A,\d)=mg             — force at point A, direction down, magnitude mg
+Force(N,A,\u)=N               — normal force upward
+Force(f,A,\r)=f               — friction force rightward
+Force(F1,A,\l)=T              — force leftward
+```
+
+Direction shorthands: `\d` down, `\u` up, `\r` right, `\l` left.
+
+**Motion vectors:**
+```
+Velocity(v,A,\r)=v_0          — velocity arrow (blue)
+Acceleration(a,A,\r)=a_0      — acceleration arrow (orange)
+```
+
+**Constraints:**
+```
+Fixed(A)                      — pin joint at A (circle + hatch)
+Roller(B,\u)                  — roller at B (triangle + circle)
+Spring(A,B)=k                 — spring between A and B (zigzag, purple)
+Damper(A,B)=c                 — damper between A and B (rectangle, cyan)
+String(A,B)                   — inextensible string (dashed line)
+Contact(A,B)                  — contact between bodies
+```
+
+**Equations of motion:**
+```
+EOM(m*a)
+EOM(\S{F}=m*a)
+```
+
+---
+
+### 4. Write a physics cell from scratch
+
+1. Click **+ Row** in the toolbar
+2. Click the empty Diagram cell
+3. Type the following in the formula bar (use **Alt+Enter** between lines):
+   ```
+   Point(A,B)
+   Point(A)=(0,1)
+   Point(B)=(3,1)
+   Segment(A,B)
+   Fixed(A)
+   Body(m1)=mass(m)
+   Force(W,B,\d)=mg
+   ```
+4. Press **Enter** — the cell renders a hanging mass on a string with a fixed support
+
+---
+
+### 5. Test parse error display
+
+1. Click a physics cell
+2. In the formula bar, type an unknown statement:
+   ```
+   UnknownPhysics(A,B)
+   ```
+3. The cell shows a red **Parse error:** message
+4. Press **Escape** to restore the original
+
+---
+
+## Troubleshooting
+
+### Physics cell shows a parse error for valid-looking source
+Check that each statement is on its own line. Use **Alt+Enter** in the formula bar to insert newlines between statements.
+
+### Force arrows not visible
+The force arrow is drawn from the named point. Make sure the point is declared with `Point(A)` and optionally given coordinates with `Point(A)=(x,y)`. If the point has no coordinates it will be auto-laid-out, which may place it outside the visible area.
+
+### CSV fails to load with a field count error
+Ensure that any Notes or text column values containing commas are either quoted in the CSV or have their commas removed. The CSV parser splits on unquoted commas, which can produce rows with more fields than columns.

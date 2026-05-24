@@ -2399,7 +2399,7 @@ renders a right triangle with coordinates.
 
 ---
 
-#### Phase 10 — Physics Free-Body Syntax Plugin 📐 *planned*
+#### Phase 10 — Physics Free-Body Syntax Plugin ✅ *complete*
 
 **Goal:** Implement a physics syntax plugin for free-body diagrams and
 physical system descriptions. A physics cell describes bodies, forces,
@@ -2491,12 +2491,12 @@ engineering symbols (pin joint circle, roller triangle, spring zigzag,
 damper rectangle). Reference frame axes are drawn as labelled arrows.
 
 ##### Concrete tasks
-- [ ] Define physics grammar in `src/plugins/physics/grammar.ts`
-- [ ] Define physics AST types in `src/plugins/physics/types.ts`
-- [ ] Implement physics parser (extends geometry parser instance)
-- [ ] Implement physics SVG renderer in `src/plugins/physics/render.ts`
-- [ ] Register physics plugin with `type_id: "physics"`
-- [ ] Add grammar and render tests
+- [x] Define physics grammar in `src/plugins/physics/grammar.ts`
+- [x] Define physics AST types in `src/plugins/physics/types.ts`
+- [x] Implement physics parser (extends geometry parser instance)
+- [x] Implement physics SVG renderer in `src/plugins/physics/render.ts`
+- [x] Register physics plugin with `type_id: "physics"`
+- [x] Add grammar and render tests
 
 **Completion criteria:**
 - `Body(B1)=mass(m)` declares a body with mass
@@ -2506,10 +2506,11 @@ damper rectangle). Reference frame axes are drawn as labelled arrows.
 - A complete free-body diagram with multiple forces renders correctly
 - All existing Phase 1–9 tests pass without modification
 
-**Demo:** Load a CSV with a `physics` column. A cell contains a
-free-body diagram of a block on an inclined plane: body, weight force
-downward, normal force perpendicular to surface, friction force along
-surface. The cell renders as an SVG free-body diagram.
+**Demo:** Load `physics-sample.csv`. The first cell renders a block on a
+surface with a weight force arrow (red, downward), normal force (red, upward),
+and friction force (red, rightward). The second cell renders a block on an
+inclined plane with a pin joint at A and roller at B. The third cell renders
+a spring-mass system with a spring zigzag between the fixed wall and the mass.
 
 ---
 
@@ -3292,10 +3293,11 @@ Webapp/
 │   │   └── index.ts             ← barrel re-export only
 │   ├── controller/              ← AppController
 │   ├── view/                    ← TableView, GraphFilterView, SearchView, session
-│   ├── plugins/                 ← math, text, geometry plugins + registry
+│   ├── plugins/                 ← math, text, geometry, physics plugins + registry
 │   │   ├── math/
 │   │   ├── text/
-│   │   └── geometry/            ← geometry syntax plugin (types, grammar, render)
+│   │   ├── geometry/            ← geometry syntax plugin (types, grammar, render)
+│   │   └── physics/             ← physics free-body plugin (types, grammar, render)
 │   ├── data/                    ← CSV parser, types
 │   ├── search/                  ← search engine
 │   ├── ui/                      ← legacy UI functions (backward compat for tests)

@@ -2,6 +2,7 @@ import type { Plugin } from "./interface.ts";
 import { mathPlugin } from "./math/index.ts";
 import { textPlugin } from "./text/index.ts";
 import { geometryPlugin } from "./geometry/index.ts";
+import { physicsPlugin } from "./physics/index.ts";
 
 function escapeHTML(message: string): string {
     return message.replace(/&/g, "&amp;")
@@ -17,6 +18,7 @@ const plugins: Record<string, Plugin> = {
     math: mathPlugin,
     text: textPlugin,
     geometry: geometryPlugin,
+    physics: physicsPlugin,
 };
 
 export function getPlugin(typeId: string): Plugin {

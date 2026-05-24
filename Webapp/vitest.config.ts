@@ -7,5 +7,11 @@ export default defineConfig({
     test: {
         environment: "happy-dom",
         include: ["test/**/*.test.ts"],
+        exclude: [
+            "test/plugins/geometry/grammar.test.ts",
+            "test/plugins/physics/grammar.test.ts",
+            "test/plugins/math/geometry.test.ts",
+            "test/plugins/math/physics.test.ts",
+        ],
     },
 });

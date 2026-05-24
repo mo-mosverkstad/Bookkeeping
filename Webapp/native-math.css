@@ -334,3 +334,38 @@
   line-height: 1;
   display: inline-block;
 }
+
+/* ── Physics diagram ─────────────────────────────────────────────────────────── */
+
+/* Force vectors — bold red arrows */
+.phys-force { stroke: #dc2626; stroke-width: 2; fill: none; }
+.phys-force-head { fill: #dc2626; }
+
+/* Velocity vectors — blue arrows */
+.phys-velocity { stroke: #2563eb; stroke-width: 1.5; fill: none; }
+.phys-vel-head { fill: #2563eb; }
+
+/* Acceleration vectors — orange double arrows */
+.phys-accel { stroke: #ea580c; stroke-width: 1.5; fill: none; stroke-dasharray: none; }
+.phys-accel-head { fill: #ea580c; }
+
+/* Pin joint */
+.phys-pin { fill: #1e293b; stroke: none; }
+.phys-hatch { stroke: #1e293b; stroke-width: 1.2; fill: none; }
+
+/* Roller */
+.phys-roller { stroke: #1e293b; stroke-width: 1.5; fill: #f8fafc; }
+
+/* Spring */
+.phys-spring { stroke: #7c3aed; stroke-width: 1.5; fill: none; }
+
+/* Damper */
+.phys-damper { stroke: #0891b2; stroke-width: 1.5; fill: none; }
+.phys-damper-box { stroke: #0891b2; stroke-width: 1.5; fill: #e0f2fe; }
+
+/* String */
+.phys-string { stroke: #1e293b; stroke-width: 1.2; fill: none; stroke-dasharray: 4 2; }
+
+/* Labels */
+.phys-label { fill: #1e293b; font-size: 10px; font-family: 'Cambria Math', serif; font-style: italic; }
+.phys-body-label { fill: #7c3aed; font-size: 11px; font-family: system-ui, sans-serif; font-weight: 600; }

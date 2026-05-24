@@ -1068,3 +1068,91 @@ Fix: removed `#result` div, all `mathPlugin`/`renderMath` imports, and the stand
 4. **Math delegation in `build()`** — Math sub-expressions (coordinates, measurements) are captured as raw strings by `MathArg` and `RhsRaw`. `build()` calls `mathParser.parse("Expression", span)` on the already-isolated text. This is correct: the PEG grammar handles geometry structure; the math parser handles math content. The two parsers are composed at the `build()` boundary, not at the grammar level.
 
 5. **`el.ts` for SVG helpers** — Mirrors `math/el.ts` for HTML helpers. Keeps `render.ts` focused on drawing logic, not element creation boilerplate.
+
+---
+
+## Phase 10 — Physics Free-Body Syntax Plugin
+
+---
+
+### Implementation
+
+**Added — `src/plugins/physics/`**
+
+| File | Role |
+|------|------|
+| `types.ts` | AST node interfaces — `BodyDeclNode`, `ForceNode`, `VelocityNode`, `AngularNode`, `TorqueNode`, `ConstraintNode`, `FrameDeclNode`, `InertialDeclNode`, `EOMNode`, `PhysicsProgram` |
+| `grammar.ts` | PEG grammar + exported `parser` + `parsePhysics()` entry point |
+| `render.ts` | `renderPhysics()` — extends geometry SVG renderer with physics overlay |
+| `index.ts` | Plugin entry point: `type_id: "physics"`, `version: "1.0.0"` |
+
+**Grammar design:**
+
+Physics syntax is a superset of geometry syntax. A physics cell can freely mix geometry declarations (`Point`, `Segment`, `Triangle`) with physics statements (`Force`, `Body`, `Fixed`) on separate lines.
+
+`parsePhysics()` partitions lines by keyword: lines whose leading keyword is in `PHYSICS_KEYWORDS` go to the physics PEG parser; all other lines go to `parseGeometry()`. Both parsers receive only non-empty lines (blank placeholders are filtered before joining). The result is a `PhysicsProgram { geoStatements, physStatements }` — the geometry base layer and physics overlay are kept separate.
+
+The physics PEG grammar follows the same architecture as the geometry grammar: `CallExpr` as a proper PEG sequence, `ArgList` parsing individual args, `build()` only assembles AST from already-parsed data.
+
+**Renderer:**
+
+`renderPhysics()` calls `renderGeometry()` first to draw the geometric base layer, then overlays physics elements on the same SVG:
+
+| Statement | Visual |
+|-----------|--------|
+| `Force` | Red arrow from point in direction, math label |
+| `Velocity` | Blue arrow |
+| `Acceleration` | Orange arrow |
+| `Fixed` | Pin joint circle + hatch lines |
+| `Roller` | Triangle + circle |
+| `Spring` | Zigzag polyline, optional stiffness label |
+| `Damper` | Line + rectangle |
+| `String` | Dashed line |
+
+**Added — `src/plugins/registry.ts`**
+
+`physicsPlugin` registered with `type_id: "physics"`.
+
+**Added — `native-math.css`**
+
+Physics styles: force (red), velocity (blue), acceleration (orange), pin/hatch, roller, spring (purple), damper (cyan), string (dashed), body/force labels.
+
+**Added — `public/physics-sample.csv`**
+
+Three demo cells: block on surface, inclined plane with pin+roller, spring-mass system.
+
+**Added — `test/plugins/physics/grammar.test.ts`**
+
+14 tests covering all statement types and the mixed geometry+physics line partitioning.
+
+---
+
+### Bug fix — `loadCSV` crash on rows with wrong field count
+
+**Symptom:** Loading `physics-sample.csv` (or any CSV where a Notes column value contains commas) caused `Cannot read properties of undefined (reading 'typeId')`.
+
+**Root cause:** `loadCSV` in `controller/index.ts` mapped rows as:
+```ts
+rawRow.map((val, i) => new Cell(val, columns[i].typeId))
+```
+When `rawRow` had more fields than `columns` (because an unquoted comma in a Notes value was split by the CSV parser), `columns[i]` was `undefined` at index `i >= columns.length`, and `.typeId` threw.
+
+**Fix:** Changed the mapping to iterate over `columns` instead of `rawRow`:
+```ts
+columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId))
+```
+This always produces exactly one cell per column. Extra fields in `rawRow` are silently ignored; missing fields default to `""`. This is the correct defensive approach — the model always has exactly one cell per column regardless of CSV field count.
+
+**Also fixed:** `physics-sample.csv` Notes values had unquoted commas. Simplified to remove internal commas.
+
+---
+
+### Design decisions
+
+1. **Line partitioning, not grammar composition** — Physics syntax is a superset of geometry. Rather than writing a single unified grammar that handles both, `parsePhysics()` partitions lines by keyword and delegates each partition to its own parser. This keeps both grammars simple and independent, and means geometry cells continue to work unchanged.
+
+2. **`PhysicsProgram` holds both layers separately** — `geoStatements` and `physStatements` are kept in separate arrays. The renderer processes them in order: geometry base first, physics overlay second. This makes it easy to add or remove physics annotations without touching the geometry structure.
+
+3. **Direction as raw string** — Force/velocity directions (`\d`, `\u`, `\r`, `\l`) are stored as raw identifier strings, not parsed as math expressions. The renderer maps them to unit vectors via `directionVector()`. This avoids the complexity of parsing backslash identifiers as math nodes just to extract a direction.
+
+4. **Renderer reuses geometry SVG** — `renderPhysics()` calls `renderGeometry()` and appends physics elements to the same SVG element. This avoids duplicating the point layout and coordinate scaling logic.

@@ -3094,3 +3094,136 @@ This is the correct spreadsheet model — the cell shows the value, the bar show
 #### Formula result div removed
 
 The old `#result` div rendered the formula bar content as a math expression on Enter. This caused geometry cells to be re-interpreted as algebraic syntax. Removed entirely — the formula bar has no automatic rendering of its own content.
+
+---
+
+## Phase 10 — Physics Free-Body Syntax Plugin
+
+---
+
+### Overview
+
+Phase 10 adds a physics syntax plugin. A cell with `typeId: "physics"` contains a multi-line description mixing geometry declarations and physics statements. The plugin parses it into a `PhysicsProgram` and renders it as an SVG free-body diagram.
+
+The plugin follows the same four-file structure as geometry:
+
+```
+src/plugins/physics/
+├── types.ts     — AST node interfaces
+├── grammar.ts   — PEG grammar + exported parser + parsePhysics()
+├── render.ts    — renderPhysics() SVG renderer
+└── index.ts     — Plugin entry point
+```
+
+Note: physics has no `el.ts` because it reuses `geometry/el.ts` directly.
+
+---
+
+### `types.ts` — AST node interfaces
+
+```
+PhysicsProgram        — root: { geoStatements, physStatements }
+BodyDeclNode          — Body(name) with optional mass/moment MathNodes
+ForceNode             — name, point, direction (string), optional magnitude MathNode
+VelocityNode          — type "Velocity"|"Acceleration", name, point, direction, optional value
+AngularNode           — type "AngularVelocity"|"AngularAcceleration", name, body, optional value
+TorqueNode            — name, body, pivot, optional value MathNode
+ConstraintNode        — type Fixed|Roller|Contact|String|Spring|Damper, a, optional b/direction/value
+FrameDeclNode         — name, origin, axes[]
+InertialDeclNode      — frame name
+EOMNode               — equation MathNode
+```
+
+`PhysicsProgram` holds two separate arrays: `geoStatements: GeoStatement[]` (from the geometry plugin) and `physStatements: PhysicsStatement[]`. This separation keeps the geometry base layer independent from the physics overlay.
+
+---
+
+### `grammar.ts` — line partitioning + PEG grammar
+
+#### Line partitioning
+
+Physics syntax is a superset of geometry. Rather than a single unified grammar, `parsePhysics()` partitions lines by leading keyword:
+
+```ts
+const PHYSICS_KEYWORDS = new Set([
+    "Body", "Force", "Velocity", "Acceleration",
+    "AngularVelocity", "AngularAcceleration", "Torque",
+    "Fixed", "Roller", "Contact", "String", "Spring", "Damper",
+    "Frame", "Inertial", "EOM",
+]);
+```
+
+Lines whose leading keyword is in `PHYSICS_KEYWORDS` go to the physics PEG parser. All other lines go to `parseGeometry()`. Blank lines are filtered from both partitions before parsing.
+
+This approach keeps both grammars simple and independent. The geometry grammar does not need to know about physics keywords, and the physics grammar does not need to re-implement geometry rules.
+
+#### PEG grammar structure
+
+Same architecture as geometry:
+
+```
+Program      = Statement (\n Statement)*
+Statement    = AssignStatement | CallStatement | BlankOrComment
+AssignStatement = CallExpr "=" RhsRaw
+CallStatement   = CallExpr
+CallExpr     = Name "(" ArgList ")"
+ArgList      = Arg ("," Arg)*  |  empty
+Arg          = /^[^,)\n\r]+/
+RhsRaw       = /^[^\n\r]+/
+```
+
+`build()` receives `{ name, args[] }` and assembles AST nodes — no re-parsing.
+
+#### Direction strings
+
+Force and velocity directions (`\d`, `\u`, `\r`, `\l`) are stored as raw strings in the AST, not parsed as math expressions. The renderer maps them to unit vectors:
+
+```ts
+function directionVector(dir: string): { dx: number; dy: number } {
+    if (dir === "\\d" || dir === "down")  return { dx: 0,  dy: 1  };
+    if (dir === "\\u" || dir === "up")    return { dx: 0,  dy: -1 };
+    if (dir === "\\r" || dir === "right") return { dx: 1,  dy: 0  };
+    if (dir === "\\l" || dir === "left")  return { dx: -1, dy: 0  };
+    return { dx: 1, dy: 0 }; // default: rightward
+}
+```
+
+This avoids the complexity of parsing backslash identifiers as math nodes just to extract a direction.
+
+---
+
+### `render.ts` — SVG renderer
+
+`renderPhysics()` calls `renderGeometry()` first to draw the geometric base layer, then appends physics elements to the same SVG. This reuses the geometry point layout and coordinate scaling without duplication.
+
+Physics elements drawn on top of the geometry base:
+
+| Statement type | Drawing | CSS class |
+|---|---|---|
+| `Force` | Arrow from point in direction, math label | `phys-force` (red) |
+| `Velocity` | Arrow from point in direction | `phys-velocity` (blue) |
+| `Acceleration` | Arrow from point in direction | `phys-accel` (orange) |
+| `Fixed` | Circle + hatch lines below | `phys-pin`, `phys-hatch` |
+| `Roller` | Triangle + circle | `phys-roller` |
+| `Spring` | Zigzag polyline, optional label | `phys-spring` (purple) |
+| `Damper` | Line + rectangle | `phys-damper` (cyan) |
+| `String` | Dashed line | `phys-string` |
+| `BodyDecl` | Label at point if point exists | `phys-body-label` |
+
+SVG `<defs>` adds three arrowhead markers: `force-arrow`, `vel-arrow`, `accel-arrow`.
+
+---
+
+### Bug fix — `loadCSV` crash on mismatched field count
+
+**Problem:** `loadCSV` in `controller/index.ts` mapped CSV rows as:
+```ts
+rawRow.map((val, i) => new Cell(val, columns[i].typeId))
+```
+When a CSV row had more fields than columns (e.g. an unquoted comma in a Notes value), `columns[i]` was `undefined` at `i >= columns.length`, throwing `Cannot read properties of undefined (reading 'typeId')`.
+
+**Fix:** Iterate over `columns` instead of `rawRow`:
+```ts
+columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId))
+```
+The model always produces exactly one cell per column. Extra CSV fields are ignored; missing fields default to `""`. This is the correct defensive approach for any CSV with irregular field counts.

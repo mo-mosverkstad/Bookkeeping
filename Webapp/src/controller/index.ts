@@ -24,7 +24,9 @@ export class AppController {
     loadCSV(fileName: string, csvText: string): void {
         const parsed = parseCSV(csvText);
         const columns = parsed.headers.map((name, i) => new Column(name, parsed.types[i] ?? "text"));
-        const rows = parsed.rows.map(rawRow => new Row(rawRow.map((val, i) => new Cell(val, columns[i].typeId))));
+        const rows = parsed.rows.map(rawRow =>
+            new Row(columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId)))
+        );
         const table = new Table(fileName.replace(/\.csv$/, ""), columns, rows);
         this.knowledgeBase.addTable(table);
         this.refreshViews();
