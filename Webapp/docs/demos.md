@@ -965,3 +965,187 @@ The force arrow is drawn from the named point. Make sure the point is declared w
 
 ### CSV fails to load with a field count error
 Ensure that any Notes or text column values containing commas are either quoted in the CSV or have their commas removed. The CSV parser splits on unquoted commas, which can produce rows with more fields than columns.
+
+---
+
+## Phase 11 — Chemistry Reaction Syntax Plugin
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Load the chemistry sample CSV
+
+1. Click **📂 Open** in the menu bar
+2. Navigate to `Webapp/public/chemistry-sample.csv`
+3. Select and open
+
+The table appears with three columns: **Name** (text), **Notes** (text),
+**chemistry** (chemistry). Each cell in the chemistry column renders as a
+formatted chemical equation or annotation.
+
+---
+
+### 2. Verify rendered output
+
+| Row | Expected rendering |
+|-----|--------------------|
+| Combustion of hydrogen | `2H₂ + O₂ → 2H₂O` — horizontal reaction with subscripts |
+| Haber process | `N₂ + 3H₂ ⇌ 2NH₃` with `T=450°, P=200atm, cat=Fe` above the arrow |
+| Ionic precipitation | `Ca²⁺(aq) + 2Cl⁻(aq) → CaCl₂(s)` — charged species with states |
+| Nuclear fission | `²³⁵₉₂U + n → ¹⁴¹₅₆Ba + ⁹²₃₆Kr + 3n` — isotope notation |
+| Thermodynamics | `ΔH = -286 kJ/mol` — rendered with math plugin for the value |
+| Structural rows | Atom/Bond/Group declarations listed as text |
+
+---
+
+### 3. Chemistry syntax reference
+
+**Reaction equations:**
+```
+Reaction(2H2 + O2 -> 2H2O)
+Reaction(N2 + 3H2 <=> 2NH3, cond(T=450\deg, P=200atm, cat=Fe))
+Reaction(2H2O -> 2H2 + O2, cond(electric))
+```
+
+**Reaction arrows** (longest-first in parser):
+```
+<=>    equilibrium (double arrow, ⇌)
+<->    reversible equilibrium (⇌)
+-->    slow/multi-step (⟶)
+->     forward irreversible (→)
+```
+
+**Charged species** — `{compound, charge}` wrapper:
+```
+{Na, +}              sodium ion (Na⁺)
+{Ca, 2+}             calcium ion (Ca²⁺)
+{SO4, 2-}            sulfate ion (SO₄²⁻)
+{Fe(CN)6, 3-}        hexacyanoferrate complex ion
+{H3O, +}(aq)         hydronium in aqueous state
+```
+
+**State symbols** (postfix, lowercase closed set):
+```
+H2O(l)    liquid
+NaCl(s)   solid
+CO2(g)    gas
+HCl(aq)   aqueous
+```
+
+**Isotopes and nuclear notation:**
+```
+^14C              carbon-14 (mass number prefix)
+^14_6C            carbon-14 with atomic number
+^235_92U          uranium-235
+```
+
+**Particles:**
+```
+n         neutron
+p         proton
+e-        electron
+e+        positron
+\a        alpha particle (α)
+\b-       beta minus (β⁻)
+\b+       beta plus (β⁺)
+\g        gamma photon (γ)
+```
+
+**Conditions** (inside `cond(...)`):
+```
+cond(T=450\deg, P=200atm, cat=Fe)
+cond(light)
+cond(heat, cat=Pt)
+```
+
+**Thermodynamic quantities:**
+```
+DeltaH = -286kJ/mol
+DeltaG = -237kJ/mol
+DeltaS = -163J/(mol*K)
+Ka = 1.8e-5
+Ksp = 3.2e-9
+Ea = 50kJ/mol
+```
+
+**Structural formula:**
+```
+Atom(C1)
+Atom(C2)
+Bond(C1, C2, single)
+Bond(C1, C2, double)
+Bond(C1, C2, triple)
+Bond(C1, C2, aromatic)
+Group(C1, OH)
+Group(C1, COOH)
+Group(C1, NH2)
+```
+
+---
+
+### 4. Write a chemistry cell from scratch
+
+1. Click **+ Row** in the toolbar
+2. Click the empty chemistry cell
+3. Type in the formula bar:
+   ```
+   Reaction(^235_92U + n -> ^141_56Ba + ^92_36Kr + 3n)
+   ```
+4. Press **Enter** — the cell renders the nuclear fission reaction with
+   stacked mass/atomic number notation
+
+---
+
+### 5. Test parse error display
+
+1. Click a chemistry cell
+2. In the formula bar, type an invalid statement:
+   ```
+   Reaction(H2O)
+   ```
+   (missing arrow — not a valid reaction)
+3. The cell shows a red **Parse error:** message
+4. Press **Escape** to restore the original
+
+---
+
+## Troubleshooting
+
+### Chemistry cell shows plain text instead of rendered output
+Check that the CSV has a types row as the second row with `chemistry` in the
+correct column. Without the types row, all cells fall back to the `text` plugin.
+
+### Parse error: `expected "cond("`
+Conditions must use `cond(...)` syntax, not `[...]` brackets:
+```
+Reaction(N2 + 3H2 <=> 2NH3, cond(T=450\deg, cat=Fe))   ✓
+Reaction(N2 + 3H2 <=> 2NH3, [T=450\deg, cat=Fe])        ✗
+```
+
+### Charged species not rendering correctly
+Charges must use the `{compound, charge}` wrapper syntax:
+```
+{Ca, 2+}(aq)    ✓
+Ca2+(aq)        ✗  (not supported — ambiguous with atom count)
+```
+
+### Isotope notation not rendering
+Isotope prefix must use `^mass` or `^mass_atomic` directly before the element
+symbol with no space:
+```
+^14C      ✓
+^14 C     ✗  (space not allowed)
+^ 14C     ✗  (space not allowed)
+```

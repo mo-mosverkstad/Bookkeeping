@@ -1156,3 +1156,140 @@ This always produces exactly one cell per column. Extra fields in `rawRow` are s
 3. **Direction as raw string** — Force/velocity directions (`\d`, `\u`, `\r`, `\l`) are stored as raw identifier strings, not parsed as math expressions. The renderer maps them to unit vectors via `directionVector()`. This avoids the complexity of parsing backslash identifiers as math nodes just to extract a direction.
 
 4. **Renderer reuses geometry SVG** — `renderPhysics()` calls `renderGeometry()` and appends physics elements to the same SVG element. This avoids duplicating the point layout and coordinate scaling logic.
+
+---
+
+## Phase 11 — Chemistry Reaction Syntax Plugin
+
+---
+
+### Implementation
+
+**Added — `src/plugins/chemistry/`**
+
+| File | Role |
+|------|------|
+| `types.ts` | AST node interfaces — `ChargeNode`, `IsotopeNode`, `ElementGroup`, `ParenGroup`, `BracketGroup`, `CompoundNode`, `ChargedSpeciesNode`, `ParticleNode`, `ReactionTerm`, `ReactionNode`, `ConditionNode`, `ThermoNode`, `AtomDeclNode`, `BondDeclNode`, `GroupDeclNode`, `ChemistryProgram` |
+| `grammar.ts` | PEG grammar + exported `parser` instance + `parseChemistry()` entry point |
+| `render.ts` | `renderChemistry()` — HTML/SVG renderer |
+| `index.ts` | Plugin entry point: `type_id: "chemistry"`, `version: "1.0.0"` |
+
+**Grammar design:**
+
+The chemistry grammar uses `PEGParser` with `skip: /^[ \t]+/`. All structural
+rules are expressed as PEG grammar entries with `build()` functions assembling
+AST nodes. No string splitting or re-parsing inside `build()`.
+
+Key atomicity decisions to prevent skip from firing inside compound notation:
+- `ElementGroup` is a single atomic regex `/^(\^[0-9]+(_[0-9]+)?)?[A-Z][a-z]*[0-9]*/`
+  capturing isotope prefix + symbol + count in one token — no skip can fire
+  between the element letter and its subscript digit
+- `ParenGroup` and `BracketGroup` capture their closing delimiter + count as
+  one atomic regex (`/^\)[0-9]*/`, `/^\][0-9]*/`)
+- `State` and `Charge` are single atomic regexes
+- Optional `Coeff`, `State`, and `Charge` are handled by patching the grammar
+  after definition — wrapping the regex in a `choice` with an empty sequence
+
+Grammar structure:
+```
+Program        = Statement (\n Statement)*
+Statement      = ThermoStmt | StructStmt | ReactionStmt | BlankOrComment
+ReactionStmt   = "Reaction(" Side Arrow Side ("," Conditions)? ")"
+Side           = Term ("+" Term)*
+Term           = Coeff? Species
+Species        = ChargedSpecies | Particle | BareCompound
+ChargedSpecies = "{" BareCompound "," Charge "}" State?
+BareCompound   = Group+ State?
+Group          = BracketGroup | ParenGroup | ElementGroup
+Arrow          = "<=>" | "<->" | "-->" | "->"   (longest-first)
+Conditions     = "cond(" CondItem ("," CondItem)* ")"
+CondItem       = Identifier "=" MathExpr | Identifier
+ThermoStmt     = ThermoKey "=" MathExpr
+StructStmt     = AtomStmt | BondStmt | GroupStmt
+```
+
+**Renderer:**
+
+- Reactions: horizontal layout — reactants, arrow (with conditions above), products
+- Charges: `<sup>` with magnitude+sign (e.g. `2+`, `-`)
+- Atom counts: `<sub>`
+- Isotopes: stacked leading `<sup>`/`<sub>` for mass/atomic numbers
+- State symbols: italic postfix `(s)`, `(l)`, `(g)`, `(aq)`
+- Thermodynamic quantities: `ΔH = value` using math renderer for the value
+- Structural formulas: text rows listing atom/bond/group declarations
+
+**Added — `src/plugins/registry.ts`**
+
+`chemistryPlugin` registered with `type_id: "chemistry"`.
+
+**Added — `native-math.css`**
+
+Chemistry styles: `.chem-program`, `.chem-reaction`, `.chem-side`, `.chem-term`,
+`.chem-coeff`, `.chem-species`, `.chem-arrow-wrap`, `.chem-arrow`,
+`.chem-conditions`, `.chem-state`, `.chem-isotope`, `.chem-isotope-scripts`,
+`.chem-thermo`, `.chem-structural`, `.chem-struct-row`.
+
+**Added — `public/chemistry-sample.csv`**
+
+Ten demo rows covering: combustion, Haber process equilibrium with conditions,
+ionic precipitation with charged species, nuclear fission with isotopes,
+thermodynamic quantity, and structural formula declarations.
+
+---
+
+### Bug fixes
+
+**Bug 1 — Missing types row in chemistry-sample.csv**
+
+The CSV was missing the required second row declaring column types. Without
+`text,text,chemistry` as row 1, the CSV parser treated the first data row as
+the types row, dispatching all chemistry cells to the `text` plugin and
+rendering them as plain source text.
+
+Fix: added `text,text,chemistry` as the second row of `chemistry-sample.csv`.
+
+**Bug 2 — Conditions delimiter mismatch**
+
+The grammar `Conditions` rule used `"["` / `"]"` as delimiters, but the
+study.md spec and sample CSV use `cond(...)` syntax. The parser failed with
+`expected "["` when encountering `cond(T=450\deg,...)`.
+
+Fix: changed `Conditions` to open with `"cond("` and close with `")"`.
+Updated `CondValue` stop regex from `/^[^\],]+/` to `/^[^,)]+/` to match
+the new closing delimiter.
+
+---
+
+### Design decisions
+
+1. **PEGParser for all structural rules** — unlike the first implementation
+   (which used a hand-written cursor-based parser), all grammar rules are
+   expressed as PEG entries fed into `PEGParser`. `build()` functions only
+   assemble AST nodes from already-parsed data. No string splitting or
+   re-parsing inside `build()`.
+
+2. **Atomic regexes for no-whitespace rules** — `ElementGroup`, `ParenGroup`
+   closing, `BracketGroup` closing, `State`, and `Charge` are all single
+   atomic regex tokens. This prevents the `skip` pattern from firing between
+   an element symbol and its subscript count, which would be incorrect.
+
+3. **Grammar patching for optional elements** — optional `Coeff`, `State`,
+   and `Charge` are implemented by patching the grammar object after the
+   initial definition, wrapping the regex in a `choice` with an empty
+   sequence. This keeps the initial grammar definition readable while
+   correctly handling the optional cases.
+
+4. **`ParenGroup` disambiguation from `State`** — `ParenGroup` requires at
+   least one `Group` inside, and `Group` requires starting with `[A-Z]`,
+   `[`, or `^`. State symbols `(s)`, `(l)`, `(g)`, `(aq)` contain only
+   lowercase letters, so `Group` fails on them, causing `ParenGroup` to
+   fail, and the optional `State` choice matches instead. No explicit
+   lookahead needed.
+
+5. **`cond(...)` for conditions** — conditions use `cond(key=value, ...)` 
+   syntax matching the study.md spec, not `[...]` brackets.
+
+6. **Math delegation for thermo values and condition values** — `ThermoStmt`
+   and `CondItem` values are captured as raw text by `LineRest` and
+   `CondValue` rules, then passed to `mathParser.parse("Expression", span)`
+   in `build()`. Same composition pattern as geometry and physics.

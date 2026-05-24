@@ -369,3 +369,102 @@
 /* Labels */
 .phys-label { fill: #1e293b; font-size: 10px; font-family: 'Cambria Math', serif; font-style: italic; }
 .phys-body-label { fill: #7c3aed; font-size: 11px; font-family: system-ui, sans-serif; font-weight: 600; }
+
+/* ── Chemistry ───────────────────────────────────────────────────────────────── */
+
+.chem-program {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'Cambria Math', serif;
+  font-size: 1em;
+}
+
+.chem-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}
+
+.chem-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.chem-term {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.chem-coeff {
+  margin-right: 0.1em;
+}
+
+.chem-species {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.chem-arrow-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0.3em;
+}
+
+.chem-arrow {
+  font-size: 1.2em;
+}
+
+.chem-conditions {
+  font-size: 0.72em;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.chem-state {
+  font-size: 0.8em;
+  font-style: italic;
+  color: #475569;
+  margin-left: 0.05em;
+}
+
+.chem-isotope {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.chem-isotope-scripts {
+  display: inline-flex;
+  flex-direction: column;
+  font-size: 0.65em;
+  line-height: 1;
+  margin-right: 0.05em;
+  vertical-align: middle;
+}
+
+.chem-isotope-scripts sup,
+.chem-isotope-scripts sub {
+  display: block;
+  font-size: 1em;
+}
+
+.chem-thermo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2em;
+}
+
+.chem-structural {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9em;
+  color: #334155;
+}
+
+.chem-struct-row {
+  display: block;
+}

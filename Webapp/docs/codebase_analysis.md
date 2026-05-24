@@ -3227,3 +3227,185 @@ When a CSV row had more fields than columns (e.g. an unquoted comma in a Notes v
 columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId))
 ```
 The model always produces exactly one cell per column. Extra CSV fields are ignored; missing fields default to `""`. This is the correct defensive approach for any CSV with irregular field counts.
+
+---
+
+## Phase 11 — Chemistry Reaction Syntax Plugin
+
+---
+
+### Overview
+
+Phase 11 adds a chemistry syntax plugin. A cell with `typeId: "chemistry"`
+contains one or more chemistry statements — reaction equations, thermodynamic
+quantities, or structural formula declarations. The plugin parses them into a
+`ChemistryProgram` AST and renders them as HTML.
+
+The plugin follows the same four-file structure as physics:
+
+```
+src/plugins/chemistry/
+├── types.ts     — AST node interfaces
+├── grammar.ts   — PEG grammar + exported parser + parseChemistry()
+├── render.ts    — renderChemistry() HTML renderer
+└── index.ts     — Plugin entry point
+```
+
+---
+
+### `types.ts` — AST node interfaces
+
+The chemistry AST has three layers:
+
+**Compound structure:**
+- `IsotopeNode` — mass number + optional atomic number (from `^14_6C`)
+- `ElementGroup` — isotope? + symbol + count (e.g. `H2`, `^14C`)
+- `ParenGroup` — inner groups + count (e.g. `(OH)2`)
+- `BracketGroup` — inner groups + count (e.g. `[Fe(CN)6]`)
+- `GroupNode` — union of the three group types
+- `CompoundNode` — groups + optional state symbol
+- `ChargedSpeciesNode` — compound + charge + optional state
+- `ParticleNode` — one of `n|p|e-|e+|alpha|beta-|beta+|gamma`
+- `SpeciesNode` — union of compound, charged species, particle
+- `ChargeNode` — magnitude (default 1) + sign (`+` or `-`)
+
+**Reaction:**
+- `ReactionTerm` — coefficient (default 1) + species
+- `CondItemNode` — key + optional math value (absent = bare flag)
+- `ConditionNode` — list of condition items
+- `ReactionNode` — lhs terms, arrow type, rhs terms, optional conditions
+
+**Other statements:**
+- `ThermoNode` — key (`DeltaH`, `Ka`, etc.) + math value
+- `AtomDeclNode`, `BondDeclNode`, `GroupDeclNode` — structural formula
+
+**Root:**
+- `ChemistryProgram` — list of `ChemStatement` (union of all statement types)
+
+---
+
+### `grammar.ts` — PEG grammar
+
+#### Why PEGParser, not a hand-written parser
+
+All structural rules are expressed as PEG grammar entries fed into `PEGParser`.
+`build()` functions only assemble AST nodes from already-parsed data. This
+follows the same architecture as geometry and physics — the PEG engine handles
+all structure; `build()` only does `switch`/assembly.
+
+#### The no-whitespace problem
+
+Chemistry has a unique constraint: atom counts must directly follow element
+symbols with no whitespace. `H2O` means hydrogen-2 + oxygen, but `H 2 O`
+would be ambiguous. The `skip` pattern fires before every `literal` and
+`regex` match, so a naive grammar would allow `H 2 O`.
+
+**Solution: atomic regexes.** `ElementGroup` is a single regex that captures
+the entire token — isotope prefix, element symbol, and count — in one match:
+
+```
+/^(\^[0-9]+(_[0-9]+)?)?[A-Z][a-z]*[0-9]*/
+```
+
+Since this is one regex token, the skip pattern cannot fire inside it.
+Similarly, `ParenGroup` and `BracketGroup` capture their closing delimiter
+plus count as one atomic regex (`/^\)[0-9]*/`, `/^\][0-9]*/`).
+
+#### Optional elements via grammar patching
+
+PEG sequences fail if any part fails. To make `Coeff`, `State`, and `Charge`
+optional, they are wrapped in a `choice` with an empty sequence:
+
+```ts
+{ type: "choice", options: [
+    { type: "regex", regex: /^[0-9]+(?=[A-Z{\\^npe])/, name: "coefficient" },
+    { type: "sequence", parts: [] },  // empty = no coefficient
+] }
+```
+
+This is applied by patching the grammar object after the initial definition,
+keeping the initial definition readable.
+
+#### `ParenGroup` vs `State` disambiguation
+
+`ParenGroup` requires at least one `Group` inside. `Group` requires starting
+with `[A-Z]`, `[`, or `^`. State symbols `(s)`, `(l)`, `(g)`, `(aq)` contain
+only lowercase letters — `Group` fails on them, `ParenGroup` fails, and the
+optional `State` choice matches. No explicit lookahead needed.
+
+#### `Conditions` syntax
+
+Conditions use `cond(key=value, ...)` syntax matching the study.md spec.
+`CondValue` stops at `,` or `)` (the `cond(...)` closing paren).
+
+#### Math delegation
+
+`ThermoStmt` values (`LineRest` rule) and `CondItem` values (`CondValue` rule)
+are captured as raw text, then `build()` calls `mathParser.parse("Expression",
+span)` to produce `MathNode` values. Same composition pattern as geometry.
+
+---
+
+### `render.ts` — HTML renderer
+
+`renderChemistry()` iterates `program.statements` and dispatches each:
+
+**Reactions** (`renderReaction`):
+- Horizontal flex layout: `chem-side` (lhs) + `chem-arrow-wrap` + `chem-side` (rhs)
+- Conditions rendered above the arrow in smaller text (`chem-conditions`)
+- Coefficients as plain text (`chem-coeff`)
+- Atom counts as `<sub>` via `renderGroups()`
+- Charges as `<sup>` with magnitude+sign (e.g. `2+`, `-`)
+- Isotopes as stacked leading `<sup>`/`<sub>` (`.chem-isotope-scripts`)
+- State symbols as italic postfix (`.chem-state`)
+- Particles mapped to Unicode symbols (`n`, `p`, `e⁻`, `e⁺`, `α`, `β⁻`, `β⁺`, `γ`)
+
+**Thermodynamic quantities** (`renderThermo`):
+- `ΔH = value` — key mapped to Unicode symbol, value rendered by `renderMath()`
+
+**Structural formulas** (`renderStructural`):
+- Text rows listing atom/bond/group declarations
+
+---
+
+### CSS additions (`native-math.css`)
+
+| Class | Purpose |
+|-------|---------|
+| `.chem-program` | Flex column container for all statements |
+| `.chem-reaction` | Flex row: lhs + arrow + rhs |
+| `.chem-side` | Flex row of terms |
+| `.chem-term` | Coefficient + species |
+| `.chem-coeff` | Stoichiometric coefficient |
+| `.chem-species` | Compound/ion/particle |
+| `.chem-arrow-wrap` | Flex column: conditions above arrow |
+| `.chem-arrow` | Arrow symbol (→, ⇌, ⟶) |
+| `.chem-conditions` | Small text above arrow |
+| `.chem-state` | Italic state symbol postfix |
+| `.chem-isotope-scripts` | Stacked mass/atomic number |
+| `.chem-thermo` | Thermodynamic quantity row |
+| `.chem-structural` | Structural formula rows |
+
+---
+
+### Design decisions
+
+1. **PEGParser for all structural rules** — the first implementation used a
+   hand-written cursor-based parser. This was replaced to follow the project
+   architecture: all grammars use `PEGParser`; `build()` only assembles AST.
+
+2. **Atomic regexes for no-whitespace rules** — the only way to prevent the
+   `skip` pattern from firing between an element symbol and its count is to
+   capture both in a single regex token.
+
+3. **`cond(...)` not `[...]`** — conditions use `cond(key=value, ...)` as
+   specified in study.md. The `[...]` bracket syntax was an error in the
+   initial implementation.
+
+4. **Charge as `{compound, charge}` wrapper** — charges are never postfix
+   suffixes. The `{...}` wrapper makes the charge explicit and unambiguous,
+   avoiding the `Ca2+` vs `Fe2` integer-lookahead problem entirely.
+
+5. **State symbols as lowercase closed set** — `(s)`, `(l)`, `(g)`, `(aq)`
+   are distinguished from group `(OH)2` by the fact that element symbols
+   always start uppercase. No explicit lookahead needed.

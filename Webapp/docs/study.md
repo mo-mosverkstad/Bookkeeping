@@ -2549,8 +2549,8 @@ Compound(NaCl,(s))            — with state: (s) solid, (l) liquid, (g) gas, (a
 
 **Reaction equations**:
 ```
-Reaction(2*H2 + O2 -> 2*H2O)
-Reaction(N2 + 3*H2 <=> 2*NH3, cond(T=450\deg,P=200atm,cat=Fe))
+Reaction(2H2 + O2 -> 2H2O)
+Reaction(N2 + 3H2 <=> 2NH3, cond(T=450\deg,P=200atm,cat=Fe))
 ```
 
 **Conditions**:
@@ -2623,8 +2623,8 @@ vertices. Functional groups use standard abbreviations.
 - [ ] Add grammar and render tests
 
 **Completion criteria:**
-- `Reaction(2*H2 + O2 -> 2*H2O)` renders a balanced reaction equation
-- `Reaction(N2 + 3*H2 <=> 2*NH3, cond(T=450\deg,cat=Fe))` renders
+- `Reaction(2H2 + O2 -> 2H2O)` renders a balanced reaction equation
+- `Reaction(N2 + 3H2 <=> 2NH3, cond(T=450\deg,cat=Fe))` renders
   with conditions above the equilibrium arrow
 - `Compound(NaCl,(s))` renders with state subscript
 - `DeltaH(reaction)=-286kJ/mol` renders as a thermodynamic annotation

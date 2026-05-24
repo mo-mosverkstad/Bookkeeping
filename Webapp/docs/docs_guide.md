@@ -93,7 +93,7 @@ Contents:
 
 ---
 
-## Source Structure (after Phase 10 refactoring)
+## Source Structure (after Phase 11 refactoring)
 
 ```
 src/
@@ -130,6 +130,11 @@ src/
 │   │   ├── types.ts     # PhysicsProgram + all node interfaces
 │   │   ├── grammar.ts   # PEG grammar + line partitioner + parsePhysics()
 │   │   ├── render.ts    # Extends geometry SVG renderer
+│   │   └── index.ts     # Plugin entry point
+│   ├── chemistry/       # Chemistry reaction syntax plugin
+│   │   ├── types.ts     # ChemistryProgram + all node interfaces
+│   │   ├── grammar.ts   # PEG grammar + exported parser + parseChemistry()
+│   │   ├── render.ts    # HTML renderer
 │   │   └── index.ts     # Plugin entry point
 │   └── text/            # Plain text plugin (fallback)
 ├── data/            # Data persistence (CSV parser, types)
