@@ -77,6 +77,26 @@ export class AppController {
         this.showAll();
     }
 
+    /** Insert an empty row at a specific index. Records undo action. */
+    insertRow(tableIdx: number, atIdx: number): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table) return;
+        const row = new Row(table.columns.map(c => new Cell("", c.typeId)));
+        this.history.push({ type: "addRow", tableIdx, row });
+        table.rows.splice(atIdx, 0, row);
+        this.showAll();
+    }
+
+    /** Move a row from one index to another. Records undo action. */
+    moveRow(tableIdx: number, fromIdx: number, toIdx: number): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table || fromIdx === toIdx) return;
+        this.history.push({ type: "moveRow", tableIdx, fromIdx, toIdx });
+        const [row] = table.rows.splice(fromIdx, 1);
+        table.rows.splice(toIdx, 0, row);
+        this.showAll();
+    }
+
     /** Delete a row by index. Records undo action. */
     deleteRow(tableIdx: number, rowIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
@@ -99,6 +119,9 @@ export class AppController {
             table.rows.pop();
         } else if (action.type === "deleteRow") {
             table.rows.splice(action.rowIdx, 0, action.row);
+        } else if (action.type === "moveRow") {
+            const [row] = table.rows.splice(action.toIdx, 1);
+            table.rows.splice(action.fromIdx, 0, row);
         }
         this.showAll();
     }
@@ -115,6 +138,9 @@ export class AppController {
             table.rows.push(action.row);
         } else if (action.type === "deleteRow") {
             table.rows.splice(action.rowIdx, 1);
+        } else if (action.type === "moveRow") {
+            const [row] = table.rows.splice(action.fromIdx, 1);
+            table.rows.splice(action.toIdx, 0, row);
         }
         this.showAll();
     }

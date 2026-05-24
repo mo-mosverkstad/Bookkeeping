@@ -93,18 +93,29 @@ Contents:
 
 ---
 
-## Source Structure (after MVC refactoring)
+## Source Structure (after Phase 8 refactoring)
 
 ```
 src/
 ├── engine/          # General-purpose PEG engine
-├── model/           # Business model (Cell, Row, Table, Graph, KnowledgeBase)
+├── model/           # Business model (1 class per file)
+│   ├── Cell.ts
+│   ├── Column.ts
+│   ├── Row.ts
+│   ├── Table.ts
+│   ├── Association.ts
+│   ├── RelationType.ts
+│   ├── AssociationGraph.ts
+│   ├── EditHistory.ts   # EditHistory class + EditAction type (incl. moveRow)
+│   ├── KnowledgeBase.ts
+│   └── index.ts         # Barrel re-export only
 ├── controller/      # Orchestration (AppController)
-├── view/            # Presentation (TableView, GraphFilterView)
+├── view/            # Presentation (TableView, GraphFilterView, SearchView, session)
 ├── plugins/         # Syntax plugins (math, text, ...)
 │   ├── math/        # Math syntax (self-contained)
 │   └── text/        # Plain text (fallback)
 ├── data/            # Data persistence (CSV parser, re-exports)
+├── search/          # Search engine
 ├── ui/              # Legacy UI functions (backward compat for tests)
 └── main.ts          # App entry point (MVC wiring)
 
@@ -113,6 +124,16 @@ test/                # Mirrors src structure
 ├── plugins/math/
 ├── data/
 └── ui/
+```
+
+**`index.html` shell structure (Phase 8):**
+```
+#menu-bar      ← fixed: app title, file open, session banner
+#formula-bar   ← fixed: fx label, expression input, render, cell preview
+#toolbar       ← fixed: row actions | graph filter | search
+#tab-bar       ← fixed: one tab per loaded CSV
+#workspace     ← scrollable: active table lives here
+#status-bar    ← fixed: TableName — N rows × M cols
 ```
 
 ---

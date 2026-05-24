@@ -274,6 +274,18 @@ modifying the core storage or table engine.
   search, cross-referencing, or other useful operations. Not yet scoped.
 - **Advanced graph queries** — full graph traversal, multi-hop path queries,
   and inference over the association vocabulary. Deferred to a later phase.
+- **Ordered knowledge topology** — the graph is currently unordered. A
+  reference sheet is not just a set of formulas; it is a layered, ordered
+  knowledge topology with derivation order, dependency order, pedagogical
+  order, logical proof order, canonical presentation order, transformation
+  order, and hierarchy order. This is addressed in Phase 9 via a separate
+  semantic layer (`SemanticGraph`) that adds `Concept`, `Collection`,
+  `CollectionItem` (with explicit `position` and `orderingType`), and
+  `FormulaFamily` on top of the existing flat model without modifying it.
+- **Stable entity identity** — entity IDs are currently the mutable
+  first-cell string value. Renaming a row silently breaks all graph edges
+  pointing to it. Phase 10 introduces stable UUIDs and a persistent ID
+  registry to decouple identity from display name.
 
 ---
 
@@ -297,6 +309,444 @@ the project matures.
    The minimal interface is: `{ type_id, version, parse(), render() }` with
    `encode()`/`decode()` added in the binary format phase. Full versioning,
    discovery, and sandboxing are not yet defined.
+
+---
+
+### Database Design Analysis
+
+This section analyses how the Bookkeeping data model maps to a database,
+what database paradigm fits best, and what the concrete schema looks like.
+This is a study section — no implementation is planned until Phase 11 or
+later. The analysis informs the native format design and the long-term
+storage strategy for the non-web implementations (Rust, Java, Python).
+
+---
+
+#### The three layers that need storage
+
+The full Bookkeeping data model has three distinct layers, each with
+different structural characteristics:
+
+```
+Layer 1 — Flat tabular data
+  Tables, columns, rows, typed cells
+  → Homogeneous within a table, heterogeneous across tables
+  → Natural fit: relational tables
+
+Layer 2 — Association graph
+  Directed typed edges between entities (uses, derives-from, etc.)
+  → Sparse, variable degree, vocabulary-controlled
+  → Natural fit: edge table in relational, or native graph DB
+
+Layer 3 — Semantic graph
+  Generic labelled property graph (SemanticNode + SemanticEdge)
+  → Fully schema-free, arbitrary property bags
+  → Natural fit: property graph DB, or EAV in relational
+```
+
+These three layers have different query patterns, different mutability
+characteristics, and different structural shapes. No single database
+paradigm is a perfect fit for all three simultaneously. The analysis
+below examines the options.
+
+---
+
+#### Option 1 — Pure relational (SQLite)
+
+Map all three layers into relational tables.
+
+**Layer 1 — Flat tabular data**
+
+Two approaches exist:
+
+*Approach A — one table per knowledge table (dynamic schema):*
+```sql
+CREATE TABLE theorems (
+    uuid        TEXT PRIMARY KEY,
+    name        TEXT,
+    statement   TEXT,   -- raw BobaMath source
+    domain      TEXT
+);
+```
+Advantage: natural SQL queries, typed columns, fast column scans.
+Disadvantage: schema must be created dynamically when the user defines
+a new table. Adding a column requires `ALTER TABLE`. Schema migrations
+are needed when the user renames or removes a column.
+
+*Approach B — universal EAV (Entity-Attribute-Value):*
+```sql
+CREATE TABLE entity (
+    uuid        TEXT PRIMARY KEY,
+    table_name  TEXT NOT NULL
+);
+
+CREATE TABLE cell (
+    entity_uuid TEXT NOT NULL REFERENCES entity(uuid),
+    col_name    TEXT NOT NULL,
+    type_id     TEXT NOT NULL,   -- "text", "math", etc.
+    value       TEXT NOT NULL,
+    PRIMARY KEY (entity_uuid, col_name)
+);
+```
+Advantage: no schema migrations ever. Any column can be added to any
+table at any time by inserting a new `cell` row.
+Disadvantage: querying a full row requires joining N cell rows. Sorting
+by a column value requires a subquery. Performance degrades for wide
+tables. SQL loses its natural expressiveness.
+
+*Approach C — hybrid: one metadata table + JSON column for cells:*
+```sql
+CREATE TABLE kb_table (
+    name        TEXT PRIMARY KEY,
+    columns_json TEXT NOT NULL   -- [{name, typeId}, ...]
+);
+
+CREATE TABLE kb_row (
+    uuid        TEXT PRIMARY KEY,
+    table_name  TEXT NOT NULL REFERENCES kb_table(name),
+    cells_json  TEXT NOT NULL,   -- {"Name": "FTC", "Statement": "..."}
+    position    INTEGER NOT NULL -- row order within the table
+);
+```
+Advantage: schema-free cells (no migrations), row order preserved,
+still queryable via SQLite's JSON functions (`json_extract`).
+Disadvantage: JSON column is opaque to standard SQL indexing. Full-text
+search on cell values requires a separate FTS virtual table.
+
+**Layer 2 — Association graph**
+
+```sql
+CREATE TABLE association (
+    id          INTEGER PRIMARY KEY,
+    source_uuid TEXT NOT NULL REFERENCES kb_row(uuid),
+    relation    TEXT NOT NULL,
+    target_uuid TEXT NOT NULL REFERENCES kb_row(uuid)
+);
+CREATE INDEX idx_assoc_source ON association(source_uuid);
+CREATE INDEX idx_assoc_target ON association(target_uuid);
+CREATE INDEX idx_assoc_relation ON association(relation);
+
+CREATE TABLE relation_type (
+    name        TEXT PRIMARY KEY,
+    inverse     TEXT,
+    symmetric   INTEGER NOT NULL DEFAULT 0
+);
+```
+
+This maps cleanly. Filtering by relation + target is a single indexed
+query. Neighbourhood traversal (BFS) requires recursive CTEs
+(`WITH RECURSIVE`) which SQLite supports since 3.8.3.
+
+**Layer 3 — Semantic graph**
+
+```sql
+CREATE TABLE semantic_node (
+    id              TEXT PRIMARY KEY,
+    source_uuid     TEXT REFERENCES kb_row(uuid),  -- nullable
+    properties_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE semantic_edge (
+    id          TEXT PRIMARY KEY,
+    source_id   TEXT NOT NULL REFERENCES semantic_node(id),
+    target_id   TEXT NOT NULL REFERENCES semantic_node(id),
+    label       TEXT NOT NULL,
+    properties_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX idx_sem_edge_source ON semantic_edge(source_id);
+CREATE INDEX idx_sem_edge_target ON semantic_edge(target_id);
+CREATE INDEX idx_sem_edge_label  ON semantic_edge(label);
+```
+
+Properties are stored as JSON blobs. Querying by property value
+requires `json_extract(properties_json, '$.type') = 'Theorem'`.
+SQLite supports this but it is not as fast as a native property index.
+For the scale of a personal knowledge base (thousands of nodes), this
+is acceptable.
+
+**Full relational schema summary:**
+
+```
+kb_table        (name, columns_json)
+kb_row          (uuid, table_name, cells_json, position)
+association     (id, source_uuid, relation, target_uuid)
+relation_type   (name, inverse, symmetric)
+semantic_node   (id, source_uuid, properties_json)
+semantic_edge   (id, source_id, target_id, label, properties_json)
+```
+
+Six tables. No domain-specific tables. The schema never changes
+regardless of what knowledge domains the user adds.
+
+**Assessment:**
+- SQLite is available everywhere (Rust via `rusqlite`, Java via JDBC,
+  Python via `sqlite3` stdlib, browser via `sql.js` or OPFS)
+- The schema is stable and domain-agnostic
+- JSON columns for cells and properties sacrifice some query performance
+  but avoid all schema migration complexity
+- Recursive CTE for BFS graph traversal is supported
+- Full-text search on cell values requires a separate FTS5 virtual table
+- This is the **recommended approach** for the database-controlled
+  implementations (RustBookkeeping, BookkeepingJava, PyBookkeeping)
+
+---
+
+#### Option 2 — Native property graph database (Neo4j / similar)
+
+A property graph database (Neo4j, ArangoDB, Memgraph) natively stores
+nodes with property bags and typed directed edges — exactly the shape
+of Layer 3. Layer 2 (association graph) is also a natural fit.
+
+Layer 1 (flat tabular data) is the awkward part. A "table" becomes a
+label on a set of nodes, and "columns" become property keys. A row is
+a node with properties `{ Name: "FTC", Statement: "...", Domain: "Calculus" }`.
+
+```cypher
+// A row in the theorems table
+CREATE (n:theorems {
+    uuid: "c-ftc",
+    Name: "Fundamental Theorem of Calculus",
+    Statement: "\\int{a,b,f'(x)}=f(b)-f(a)",
+    Domain: "Calculus",
+    position: 0
+})
+
+// An association edge
+CREATE (ftc)-[:uses]->(deriv)
+
+// A semantic node (pure metadata, no flat-table row)
+CREATE (col:SemanticNode {
+    id: "n-calc-seq",
+    type: "Collection",
+    name: "Calculus Learning Sequence"
+})
+
+// A semantic edge
+CREATE (ftc)-[:member { position: 3, orderingType: "pedagogical" }]->(col)
+```
+
+Advantage: graph traversal is native and fast. No recursive CTEs needed.
+The semantic layer and association graph are first-class citizens.
+Disadvantage: Neo4j is a server process — not embeddable in a desktop
+application without a running server. Not available in the browser.
+Overkill for a personal knowledge base of thousands of entities.
+Licensing is complex (Neo4j Community Edition has restrictions).
+
+**Assessment:** Architecturally elegant but operationally heavy.
+Not suitable for the current deployment targets (local-native desktop
+apps, browser). Revisit if the system ever needs to scale to millions
+of entities or multi-user access.
+
+---
+
+#### Option 3 — Document store (JSON files / embedded document DB)
+
+Store each knowledge base as a single `.bk.json` file (Phase 11 format).
+This is already the planned native format. It is effectively a document
+store with one document per knowledge base.
+
+For larger knowledge bases, a document database like LevelDB or RocksDB
+(key-value with range scans) could store each row as a JSON document
+keyed by UUID. The semantic graph would be a separate set of documents.
+
+Advantage: simple, no schema, works offline, easy to version-control.
+Disadvantage: no relational queries, no joins, no full-text search
+without a separate index. Sorting and filtering require loading all
+documents into memory.
+
+**Assessment:** Suitable for the Webapp (already implemented as
+in-memory model + JSON file). Not suitable as the primary storage for
+the database-controlled implementations once data grows large.
+
+---
+
+#### Recommended architecture per implementation
+
+| Implementation | Storage | Rationale |
+|---|---|---|
+| Webapp (browser) | In-memory + `.bk.json` file | No server, OPFS for persistence |
+| RustBookkeeping | SQLite via `rusqlite` | Embedded, fast, no server |
+| BookkeepingJava | SQLite via JDBC + SQLite JDBC driver | Same schema, cross-platform |
+| PyBookkeeping | SQLite via `sqlite3` stdlib | Zero dependencies |
+| C/C++ (future) | SQLite via C API | Native, minimal overhead |
+
+All database implementations share the same six-table schema. The
+in-memory model (`Table`/`Row`/`Cell`/`SemanticGraph`) is the canonical
+representation at runtime. The database is the persistence layer only —
+it is loaded into memory on startup and flushed on save.
+
+---
+
+#### The impedance mismatch problem
+
+The most important design tension is between the **schema-free** nature
+of the knowledge model and the **schema-bound** nature of relational
+databases.
+
+The knowledge model is intentionally schema-free:
+- A user can add any column to any table at any time
+- A `SemanticNode` can have any property keys
+- A `SemanticEdge` can have any property keys on any label
+
+A traditional relational schema would require a migration for every
+new column or property key. This is unacceptable for a personal
+knowledge tool where the user is constantly evolving their data model.
+
+The resolution is the hybrid approach already described:
+- Row cell data is stored as a JSON blob (`cells_json`) — no column
+  migrations ever
+- Semantic node and edge properties are stored as JSON blobs
+  (`properties_json`) — no property migrations ever
+- The structural skeleton (which tables exist, which rows exist, which
+  edges exist) is stored in proper relational columns with indexes
+- Queries on structure ("give me all rows in table X", "give me all
+  edges with label Y") are fast indexed SQL
+- Queries on content ("give me all rows where column Name = 'FTC'") use
+  `json_extract` — slower but acceptable at personal-knowledge-base scale
+
+This is the same tradeoff made by systems like Notion, Obsidian, and
+Airtable internally: relational structure for the skeleton, JSON/blob
+for the payload.
+
+---
+
+#### Full SQLite schema (reference)
+
+```sql
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+-- Flat layer: table definitions
+CREATE TABLE IF NOT EXISTS kb_table (
+    name         TEXT PRIMARY KEY,
+    columns_json TEXT NOT NULL DEFAULT '[]'
+    -- columns_json: [{"name": "Name", "typeId": "text"}, ...]
+);
+
+-- Flat layer: rows
+CREATE TABLE IF NOT EXISTS kb_row (
+    uuid         TEXT PRIMARY KEY,
+    table_name   TEXT NOT NULL REFERENCES kb_table(name) ON DELETE CASCADE,
+    cells_json   TEXT NOT NULL DEFAULT '{}',
+    -- cells_json: {"Name": "FTC", "Statement": "...", "Domain": "Calculus"}
+    position     INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_row_table ON kb_row(table_name);
+CREATE INDEX IF NOT EXISTS idx_row_position ON kb_row(table_name, position);
+
+-- Association layer: vocabulary
+CREATE TABLE IF NOT EXISTS relation_type (
+    name         TEXT PRIMARY KEY,
+    inverse      TEXT,
+    symmetric    INTEGER NOT NULL DEFAULT 0
+);
+
+-- Association layer: edges
+CREATE TABLE IF NOT EXISTS association (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_uuid  TEXT NOT NULL REFERENCES kb_row(uuid) ON DELETE CASCADE,
+    relation     TEXT NOT NULL,
+    target_uuid  TEXT NOT NULL REFERENCES kb_row(uuid) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_assoc_source   ON association(source_uuid);
+CREATE INDEX IF NOT EXISTS idx_assoc_target   ON association(target_uuid);
+CREATE INDEX IF NOT EXISTS idx_assoc_relation ON association(relation);
+
+-- Semantic layer: nodes
+CREATE TABLE IF NOT EXISTS semantic_node (
+    id              TEXT PRIMARY KEY,
+    source_uuid     TEXT REFERENCES kb_row(uuid) ON DELETE SET NULL,
+    properties_json TEXT NOT NULL DEFAULT '{}'
+    -- properties_json: {"type": "Theorem", "name": "FTC"}
+);
+CREATE INDEX IF NOT EXISTS idx_sem_node_source ON semantic_node(source_uuid);
+
+-- Semantic layer: edges
+CREATE TABLE IF NOT EXISTS semantic_edge (
+    id              TEXT PRIMARY KEY,
+    source_id       TEXT NOT NULL REFERENCES semantic_node(id) ON DELETE CASCADE,
+    target_id       TEXT NOT NULL REFERENCES semantic_node(id) ON DELETE CASCADE,
+    label           TEXT NOT NULL,
+    properties_json TEXT NOT NULL DEFAULT '{}'
+    -- properties_json: {"position": "3", "orderingType": "pedagogical"}
+);
+CREATE INDEX IF NOT EXISTS idx_sem_edge_source   ON semantic_edge(source_id);
+CREATE INDEX IF NOT EXISTS idx_sem_edge_target   ON semantic_edge(target_id);
+CREATE INDEX IF NOT EXISTS idx_sem_edge_label    ON semantic_edge(label);
+
+-- Optional: full-text search on cell values
+CREATE VIRTUAL TABLE IF NOT EXISTS kb_row_fts
+    USING fts5(uuid UNINDEXED, cells_text, content=kb_row);
+```
+
+**Key query examples:**
+
+```sql
+-- All rows in a table, in order
+SELECT uuid, cells_json FROM kb_row
+WHERE table_name = 'theorems'
+ORDER BY position;
+
+-- All outgoing associations from an entity
+SELECT relation, target_uuid FROM association
+WHERE source_uuid = 'c-ftc';
+
+-- All entities that use 'derivative' (graph filter)
+SELECT source_uuid FROM association
+WHERE relation = 'uses' AND target_uuid = 'c-deriv';
+
+-- BFS neighbourhood (2 hops) using recursive CTE
+WITH RECURSIVE neighbourhood(uuid, hops) AS (
+    SELECT 'c-ftc', 0
+    UNION
+    SELECT a.target_uuid, n.hops + 1
+    FROM neighbourhood n
+    JOIN association a ON a.source_uuid = n.uuid
+    WHERE n.hops < 2
+)
+SELECT DISTINCT uuid FROM neighbourhood WHERE uuid != 'c-ftc';
+
+-- All semantic nodes of type 'Theorem'
+SELECT id, properties_json FROM semantic_node
+WHERE json_extract(properties_json, '$.type') = 'Theorem';
+
+-- All member edges of a collection, in pedagogical order
+SELECT source_id, properties_json FROM semantic_edge
+WHERE target_id = 'n-calc-seq'
+  AND label = 'member'
+  AND json_extract(properties_json, '$.orderingType') = 'pedagogical'
+ORDER BY CAST(json_extract(properties_json, '$.position') AS INTEGER);
+```
+
+---
+
+#### Open questions for the database design
+
+1. **Cell indexing strategy** — `json_extract` on `cells_json` is
+   unindexed. For large tables (tens of thousands of rows), filtering
+   by a specific cell value will be slow. Options: generated columns
+   (`ALTER TABLE kb_row ADD COLUMN name_col TEXT GENERATED ALWAYS AS
+   (json_extract(cells_json, '$.Name'))`), or a separate FTS5 virtual
+   table for text search. Not yet decided.
+
+2. **Property indexing strategy** — same problem for `properties_json`
+   on semantic nodes. For the expected scale (hundreds to low thousands
+   of nodes), a full scan with `json_extract` is acceptable. If scale
+   grows, generated columns or a separate property index table would
+   be needed.
+
+3. **Transaction granularity** — each user edit (cell change, row add,
+   semantic edge add) should be one SQLite transaction. Undo/redo maps
+   naturally to transaction rollback for single operations, but the
+   in-memory `EditHistory` stack is the primary undo mechanism. The
+   database is a persistence layer, not the undo mechanism.
+
+4. **Multi-file vs single-file** — the current model loads multiple CSV
+   files into one `KnowledgeBase`. In the database model, all tables
+   from all files live in one SQLite database file. The `table_name`
+   column in `kb_row` replaces the file-per-table convention. This is
+   a cleaner model but requires a migration path from the multi-file
+   CSV approach.
 
 ---
 
@@ -1713,38 +2163,644 @@ available to specify the format unambiguously from byte level upward.
 
 #### Phase 7 — Search, Indexing & Tooling ✅ *complete*
 
-**Goal:** Make the stored knowledge actively useful. Full-text and
-structural search across all loaded tables, plus the first domain-specific
-tool built on top of the data.
+---
+
+#### Phase 8 — Spreadsheet Shell Layout & Refactoring ✅ *complete*
+
+**Goal:** Restructure the UI from a scrolling document into a fixed
+spreadsheet shell where all chrome (menu bar, formula bar, toolbar, tab bar,
+status bar) is fixed and only the table workspace scrolls. Enforce 1 class
+per file in the model layer. Add row drag-to-reorder and insert-at-index.
 
 **Concrete tasks:**
-- [ ] Implement full-text search across all plain-text cell values
-- [ ] Implement structural search: find all entities where a specific
-      property matches a pattern (e.g. all theorems whose statement
-      contains a specific identifier)
-- [ ] Implement graph neighbourhood view: given an entity, show a
-      visual map of all entities within N hops
-- [ ] Implement cross-table join view: given two tables and a shared
-      relation type, show a merged view
-- [ ] Define and implement the first domain tool (TBD based on what
-      knowledge data has been entered by this phase — candidate:
-      a formula lookup tool that finds all theorems containing a
-      given symbol)
-- [ ] Implement a persistent session: remember the last loaded files
-      and restore them on next open (using `localStorage`)
+- [x] Split `src/model/index.ts` into one file per class (9 files);
+      `index.ts` becomes a barrel re-export
+- [x] Add `moveRow(tableIdx, fromIdx, toIdx)` to controller with undo/redo
+- [x] Add `insertRow(tableIdx, atIdx)` to controller with undo/redo
+- [x] Restructure `index.html` into fixed chrome layers:
+      `#menu-bar`, `#formula-bar`, `#toolbar`, `#tab-bar`, `#workspace`, `#status-bar`
+- [x] Rewrite `style.css`: `body` as flex column, `overflow: hidden` on shell,
+      `overflow: auto` only on `#workspace`, sticky `thead th`
+- [x] Update `TableView`: accept external `tabStrip` parameter, expose
+      `getActiveTableIdx()` and `setStatusCallback()`, add drag handle
+      column and insert-row button per row, remove internal toolbar
+- [x] Update `GraphFilterView`: float association detail panel via
+      `document.body` append with `position: fixed`
+- [x] Update `main.ts`: wire toolbar buttons, workspace drag-drop,
+      status bar callback
 
 **Completion criteria:**
-- Search returns correct results across all loaded tables
-- Graph neighbourhood view renders without performance issues for
-  graphs up to ~500 entities
-- The domain tool produces a useful result on real knowledge data
-- Session state persists across browser refreshes
+- All chrome rows are fixed; only `#workspace` scrolls
+- Column headers remain visible while scrolling (sticky)
+- Tabs switch the active table without scrolling the page
+- Rows can be dragged to reorder; drag target shows a blue top border
+- Insert (+) button adds a row directly below the clicked row
+- Status bar shows `TableName — N rows × M cols` for the active table
+- All existing tests pass without modification
 
-**Demo:** Load a multi-table knowledge base. Search for a symbol (e.g.
-`\int`) and see all entities that reference it. Click an entity and
-view its graph neighbourhood. Use the domain tool to look up all
-theorems involving a specific function. Close and reopen the browser
-— the files reload automatically.
+**Demo:** Load a CSV file. The table appears in the workspace with fixed
+chrome above and below. Scroll the table — headers stay visible. Click
+tabs to switch tables. Drag a row handle to reorder. Click + on a row to
+insert below it. Edit a math cell — the formula bar shows the live preview.
+Click ⬇ Export in the toolbar to download the active table.
+
+---
+
+#### Phase 9 — Semantic Layer: Ordered Knowledge Topology 📐 *in study*
+
+##### Background and motivation
+
+The current model treats knowledge as flat rows in a table connected by
+unordered graph edges. This is sufficient for storage and retrieval, but
+it loses the structural information that makes mathematics meaningful:
+
+> Mathematics is not just connected concepts. It has derivation order,
+> dependency order, pedagogical order, logical proof order, canonical
+> presentation order, transformation order, operator precedence order,
+> and hierarchy order.
+
+A reference sheet is therefore not a flat list of formulas. It is a
+**layered, ordered knowledge topology** — a partially ordered semantic
+graph with structural sequencing.
+
+The key insight is that the same concept can simultaneously belong to
+multiple ordered systems with different positions in each:
+
+| Concept | Collection | Position | Ordering type |
+|---------|-----------|----------|---------------|
+| Complex Numbers | Algebra Curriculum | 12 | pedagogical |
+| Complex Numbers | Polynomial Theory | 4 | logical |
+| Complex Numbers | Fourier Analysis | 2 | derivational |
+| Complex Numbers | Historical Development | 19 | historical |
+
+This is impossible in ordinary spreadsheets but natural in a graph model.
+
+##### Chosen approach: Option C — separate semantic layer
+
+Three options were considered:
+
+- **Option A** — enrich the existing model in-place (two parallel
+  representations, risk of drift)
+- **Option B** — replace `Table`/`Row`/`Cell` with the new model (clean
+  but breaks all existing tests and requires a new file format)
+- **Option C** — add a completely separate `SemanticGraph` alongside
+  `KnowledgeBase`, linked by entity ID strings, populated from a sidecar
+  JSON file
+
+Option C is chosen because it adds zero disruption to existing code and
+can be built and validated incrementally. The existing CSV loading,
+editing, export, search, and all tests are completely unchanged.
+
+##### New model classes (additive — no existing classes modified)
+
+The semantic layer is a **generic labelled property graph**. It has no
+knowledge of concepts, collections, collection items, formula families,
+or any other domain-specific structure. Those are user-defined
+interpretations layered on top of the graph by the data author, not by
+the code.
+
+The model has exactly three primitives:
+
+**`SemanticNode`** — a node in the graph with an arbitrary property bag:
+```
+id: string                        — stable opaque identifier (UUID)
+properties: Map<string, string>   — arbitrary key-value pairs
+sourceEntityId?: string           — optional link to Row.entityId
+sourceTableName?: string          — optional link to which Table
+```
+
+Examples of what a node can represent, purely by convention in its
+properties — the model does not distinguish these:
+
+| User intent | properties example |
+|-------------|-------------------|
+| A theorem | `{ type: "Theorem", name: "FTC" }` |
+| A collection | `{ type: "Collection", name: "Calculus Curriculum", collectionType: "sequence" }` |
+| A chemical compound | `{ type: "Compound", formula: "H2O", state: "liquid" }` |
+| A logic gate | `{ type: "Gate", gateType: "NAND", inputs: "2" }` |
+| An ordering system | `{ type: "OrderingSystem", orderingType: "pedagogical" }` |
+
+**`SemanticEdge`** — a directed, labelled edge between two nodes with
+an arbitrary property bag:
+```
+id: string                        — stable opaque identifier
+sourceId: string                  — id of the source SemanticNode
+targetId: string                  — id of the target SemanticNode
+label: string                     — relation name (user-defined)
+properties: Map<string, string>   — arbitrary key-value pairs
+```
+
+Examples of what an edge can represent:
+
+| User intent | label | properties example |
+|-------------|-------|-------------------|
+| Collection membership with order | `"member"` | `{ position: "3", orderingType: "pedagogical" }` |
+| Derivation dependency | `"derived-from"` | `{}` |
+| Formula equivalence | `"equivalent-to"` | `{ variantType: "rearranged" }` |
+| Hierarchical nesting | `"child-of"` | `{}` |
+| Reaction produces | `"produces"` | `{ yield: "0.85" }` |
+| Canonical form | `"canonical-of"` | `{}` |
+
+**`SemanticGraph`** — the top-level container:
+```
+nodes: Map<string, SemanticNode>   — keyed by node id
+edges: Map<string, SemanticEdge>   — keyed by edge id
+```
+
+With query methods:
+```
+getNode(id) → SemanticNode | undefined
+getEdgesFrom(nodeId) → SemanticEdge[]
+getEdgesTo(nodeId) → SemanticEdge[]
+getEdgesByLabel(label) → SemanticEdge[]
+getNodesByProperty(key, value) → SemanticNode[]
+```
+
+`KnowledgeBase` gains one new field: `readonly semantic = new SemanticGraph()`.
+No existing fields or methods on `KnowledgeBase` change.
+
+What the current study.md previously called `Concept`, `Collection`,
+`CollectionItem`, `FormulaFamily` are not model classes — they are
+**query conventions** that the user establishes by choosing consistent
+property keys and edge labels in their sidecar file. The code has no
+knowledge of them. A mathematics user writes nodes with
+`{ type: "Theorem" }` and edges with label `"member"` and property
+`{ position: "3" }`. A chemistry user writes nodes with
+`{ type: "Reaction" }` and edges with label `"produces"`. The model
+stores both identically.
+
+##### Sidecar file format
+
+Semantic metadata is stored in a JSON sidecar file alongside the CSV files.
+Convention: `theorems.csv` → `theorems.meta.json`.
+
+The sidecar format is a **generic node-edge graph**. It has no hardcoded
+keys for concepts, collections, items, or families. The structure is
+entirely defined by the data author through property keys and edge labels.
+
+```json
+{
+  "version": "1.0",
+  "nodes": [
+    {
+      "id": "n-ftc",
+      "properties": {
+        "type": "Theorem",
+        "name": "Fundamental Theorem of Calculus"
+      },
+      "sourceEntityId": "Fundamental Theorem of Calculus",
+      "sourceTableName": "theorems"
+    },
+    {
+      "id": "n-ibp",
+      "properties": {
+        "type": "Theorem",
+        "name": "Integration by Parts"
+      },
+      "sourceEntityId": "Integration by Parts",
+      "sourceTableName": "theorems"
+    },
+    {
+      "id": "n-calc-seq",
+      "properties": {
+        "type": "Collection",
+        "name": "Calculus Learning Sequence",
+        "collectionType": "sequence"
+      }
+    },
+    {
+      "id": "n-calc-domain",
+      "properties": {
+        "type": "Collection",
+        "name": "Differential Calculus",
+        "collectionType": "domain"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-1",
+      "sourceId": "n-calc-seq",
+      "targetId": "n-calc-domain",
+      "label": "child-of",
+      "properties": {}
+    },
+    {
+      "id": "e-2",
+      "sourceId": "n-ftc",
+      "targetId": "n-calc-seq",
+      "label": "member",
+      "properties": { "position": "3", "orderingType": "pedagogical" }
+    },
+    {
+      "id": "e-3",
+      "sourceId": "n-ibp",
+      "targetId": "n-calc-seq",
+      "label": "member",
+      "properties": { "position": "5", "orderingType": "pedagogical" }
+    }
+  ]
+}
+```
+
+The same format for a chemistry knowledge base looks structurally
+identical — only the property values differ:
+
+```json
+{
+  "version": "1.0",
+  "nodes": [
+    {
+      "id": "n-h2o",
+      "properties": { "type": "Compound", "formula": "H2O", "state": "liquid" },
+      "sourceEntityId": "Water",
+      "sourceTableName": "compounds"
+    },
+    {
+      "id": "n-electrolysis",
+      "properties": { "type": "Reaction", "name": "Electrolysis of Water" },
+      "sourceEntityId": "Electrolysis of Water",
+      "sourceTableName": "reactions"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-1",
+      "sourceId": "n-electrolysis",
+      "targetId": "n-h2o",
+      "label": "consumes",
+      "properties": { "stoichiometry": "2" }
+    }
+  ]
+}
+```
+
+The model parses both files with the same code. The interpretation of
+`"type": "Theorem"` vs `"type": "Compound"` is entirely up to the
+application layer and the user — the model stores both as a property
+string on a `SemanticNode`.
+
+The sidecar file is optional. If absent, the flat model works exactly as
+before. If present, it is loaded alongside the CSV and populates
+`KnowledgeBase.semantic`.
+
+##### Querying the semantic layer
+
+Because the model is a generic graph, all queries are expressed in terms
+of nodes, edges, labels, and property key-value pairs. There are no
+domain-specific query methods.
+
+The five primitive queries on `SemanticGraph` cover all use cases:
+
+| Method | Returns | Example use |
+|--------|---------|-------------|
+| `getNode(id)` | `SemanticNode` | Look up a specific node by UUID |
+| `getEdgesFrom(nodeId)` | `SemanticEdge[]` | All edges leaving a node |
+| `getEdgesTo(nodeId)` | `SemanticEdge[]` | All edges arriving at a node |
+| `getEdgesByLabel(label)` | `SemanticEdge[]` | All `"member"` edges, all `"child-of"` edges |
+| `getNodesByProperty(key, value)` | `SemanticNode[]` | All nodes where `type = "Theorem"` |
+
+Higher-level queries that the application layer builds from these
+primitives — none of these are in the model:
+
+```
+// "Get all members of a collection in pedagogical order"
+getEdgesTo(collectionNodeId)
+  .filter(e => e.label === "member" && e.properties.get("orderingType") === "pedagogical")
+  .sort((a, b) => Number(a.properties.get("position")) - Number(b.properties.get("position")))
+  .map(e => getNode(e.sourceId))
+
+// "Get all child collections of a domain"
+getEdgesTo(domainNodeId)
+  .filter(e => e.label === "child-of")
+  .map(e => getNode(e.sourceId))
+
+// "Get all theorems"
+getNodesByProperty("type", "Theorem")
+
+// "Get the canonical form of a formula family"
+getEdgesFrom(variantNodeId)
+  .filter(e => e.label === "canonical-of")
+  .map(e => getNode(e.targetId))
+```
+
+This means the `CollectionBrowserView` in the UI is also generic — it
+does not hardcode "collection" or "member". Instead, it is configured
+with the edge label and property keys to use for tree rendering and
+ordering. The configuration is provided by the sidecar file or by the
+user through the UI settings.
+
+##### What this unlocks in the view
+
+A new **Semantic Graph Panel** in the UI (separate from the tab strip
+which shows flat CSV tables) renders the semantic layer. Because the
+model is generic, the panel is configured rather than hardcoded:
+
+- The user specifies which edge label means "parent-child" (e.g.
+  `"child-of"`) and which means "membership" (e.g. `"member"`), and
+  which property key holds the ordering position (e.g. `"position"`)
+- The panel renders a tree of nodes connected by the configured
+  parent-child label
+- Expanding a tree node shows its members sorted by the configured
+  position property
+- Clicking any node navigates to its linked row in the flat table
+  (via `sourceEntityId` / `sourceTableName`)
+- Nodes without a `sourceEntityId` are pure semantic nodes (e.g. a
+  collection or ordering system) and have no flat-table link
+
+The flat table editor (Phases 3–8) is unchanged. The semantic graph
+panel is an additional view layer on top.
+
+##### What is explicitly deferred to Phase 10
+
+- **Stable entity IDs** — `sourceEntityId` still uses the fragile
+  first-cell string. Renaming a row in the CSV breaks the sidecar link.
+  Phase 10 introduces UUIDs and a stable ID registry.
+- **Semantic editing** — Phase 9 is read-only for the semantic layer.
+  Creating/editing nodes and edges via the UI is Phase 10.
+- **Native format** — CSV remains the canonical storage. Phase 11
+  replaces it with a format that natively encodes the semantic layer.
+
+##### Concrete tasks
+- [ ] Add `SemanticNode`, `SemanticEdge`, `SemanticGraph` classes to
+      `src/model/` (one class per file, all property fields are plain
+      `string` — no enums, no domain-specific fields)
+- [ ] Add `readonly semantic = new SemanticGraph()` to `KnowledgeBase`
+- [ ] Add the five primitive query methods to `SemanticGraph`:
+      `getNode`, `getEdgesFrom`, `getEdgesTo`, `getEdgesByLabel`,
+      `getNodesByProperty`
+- [ ] Add sidecar JSON loader to `src/data/`: `parseMetaJSON(json)` →
+      reads `nodes[]` and `edges[]` arrays, populates a `SemanticGraph`
+- [ ] Wire sidecar loading in `AppController`: if a `.meta.json` file
+      is dropped alongside a `.csv`, load it into `kb.semantic`
+- [ ] Add `SemanticPanelView` to `src/view/`: a configurable tree/list
+      renderer driven by edge label and property key settings
+- [ ] Add `#semantic-panel` to `index.html` as a collapsible side panel
+- [ ] Add semantic panel styles to `style.css`
+- [ ] Add `src/data/sample.meta.json` alongside the existing sample CSVs
+- [ ] Add tests for all five `SemanticGraph` query methods
+- [ ] Add tests for `parseMetaJSON`
+
+**Completion criteria:**
+- Loading a `.meta.json` sidecar populates `kb.semantic` without
+  affecting any existing flat-model behaviour
+- `getNodesByProperty("type", "Theorem")` returns all theorem nodes
+- `getEdgesTo(collectionNodeId).filter(e => e.label === "member")`
+  returns the correct membership edges sorted by `position` property
+- `getEdgesByLabel("child-of")` correctly returns nesting edges
+- The semantic panel renders a tree driven by the configured edge label
+- Clicking a node with a `sourceEntityId` highlights its row in the
+  flat table
+- All existing Phase 1–8 tests pass without modification
+
+**Demo:** Load `theorems.csv` + `theorems.meta.json`. The semantic panel
+shows a tree built from `"child-of"` edges: `Differential Calculus >
+Calculus Learning Sequence`. Expanding the sequence shows theorems
+ordered by their `"position"` property on `"member"` edges. Clicking a
+theorem highlights its row in the flat table. Load `compounds.csv` +
+`compounds.meta.json` (chemistry data) — the same panel renders a
+completely different tree structure from the same generic model.
+
+---
+
+#### Phase 10 — Stable Entity Identity & Semantic Editing 📐 *planned*
+
+##### Background and motivation
+
+Phase 9 introduces the semantic layer but leaves one critical fragility
+intact: `sourceEntityId` is still the mutable first-cell string value of
+a CSV row. If the user renames "Fundamental Theorem of Calculus" to
+"FTC" in the flat table, the sidecar link silently breaks — the
+`SemanticGraph` still holds `sourceEntityId: "Fundamental Theorem of
+Calculus"` but no row matches it anymore.
+
+This phase fixes that by introducing stable UUIDs as the canonical
+identity of every entity, and by making the semantic layer editable
+through the UI.
+
+##### Stable UUID registry
+
+A new `EntityRegistry` class maps stable UUIDs to their current
+`sourceEntityId` string. The registry is persisted in the sidecar file.
+When a row's first cell is edited, the controller updates the registry
+entry rather than breaking the link.
+
+```
+EntityRegistry
+  entries: Map<uuid, { tableName: string; entityId: string }>
+
+  register(tableName, entityId) → uuid   — creates new entry
+  resolve(uuid) → { tableName, entityId } | null
+  updateEntityId(uuid, newEntityId)        — called on cell rename
+  getUUID(tableName, entityId) → uuid | null
+```
+
+`KnowledgeBase` gains `readonly registry = new EntityRegistry()`.
+`AssociationGraph` edges are updated to use UUIDs internally while
+still accepting display-name strings at the CSV import boundary
+(resolved via the registry at load time).
+
+`Concept.sourceEntityId` is replaced by `Concept.entityUUID`, making
+the semantic layer fully stable against renames.
+
+##### Semantic editing
+
+Phase 9 is read-only for the semantic layer. Phase 10 makes it editable:
+
+- **Create node** — right-click a row in the flat table → "Add to
+  semantic graph" → assigns a UUID, creates a `SemanticNode` with
+  `sourceEntityId` pointing to the row, opens a property editor
+- **Edit node properties** — add, edit, or remove arbitrary key-value
+  pairs on any `SemanticNode` in the property editor
+- **Create edge** — drag from one node to another in the semantic panel
+  → enter label and optional properties
+- **Edit edge properties** — click an edge → edit label and property
+  key-value pairs
+- **Delete node or edge** — select and delete; edges connected to a
+  deleted node are also removed
+- **Export sidecar** — "Save .meta.json" button serialises the current
+  `SemanticGraph` as the generic `{ nodes[], edges[] }` format
+
+All semantic edits are recorded in `EditHistory` via new action types:
+`addSemanticNode | editSemanticNode | deleteSemanticNode |
+addSemanticEdge | editSemanticEdge | deleteSemanticEdge`.
+Ctrl+Z / Ctrl+Y undo/redo works across both flat and semantic edits.
+
+##### Impact on `AssociationGraph`
+
+The existing `AssociationGraph` uses display-name strings as node
+identifiers. Phase 10 adds a UUID resolution pass at CSV load time:
+
+1. CSV is parsed → rows loaded into flat model as before
+2. Registry is loaded from sidecar (or created fresh if absent)
+3. Each row's `entityId` string is looked up in the registry; if not
+   found, a new UUID is auto-assigned and registered
+4. `AssociationGraph` edges are re-indexed by UUID internally
+5. All existing search and filter operations continue to work via the
+   registry's `resolve()` method
+
+Existing CSV files without a sidecar continue to work — UUIDs are
+auto-assigned at load time and discarded when the session ends (since
+there is no sidecar to persist them to). Stability only kicks in once
+the user saves a sidecar.
+
+##### Concrete tasks
+- [ ] Add `EntityRegistry` class to `src/model/`
+- [ ] Add `readonly registry = new EntityRegistry()` to `KnowledgeBase`
+- [ ] Update `KnowledgeBase.addTable` to auto-register all entity IDs
+- [ ] Update `AppController.editCell` for column 0: call
+      `registry.updateEntityId(uuid, newValue)` when the first cell changes
+- [ ] Update `AssociationGraph` to resolve display-name strings to UUIDs
+      at import time and use UUIDs internally
+- [ ] Replace `SemanticNode.sourceEntityId` string coupling with UUID
+      lookup via the registry
+- [ ] Update `parseMetaJSON` to load registry entries from sidecar
+- [ ] Add new `EditAction` variants for semantic node/edge edits:
+      `addSemanticNode | editSemanticNode | deleteSemanticNode |
+      addSemanticEdge | editSemanticEdge | deleteSemanticEdge`
+- [ ] Add node property editor panel to `SemanticPanelView`
+- [ ] Add "Add to semantic graph" context action on flat table rows
+- [ ] Add drag-to-create-edge interaction in the semantic panel
+- [ ] Add edge label and property editor
+- [ ] Add "Save .meta.json" export button
+- [ ] Add undo/redo for all semantic edit actions
+- [ ] Add tests for `EntityRegistry`
+- [ ] Add tests for UUID resolution in `AssociationGraph`
+- [ ] Add tests for semantic edit undo/redo
+
+**Completion criteria:**
+- Renaming a row's first cell updates the registry and does not break
+  any `SemanticGraph` links or `AssociationGraph` edges
+- Concepts, collections, and collection items can be created and edited
+  through the UI
+- All semantic edits are undoable with Ctrl+Z
+- Exporting a sidecar and reloading it restores the full semantic layer
+  including all UUIDs
+- All existing Phase 1–9 tests pass without modification
+
+**Demo:** Load `theorems.csv` + `theorems.meta.json`. Rename
+"Fundamental Theorem of Calculus" to "FTC" in the flat table — the
+semantic panel still shows the node correctly linked to its row.
+Right-click a row → "Add to semantic graph" → set properties
+`{ type: "Theorem" }`. Drag from the new node to an existing collection
+node, set label `"member"`, property `{ position: "6" }`. Export the
+sidecar. Reload — the node, edge, and properties are all preserved.
+
+---
+
+#### Phase 11 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
+
+##### Background and motivation
+
+CSV has served as the transitional storage format since Phase 3. It has
+three fundamental limitations that become increasingly painful as the
+semantic layer grows:
+
+1. **Flat structure** — CSV cannot natively represent the `SemanticGraph`.
+   The sidecar JSON workaround is a second file that can drift out of
+   sync with the CSV.
+2. **No typed cells** — the type row convention (`text`, `math`) is a
+   custom encoding on top of CSV, not part of the format.
+3. **No stable identity** — entity IDs are display-name strings. The
+   UUID registry (Phase 10) patches this but the patch lives outside
+   the CSV.
+
+Phase 11 introduces a native JSON format (`.bk.json`) that natively
+encodes everything: flat table data, cell types, the semantic graph,
+the entity registry, and the association vocabulary. CSV becomes an
+import/export adapter, not the canonical format.
+
+##### Native format structure (`.bk.json`)
+
+```json
+{
+  "version": "1.0",
+  "tables": [
+    {
+      "name": "theorems",
+      "columns": [
+        { "name": "Name", "typeId": "text" },
+        { "name": "Statement", "typeId": "math" },
+        { "name": "Domain", "typeId": "text" }
+      ],
+      "rows": [
+        {
+          "uuid": "c-ftc",
+          "cells": ["Fundamental Theorem of Calculus", "\\int{a,b,f'(x)}=f(b)-f(a)", "Calculus"]
+        }
+      ]
+    }
+  ],
+  "associations": [
+    { "sourceUUID": "c-ftc", "relation": "uses", "targetUUID": "c-deriv" }
+  ],
+  "vocabulary": [
+    { "name": "uses", "inverse": "is-used-by", "symmetric": false }
+  ],
+  "semantic": {
+    "nodes": [ ... ],
+    "edges": [ ... ]
+  }
+}
+```
+
+Key design decisions:
+- **UUID per row** — each row carries its UUID directly in the format;
+  no separate registry file needed
+- **Associations use UUIDs** — no display-name string coupling
+- **Semantic layer is embedded** — one file, no sidecar drift
+- **Versioned** — `"version": "1.0"` allows future format evolution
+  without breaking old files
+
+##### CSV as import/export adapter
+
+The existing `parseCSV` function becomes a CSV importer: it produces
+a `KnowledgeBase` from CSV text, auto-assigning UUIDs (as in Phase 10).
+A new `exportCSV(table)` function (already exists in `KnowledgeBase`)
+remains for exporting individual tables back to CSV for interoperability.
+
+The `Table`/`Row`/`Cell` classes are unchanged — they remain the
+in-memory representation. The native format is purely a serialisation
+layer on top of them.
+
+##### New data layer modules
+
+- `src/data/bk-format.ts` — `parseBKJSON(json)` and `exportBKJSON(kb)`
+- `src/data/csv.ts` — unchanged; becomes one of two import paths
+- File type detection in `AppController.loadFile(file)`: `.bk.json` →
+  `parseBKJSON`, `.csv` → `parseCSV` + optional `.meta.json` sidecar
+
+##### Concrete tasks
+- [ ] Design and document the full `.bk.json` schema (all fields,
+      types, required vs optional)
+- [ ] Implement `parseBKJSON(json): KnowledgeBase` in `src/data/bk-format.ts`
+- [ ] Implement `exportBKJSON(kb): string` in `src/data/bk-format.ts`
+- [ ] Add file type detection to `AppController`: dispatch to correct
+      parser based on file extension
+- [ ] Add "Save as .bk.json" button to the toolbar (replaces the
+      per-table CSV export for full-knowledge-base saves)
+- [ ] Update session persistence (`session.ts`) to store the file type
+      alongside the file name
+- [ ] Add lossless round-trip test: load CSV → export `.bk.json` →
+      reload → compare flat model and semantic layer
+- [ ] Update sample data: provide `sample.bk.json` as the primary demo
+      file alongside the existing CSV files
+- [ ] Add tests for `parseBKJSON` and `exportBKJSON`
+
+**Completion criteria:**
+- A `.bk.json` file round-trips losslessly: load → export → reload
+  produces an identical `KnowledgeBase`
+- CSV files still load correctly via the existing path
+- The semantic layer (concepts, collections, items, families) survives
+  the round-trip without any sidecar file
+- All existing Phase 1–10 tests pass without modification
+
+**Demo:** Load `sample.bk.json` directly. The flat table, association
+graph, and collection browser all populate from a single file. Edit a
+cell and add a concept to a collection. Click "Save as .bk.json",
+reload the saved file — all edits including semantic metadata are
+present. Load an old `.csv` file — it still works via the CSV import
+path.
 
 ---
 
@@ -1832,30 +2888,32 @@ It can be hosted on any static file host (GitHub Pages, S3, Netlify, etc.).
 ```
 Webapp/
 ├── docs/                        ← all documentation (this folder)
-│   ├── docs_guide.md
-│   ├── study.md
-│   ├── codebase_analysis.md
-│   ├── testing.md
-│   ├── demos.md
-│   ├── history.md
-│   └── environment_setup.md
 ├── public/                      ← static assets served as-is
-│   ├── favicon.svg
-│   └── icons.svg
 ├── src/                         ← all TypeScript source
-│   ├── parser/
-│   │   ├── types.ts             ← PEG engine types + AST node interfaces
-│   │   ├── PEGParser.ts         ← recursive descent PEG engine
-│   │   └── grammar.ts           ← math syntax grammar + exported parser instance
-│   ├── render/
-│   │   ├── el.ts                ← el() DOM element helper
-│   │   └── render.ts            ← AST → HTMLElement renderer
-│   └── main.ts                  ← app entry point, DOM wiring
-├── index.html                   ← HTML shell
+│   ├── engine/                  ← general-purpose PEG engine
+│   ├── model/                   ← business model (1 class per file)
+│   │   ├── Cell.ts
+│   │   ├── Column.ts
+│   │   ├── Row.ts
+│   │   ├── Table.ts
+│   │   ├── Association.ts
+│   │   ├── RelationType.ts
+│   │   ├── AssociationGraph.ts
+│   │   ├── EditHistory.ts       ← EditHistory class + EditAction type
+│   │   ├── KnowledgeBase.ts
+│   │   └── index.ts             ← barrel re-export only
+│   ├── controller/              ← AppController
+│   ├── view/                    ← TableView, GraphFilterView, SearchView, session
+│   ├── plugins/                 ← math, text plugins + registry
+│   ├── data/                    ← CSV parser, types
+│   ├── search/                  ← search engine
+│   ├── ui/                      ← legacy UI functions (backward compat for tests)
+│   └── main.ts                  ← app entry point (MVC wiring)
+├── test/                        ← mirrors src structure
+├── index.html                   ← spreadsheet shell (menu, formula, toolbar, tabs, workspace, status)
 ├── native-math.css              ← math rendering styles
-├── style.css                    ← app-level styles
+├── style.css                    ← app shell + spreadsheet layout styles
 ├── package.json
-├── package-lock.json
 ├── tsconfig.json
 └── .prettierrc
 ```

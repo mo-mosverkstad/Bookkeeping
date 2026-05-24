@@ -8,8 +8,12 @@ export class TableView {
     private container: HTMLElement;
     private editBar: HTMLElement;
     private editPreview: HTMLElement;
+    private tabStrip: HTMLElement;
     private controller: AppController | null = null;
     private onEntityClick: ((entityId: string) => void) | null = null;
+    private onStatus: ((msg: string) => void) | null = null;
+    private activeTabIdx = 0;
+    private currentTables: Table[] = [];
 
     private activeCell: {
         td: HTMLElement;
@@ -19,24 +23,31 @@ export class TableView {
         cancel: () => void;
     } | null = null;
 
-    constructor(container: HTMLElement, editBar: HTMLElement, editPreview: HTMLElement) {
+    constructor(container: HTMLElement, tabStrip: HTMLElement, editBar: HTMLElement, editPreview: HTMLElement) {
         this.container = container;
+        this.tabStrip = tabStrip;
         this.editBar = editBar;
         this.editPreview = editPreview;
     }
 
     setController(controller: AppController): void { this.controller = controller; }
     setEntityClickHandler(handler: (entityId: string) => void): void { this.onEntityClick = handler; }
+    setStatusCallback(cb: (msg: string) => void): void { this.onStatus = cb; }
+    getActiveTableIdx(): number { return this.activeTabIdx; }
 
     renderAll(tables: Table[]): void {
         this.cancelActive();
-        this.container.innerHTML = "";
-        tables.forEach((table, tableIdx) => this.renderTable(table, table.rows, tableIdx));
+        this.currentTables = tables;
+        if (this.activeTabIdx >= tables.length) this.activeTabIdx = Math.max(0, tables.length - 1);
+        this.renderTabStrip(tables);
+        this.renderActiveTable();
     }
 
     renderFiltered(tables: Table[], entityIds: Set<string>, label: string): void {
         this.cancelActive();
+        this.tabStrip.innerHTML = "";
         this.container.innerHTML = "";
+        this.container.className = "";
         for (const table of tables) {
             const filtered = table.filterByEntityIds(entityIds);
             if (filtered.length === 0) continue;
@@ -45,16 +56,35 @@ export class TableView {
             this.container.appendChild(h3);
             this.renderTableRows(table, filtered, -1);
         }
-        if (this.container.children.length === 0) {
+        if (this.container.children.length === 0)
             this.container.textContent = "No entities match this filter.";
-        }
     }
 
-    private renderTable(table: Table, rows: Row[], tableIdx: number): void {
-        const h3 = document.createElement("h3");
-        h3.textContent = table.name;
-        this.container.appendChild(h3);
-        this.renderTableRows(table, rows, tableIdx);
+    private renderTabStrip(tables: Table[]): void {
+        this.tabStrip.innerHTML = "";
+        tables.forEach((table, i) => {
+            const tab = document.createElement("button");
+            tab.className = "tab-btn" + (i === this.activeTabIdx ? " tab-active" : "");
+            tab.textContent = table.name;
+            tab.addEventListener("click", () => {
+                this.activeTabIdx = i;
+                this.renderAll(this.currentTables);
+            });
+            this.tabStrip.appendChild(tab);
+        });
+    }
+
+    private renderActiveTable(): void {
+        this.container.innerHTML = "";
+        const table = this.currentTables[this.activeTabIdx];
+        if (!table) {
+            this.container.className = "drop-hint";
+            this.container.textContent = "Drop .csv files here or use Open above.";
+            return;
+        }
+        this.container.className = "";
+        this.renderTableRows(table, table.rows, this.activeTabIdx);
+        this.onStatus?.(`${table.name}  —  ${table.rows.length} rows × ${table.columns.length} cols`);
     }
 
     private renderTableRows(table: Table, rows: Row[], tableIdx: number): void {
@@ -70,6 +100,7 @@ export class TableView {
 
             const thead = document.createElement("thead");
             const headerRow = document.createElement("tr");
+            if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // drag handle col
             table.columns.forEach((col, i) => {
                 const th = document.createElement("th");
                 th.textContent = col.name + (i === sortCol ? (sortAsc ? " ▲" : " ▼") : "");
@@ -83,9 +114,7 @@ export class TableView {
                 });
                 headerRow.appendChild(th);
             });
-            if (tableIdx >= 0) {
-                headerRow.appendChild(document.createElement("th"));
-            }
+            if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // actions col
             thead.appendChild(headerRow);
             tableEl.appendChild(thead);
 
@@ -93,16 +122,25 @@ export class TableView {
             for (const row of currentRows) {
                 const rowIdx = table.rows.indexOf(row);
                 const tr = document.createElement("tr");
+                tr.dataset.rowIdx = String(rowIdx);
+
+                if (tableIdx >= 0) {
+                    const dragTd = document.createElement("td");
+                    dragTd.className = "row-drag-handle";
+                    dragTd.textContent = "⠿";
+                    dragTd.title = "Drag to reorder";
+                    tr.appendChild(dragTd);
+                    tr.draggable = true;
+                    this.attachDragHandlers(tr, tbody, tableIdx, table);
+                }
 
                 row.cells.forEach((cell, colIdx) => {
                     const td = document.createElement("td");
-
                     if (colIdx === 0 && this.onEntityClick) {
                         td.style.cursor = "pointer";
                         td.style.textDecoration = "underline";
                         td.addEventListener("click", () => this.onEntityClick!(row.entityId));
                     }
-
                     if (tableIdx >= 0 && this.controller) {
                         this.makeEditableCell(td, cell.value, cell.typeId, (newValue) => {
                             this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
@@ -110,22 +148,28 @@ export class TableView {
                     } else {
                         td.appendChild(renderCell(cell.typeId, cell.value));
                     }
-
                     tr.appendChild(td);
                 });
 
                 if (tableIdx >= 0 && this.controller) {
                     const tdAct = document.createElement("td");
                     tdAct.className = "row-actions";
+
+                    const insertBtn = document.createElement("button");
+                    insertBtn.textContent = "+";
+                    insertBtn.className = "row-insert-btn";
+                    insertBtn.title = "Insert row below";
+                    insertBtn.addEventListener("click", () => this.controller!.insertRow(tableIdx, rowIdx + 1));
+
                     const delBtn = document.createElement("button");
                     delBtn.textContent = "✕";
                     delBtn.className = "row-delete-btn";
                     delBtn.title = "Delete row";
                     delBtn.addEventListener("click", () => {
-                        if (confirm(`Delete row "${row.entityId}"?`)) {
-                            this.controller!.deleteRow(tableIdx, rowIdx);
-                        }
+                        if (confirm(`Delete row "${row.entityId}"?`)) this.controller!.deleteRow(tableIdx, rowIdx);
                     });
+
+                    tdAct.appendChild(insertBtn);
                     tdAct.appendChild(delBtn);
                     tr.appendChild(tdAct);
                 }
@@ -137,45 +181,37 @@ export class TableView {
 
         render();
         this.container.appendChild(tableEl);
+    }
 
-        if (tableIdx >= 0 && this.controller) {
-            const toolbar = document.createElement("div");
-            toolbar.className = "table-toolbar";
+    // ── Drag-to-reorder ───────────────────────────────────────────────────────
 
-            const addBtn = document.createElement("button");
-            addBtn.textContent = "+ Add Row";
-            addBtn.addEventListener("click", () => this.controller!.addRow(tableIdx));
-            toolbar.appendChild(addBtn);
+    private dragSrcIdx: number | null = null;
 
-            const exportBtn = document.createElement("button");
-            exportBtn.textContent = "⬇ Export CSV";
-            exportBtn.addEventListener("click", () => {
-                const csv = this.controller!.exportCSV(tableIdx);
-                const blob = new Blob([csv], { type: "text/csv" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${table.name}.csv`;
-                a.click();
-                URL.revokeObjectURL(url);
-            });
-            toolbar.appendChild(exportBtn);
-
-            this.container.appendChild(toolbar);
-        }
+    private attachDragHandlers(tr: HTMLTableRowElement, tbody: HTMLElement, tableIdx: number, table: Table): void {
+        tr.addEventListener("dragstart", (e) => {
+            this.dragSrcIdx = Number(tr.dataset.rowIdx);
+            tr.classList.add("row-dragging");
+            e.dataTransfer!.effectAllowed = "move";
+        });
+        tr.addEventListener("dragend", () => tr.classList.remove("row-dragging"));
+        tr.addEventListener("dragover", (e) => { e.preventDefault(); tr.classList.add("row-drag-over"); });
+        tr.addEventListener("dragleave", () => tr.classList.remove("row-drag-over"));
+        tr.addEventListener("drop", (e) => {
+            e.preventDefault();
+            tr.classList.remove("row-drag-over");
+            const toIdx = Number(tr.dataset.rowIdx);
+            if (this.dragSrcIdx !== null && this.dragSrcIdx !== toIdx) {
+                this.controller!.moveRow(tableIdx, this.dragSrcIdx, toIdx);
+            }
+            this.dragSrcIdx = null;
+        });
     }
 
     // ── Cell editing ──────────────────────────────────────────────────────────
 
-    private makeEditableCell(
-        td: HTMLElement,
-        value: string,
-        typeId: string,
-        onCommit: (newValue: string) => void,
-    ): void {
+    private makeEditableCell(td: HTMLElement, value: string, typeId: string, onCommit: (newValue: string) => void): void {
         this.showRendered(td, value, typeId);
         td.classList.add("editable-cell");
-
         td.addEventListener("click", (e) => {
             if (this.activeCell?.td === td) return;
             this.cancelActive();
@@ -184,23 +220,14 @@ export class TableView {
         });
     }
 
-    private activateCell(
-        td: HTMLElement,
-        originalValue: string,
-        typeId: string,
-        onCommit: (value: string) => void,
-    ): void {
+    private activateCell(td: HTMLElement, originalValue: string, typeId: string, onCommit: (value: string) => void): void {
         const isText = TEXT_TYPES.has(typeId);
-
         td.classList.add("cell-active");
-
-        // Switch cell to source editor
         td.innerHTML = "";
         td.contentEditable = "true";
         td.textContent = originalValue;
         td.focus();
 
-        // Cursor to end
         const range = document.createRange();
         range.selectNodeContents(td);
         range.collapse(false);
@@ -208,20 +235,15 @@ export class TableView {
         sel?.removeAllRanges();
         sel?.addRange(range);
 
-        // For syntax cells: show live preview in the top bar
         if (!isText) {
             this.showPreview(originalValue, typeId);
             const onInput = () => this.showPreview(td.textContent ?? "", typeId);
             td.addEventListener("input", onInput);
-            // Store cleanup on the element so commit/cancel can remove it
             (td as any).__onInput = onInput;
         }
 
         const commit = (value: string) => {
-            if (!isText) {
-                td.removeEventListener("input", (td as any).__onInput);
-                this.hidePreview();
-            }
+            if (!isText) { td.removeEventListener("input", (td as any).__onInput); this.hidePreview(); }
             this.activeCell = null;
             td.contentEditable = "false";
             td.classList.remove("cell-active");
@@ -230,10 +252,7 @@ export class TableView {
         };
 
         const cancel = () => {
-            if (!isText) {
-                td.removeEventListener("input", (td as any).__onInput);
-                this.hidePreview();
-            }
+            if (!isText) { td.removeEventListener("input", (td as any).__onInput); this.hidePreview(); }
             this.activeCell = null;
             td.contentEditable = "false";
             td.classList.remove("cell-active");
@@ -266,8 +285,6 @@ export class TableView {
         }
     }
 
-    // ── Top bar preview (syntax cells only) ───────────────────────────────────
-
     private showPreview(value: string, typeId: string): void {
         this.editPreview.innerHTML = "";
         this.editPreview.appendChild(renderCell(typeId, value));
@@ -279,19 +296,12 @@ export class TableView {
         this.editPreview.innerHTML = "";
     }
 
-    // ── Public: commit / cancel ───────────────────────────────────────────────
-
     commitActive(): void {
         if (!this.activeCell) return;
-        const value = this.activeCell.td.textContent ?? "";
-        this.activeCell.commit(value);
+        this.activeCell.commit(this.activeCell.td.textContent ?? "");
     }
 
-    cancelActive(): void {
-        this.activeCell?.cancel();
-    }
-
-    // ── Helper ────────────────────────────────────────────────────────────────
+    cancelActive(): void { this.activeCell?.cancel(); }
 
     private showRendered(td: HTMLElement, value: string, typeId: string): void {
         td.contentEditable = "false";

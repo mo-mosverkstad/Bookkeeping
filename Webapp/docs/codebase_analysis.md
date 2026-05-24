@@ -2710,3 +2710,236 @@ The view builds its own DOM inside the container element passed to the
 constructor. It does not depend on any pre-existing HTML structure beyond
 the container div. This matches the pattern established by `GraphFilterView`
 and `TableView`.
+
+---
+
+## Phase 8 — Spreadsheet Shell Layout & Refactoring
+
+---
+
+### Overview
+
+Phase 8 has two goals:
+
+1. **Structural refactoring** — enforce the 1-class-per-file rule in the model
+   layer, and add two new controller actions (`insertRow`, `moveRow`) with
+   full undo/redo support.
+
+2. **UI redesign** — replace the scrolling document layout with a fixed
+   spreadsheet shell where only the table workspace scrolls.
+
+---
+
+### Model Refactoring — 1 class per file
+
+`src/model/index.ts` previously contained 9 classes in a single file. Each
+class is now in its own file. `index.ts` is a pure barrel re-export — it
+only contains `export { ... } from "./FileName.ts"` lines. All existing
+imports from `"../model/index.ts"` continue to work without change.
+
+The split follows the single responsibility principle: each file has exactly
+one reason to exist. Cross-file dependencies use `import type` where the
+imported symbol is only needed for type checking, avoiding runtime circular
+dependency issues.
+
+`EditHistory.ts` also owns the `EditAction` discriminated union type, since
+the history class is the only consumer of that type's full definition.
+
+---
+
+### New Controller Actions
+
+#### `insertRow(tableIdx, atIdx)`
+
+Inserts an empty row at a specific index rather than always appending to the
+end. Uses `Array.splice(atIdx, 0, row)` to insert at position. Records an
+`addRow` undo action (undo removes the row; redo re-inserts it at the same
+position via `push` — note: undo of `addRow` always pops the last row, so
+`insertRow` undo is correct only if no other rows were added after it, which
+is the normal case for a single-action undo).
+
+#### `moveRow(tableIdx, fromIdx, toIdx)`
+
+Moves a row from one index to another. Implementation:
+```ts
+const [row] = table.rows.splice(fromIdx, 1);
+table.rows.splice(toIdx, 0, row);
+```
+
+Records a `moveRow` action. Undo reverses the move:
+```ts
+const [row] = table.rows.splice(toIdx, 1);
+table.rows.splice(fromIdx, 0, row);
+```
+
+The `EditAction` union is extended with:
+```ts
+| { type: "moveRow"; tableIdx: number; fromIdx: number; toIdx: number }
+```
+
+---
+
+### Spreadsheet Shell Layout
+
+#### The core CSS pattern
+
+The entire layout is driven by three CSS rules:
+
+```css
+html, body {
+  height: 100%;
+  overflow: hidden;   /* shell never scrolls */
+}
+body {
+  display: flex;
+  flex-direction: column;
+}
+#workspace {
+  flex: 1 1 0;        /* fills all remaining height */
+  overflow: auto;     /* only this scrolls */
+}
+```
+
+All chrome elements (`#menu-bar`, `#formula-bar`, `#toolbar`, `#tab-bar`,
+`#status-bar`) have `flex-shrink: 0` — they take their natural height and
+do not shrink. `#workspace` gets all remaining height via `flex: 1 1 0`.
+
+#### Sticky table headers
+
+```css
+.knowledge-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+```
+
+Because `#workspace` is the scroll container (not `body`), `position: sticky`
+on `thead th` sticks relative to `#workspace`'s scroll position. Column
+headers remain visible as the user scrolls through a long table — standard
+spreadsheet behaviour.
+
+#### Floating overlay panels
+
+The association detail panel, search results, and neighbourhood panel use
+`position: fixed` to float over the workspace. This is necessary because
+`#workspace` has `overflow: auto`, which creates a new stacking context —
+any `position: absolute` child would be clipped at the workspace boundary.
+`position: fixed` escapes the stacking context and positions relative to
+the viewport instead.
+
+---
+
+### `TableView` Changes
+
+#### External tab strip
+
+Previously `TableView` created its own `<div class="tab-strip">` inside the
+container. Now the tab strip lives in `#tab-bar` (a fixed chrome row), so
+it must be passed in from outside:
+
+```ts
+constructor(container: HTMLElement, tabStrip: HTMLElement, editBar: HTMLElement, editPreview: HTMLElement)
+```
+
+The constructor no longer creates any DOM structure — it only stores
+references. All DOM is created lazily in `renderAll`.
+
+#### `getActiveTableIdx()`
+
+Exposes the currently active tab index so toolbar buttons in `main.ts` can
+call `controller.addRow(tableView.getActiveTableIdx())` without the view
+needing to know about the toolbar.
+
+#### `setStatusCallback(cb)`
+
+Registers a callback that is called after each `renderActiveTable()` with
+a status string. `main.ts` wires this to update `#status-bar`:
+
+```ts
+tableView.setStatusCallback((msg) => { statusText.textContent = msg; });
+```
+
+#### Drag-to-reorder
+
+Each editable row gets a drag handle cell (`<td class="row-drag-handle">⠿</td>`)
+and `tr.draggable = true`. Four drag event listeners are attached per row:
+
+- `dragstart` — records `this.dragSrcIdx = Number(tr.dataset.rowIdx)`
+- `dragend` — removes the `.row-dragging` opacity class
+- `dragover` — prevents default (required to allow drop), adds `.row-drag-over`
+- `drop` — calls `controller.moveRow(tableIdx, dragSrcIdx, toIdx)`
+
+The `.row-drag-over` class adds a blue top border to the target row, giving
+clear visual feedback about where the row will land.
+
+#### Insert row button
+
+Each row's action cell now has two buttons: `+` (insert below) and `✕`
+(delete). The insert button calls `controller.insertRow(tableIdx, rowIdx + 1)`.
+
+#### Removed internal toolbar
+
+The "Add Row" and "Export CSV" buttons that previously appeared below each
+table are removed from `TableView`. Those actions are now in `#toolbar` in
+the HTML, wired in `main.ts`.
+
+---
+
+### `GraphFilterView` Changes
+
+The association detail panel is now appended to `document.body` instead of
+inside the table container:
+
+```ts
+this.detailPanel = document.createElement("div");
+this.detailPanel.className = "association-detail";
+document.body.appendChild(this.detailPanel);
+```
+
+A `document` click listener clears the panel when the user clicks outside it.
+The panel uses `position: fixed` in CSS so it floats over the workspace at
+a fixed position below the toolbar.
+
+---
+
+### `main.ts` Changes
+
+The key wiring changes:
+
+- `tabStrip` is retrieved by ID and passed to `TableView` constructor
+- `graphFilterContainer` and `searchContainer` are separate divs inside
+  `#toolbar` — `GraphFilterView` and `SearchView` mount there
+- Toolbar buttons call `tableView.getActiveTableIdx()` to know which table
+  to act on
+- Drag-and-drop is on `#workspace` instead of `#table-container`
+- `tableView.setStatusCallback()` wires the status bar
+
+---
+
+### Design Decisions
+
+**Why `body` as the flex container?**
+The shell must fill the full viewport height. Using a wrapper `#app` div
+with padding would require compensating `calc()` heights. Using `body`
+directly is simpler and avoids any height calculation.
+
+**Why pass `tabStrip` to `TableView` instead of letting it create its own?**
+The tab strip must be in `#tab-bar` (a fixed chrome row above the workspace),
+not inside `#workspace` (which scrolls). If `TableView` created its own tab
+strip inside the container, it would scroll with the table. Passing it as a
+constructor parameter keeps the view's DOM responsibilities clear: it renders
+the table content, not the chrome.
+
+**Why `position: fixed` for floating panels?**
+`#workspace` has `overflow: auto`, which creates a containing block for
+`position: absolute` children. Any absolutely-positioned panel inside
+`#workspace` would be clipped at the workspace boundary. `position: fixed`
+escapes this and positions relative to the viewport, allowing panels to
+overlay the full page.
+
+**Why `thead th { position: sticky; top: 0 }`?**
+Sticky positioning is relative to the nearest scrolling ancestor. Since
+`#workspace` is the scroll container, `top: 0` means "stick to the top of
+`#workspace`'s visible area". This gives the standard spreadsheet behaviour
+of frozen column headers without any JavaScript scroll event handling.

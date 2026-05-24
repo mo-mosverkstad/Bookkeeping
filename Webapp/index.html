@@ -7,38 +7,64 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="native-math.css" />
     <script type="module" src="/src/main.ts"></script>
-    <title>Bookkeeping Webapp</title>
+    <title>Bookkeeping</title>
   </head>
   <body>
-    <div id="app">
-      <h2>Expression Renderer</h2>
-      <input
-        type="text"
-        id="input"
-        placeholder="Write your BobaMath plaintext input"
-        style="width: 400px"
-      />
-      <button id="render">Render</button>
-      <div id="result"></div>
-      <pre class="error-message" id="error-message"></pre>
 
-      <hr />
-
-      <h2>Knowledge Table</h2>
+    <!-- 1. Menu bar: file operations -->
+    <div id="menu-bar">
+      <span class="app-title">Bookkeeping</span>
+      <label class="menu-btn" title="Open CSV file(s)">
+        📂 Open
+        <input type="file" id="file-input" accept=".csv" multiple hidden />
+      </label>
       <div id="session-banner" class="session-banner" hidden></div>
-      <label for="file-input">Load CSV file(s):</label>
-      <input type="file" id="file-input" accept=".csv" multiple />
+    </div>
 
-      <div id="search-container" class="search-container"></div>
-
+    <!-- 2. Formula bar: expression input + rendered preview -->
+    <div id="formula-bar">
+      <span class="formula-label">fx</span>
+      <input type="text" id="input" placeholder="BobaMath expression…" />
+      <button id="render">Render</button>
       <div id="cell-edit-bar" class="cell-edit-bar" hidden>
-        <span class="cell-edit-bar-label">Preview:</span>
         <div id="cell-edit-preview" class="cell-edit-bar-preview"></div>
       </div>
+      <div id="result" class="formula-result"></div>
+      <pre class="error-message" id="error-message"></pre>
+    </div>
 
-      <div id="table-container" class="table-drop-zone">
-        Drop a .csv file here or use the file picker above
+    <!-- 3. Toolbar: row actions, filter, search -->
+    <div id="toolbar">
+      <div id="row-toolbar" class="toolbar-group">
+        <button id="btn-add-row" title="Add row">+ Row</button>
+        <button id="btn-export-csv" title="Export active table as CSV">⬇ Export</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div id="filter-toolbar" class="toolbar-group">
+        <div id="graph-filter-container"></div>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div id="search-toolbar" class="toolbar-group">
+        <div id="search-container"></div>
       </div>
     </div>
+
+    <!-- 4. Tab bar: one tab per loaded table -->
+    <div id="tab-bar">
+      <div id="tab-strip"></div>
+    </div>
+
+    <!-- 5. Workspace: only this scrolls -->
+    <div id="workspace">
+      <div id="table-container" class="drop-hint">
+        Drop .csv files here or use Open above
+      </div>
+    </div>
+
+    <!-- 6. Status bar -->
+    <div id="status-bar">
+      <span id="status-text"></span>
+    </div>
+
   </body>
 </html>

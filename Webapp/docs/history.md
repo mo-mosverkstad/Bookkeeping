@@ -750,3 +750,179 @@ format unambiguously from byte level upward.
 
 5. **Domain tool = symbol search** — `searchByIdentifier` is the first
    domain tool. It answers "which theorems use this symbol?" directly.
+
+---
+
+## Phase 8 — Spreadsheet Shell Layout & Refactoring
+
+---
+
+### Refactoring — 1 class per file (`src/model/`)
+
+`src/model/index.ts` was a single file containing 9 classes. Each class was
+extracted into its own file. `index.ts` is now a pure barrel re-export.
+
+| New file | Class |
+|----------|-------|
+| `src/model/Cell.ts` | `Cell` |
+| `src/model/Column.ts` | `Column` |
+| `src/model/Row.ts` | `Row` |
+| `src/model/Table.ts` | `Table` |
+| `src/model/Association.ts` | `Association` |
+| `src/model/RelationType.ts` | `RelationType` |
+| `src/model/AssociationGraph.ts` | `AssociationGraph` |
+| `src/model/EditHistory.ts` | `EditHistory` + `EditAction` type |
+| `src/model/KnowledgeBase.ts` | `KnowledgeBase` |
+| `src/model/index.ts` | Barrel re-export only — all existing imports unchanged |
+
+All cross-file references use `import type` where possible to avoid circular
+dependency issues.
+
+---
+
+### New controller actions — `insertRow` and `moveRow`
+
+**`insertRow(tableIdx, atIdx)`** — inserts an empty row at a specific index
+(not just at the end). Records an `addRow` undo action.
+
+**`moveRow(tableIdx, fromIdx, toIdx)`** — moves a row from one index to
+another. Records a `moveRow` undo action.
+
+`EditAction` union extended with:
+```ts
+| { type: "moveRow"; tableIdx: number; fromIdx: number; toIdx: number }
+```
+
+Undo/redo for `moveRow`:
+- Undo: splice from `toIdx`, insert at `fromIdx`
+- Redo: splice from `fromIdx`, insert at `toIdx`
+
+---
+
+### Spreadsheet shell layout
+
+The page is restructured from a scrolling document into a fixed spreadsheet
+shell. `body` is a `flex-column` with `overflow: hidden`. Only `#workspace`
+scrolls.
+
+**Chrome layers (top to bottom):**
+
+| Layer | Element | Content |
+|-------|---------|---------|
+| 1 | `#menu-bar` | App title, 📂 Open button, session banner |
+| 2 | `#formula-bar` | `fx` label, expression input, Render button, live cell preview |
+| 3 | `#toolbar` | + Row, ⬇ Export \| graph filter \| search |
+| 4 | `#tab-bar` | One tab per loaded CSV |
+| 5 | `#workspace` | Only this scrolls — the active table lives here |
+| 6 | `#status-bar` | `TableName — N rows × M cols` |
+
+**Key CSS rules:**
+- `html, body { height: 100%; overflow: hidden }` — shell never scrolls
+- `#workspace { flex: 1 1 0; overflow: auto }` — fills remaining height, scrolls
+- `thead th { position: sticky; top: 0 }` — column headers stay visible while scrolling
+
+---
+
+### `TableView` changes
+
+- Constructor signature changed: now accepts `tabStrip` as a separate
+  parameter (the `#tab-strip` div inside `#tab-bar`) instead of creating
+  its own tab strip inside the container
+- Removed internal `tableArea` div — the container IS the table area
+- Added `getActiveTableIdx(): number` — used by toolbar buttons in `main.ts`
+- Added `setStatusCallback(cb)` — called after each render with a status
+  string (`"TableName — N rows × M cols"`)
+- Per-row drag handle column (⠿) added to editable tables — dragging a row
+  calls `controller.moveRow()`
+- Per-row insert button (+) added to row actions column — calls
+  `controller.insertRow(tableIdx, rowIdx + 1)`
+- The old per-table toolbar (Add Row / Export CSV buttons below each table)
+  is removed — those actions moved to `#toolbar` in the HTML
+
+---
+
+### `GraphFilterView` changes
+
+- Association detail panel is now appended to `document.body` instead of
+  inside the table container — it floats over the workspace as a positioned
+  overlay
+- Closes on outside click via a `document` click listener
+- Labels shortened to fit the toolbar (`"Rel:"`, `"Target:"`, `"All"`)
+
+---
+
+### `main.ts` changes
+
+- Retrieves `#tab-strip`, `#graph-filter-container`, `#search-container`,
+  `#toolbar` button elements by ID
+- Passes `tabStrip` to `TableView` constructor
+- `GraphFilterView` and `SearchView` are mounted in their dedicated toolbar
+  containers instead of the table container
+- `#btn-add-row` calls `controller.addRow(tableView.getActiveTableIdx())`
+- `#btn-export-csv` calls `controller.exportCSV(tableView.getActiveTableIdx())`
+  and triggers a download
+- Drag-and-drop is now on `#workspace` instead of `#table-container`
+- Status bar updated via `tableView.setStatusCallback()`
+
+---
+
+### `index.html` changes
+
+Complete restructure. Old flat document replaced with:
+
+```html
+<div id="menu-bar">      <!-- app title + file open + session banner -->
+<div id="formula-bar">   <!-- fx label + expression input + render + preview -->
+<div id="toolbar">       <!-- row actions | graph filter | search -->
+<div id="tab-bar">       <!-- tab strip -->
+<div id="workspace">     <!-- scrollable table area -->
+<div id="status-bar">    <!-- row/col count -->
+```
+
+---
+
+### `style.css` changes
+
+Full rewrite. Key additions:
+
+- `body { display: flex; flex-direction: column; overflow: hidden }` — shell layout
+- `#menu-bar`, `#formula-bar`, `#toolbar`, `#tab-bar`, `#status-bar` — all
+  `flex-shrink: 0` fixed chrome rows
+- `#workspace { flex: 1 1 0; overflow: auto }` — only scrollable region
+- `.tab-active { bottom: -2px; padding-bottom: 5px }` — active tab overlaps
+  the tab bar border to appear connected to the table
+- `.row-drag-handle` — grab cursor, braille dots glyph (⠿)
+- `.row-dragging { opacity: 0.35 }` — visual feedback during drag
+- `.row-drag-over td { border-top: 2px solid #3b82f6 }` — drop target indicator
+- `.col-rownum` — sticky row number column style (prepared, not yet wired)
+- `thead th { position: sticky; top: 0; z-index: 2 }` — frozen header row
+- Search results and neighbourhood panel use `position: fixed` to float
+  below the toolbar without pushing layout
+- Association detail panel uses `position: fixed` for the same reason
+
+---
+
+### Design decisions
+
+1. **`body` is the flex container, not `#app`.** The shell must fill the
+   full viewport. Wrapping in `#app` with padding would require compensating
+   calculations. Using `body` directly is simpler and more robust.
+
+2. **Tab strip is external to `TableView`.** The tab strip lives in `#tab-bar`
+   (fixed chrome), not inside `#workspace` (scrollable). `TableView` receives
+   it as a constructor parameter rather than creating it internally.
+
+3. **Toolbar buttons use `getActiveTableIdx()`.** The Add Row and Export
+   buttons in the toolbar need to know which table is active. Rather than
+   passing the index through events, `TableView` exposes a getter. This keeps
+   the toolbar wiring in `main.ts` simple.
+
+4. **Floating panels via `position: fixed`.** The association detail,
+   search results, and neighbourhood panels are positioned relative to the
+   viewport (fixed), not relative to their DOM parent. This allows them to
+   overlay the workspace without being clipped by `overflow: auto` on
+   `#workspace`.
+
+5. **`thead th { position: sticky; top: 0 }`.** The table header row stays
+   visible as the user scrolls through a long table. This is the standard
+   spreadsheet behaviour — column names are always visible.

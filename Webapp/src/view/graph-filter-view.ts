@@ -19,15 +19,13 @@ export class GraphFilterView {
         filterDiv.className = "graph-filter";
 
         const relLabel = document.createElement("label");
-        relLabel.textContent = "Relation: ";
+        relLabel.textContent = "Rel: ";
         this.relSelect = document.createElement("select");
-        this.relSelect.id = "rel-select";
         relLabel.appendChild(this.relSelect);
 
         const targetLabel = document.createElement("label");
-        targetLabel.textContent = " Target: ";
+        targetLabel.textContent = "Target: ";
         this.targetSelect = document.createElement("select");
-        this.targetSelect.id = "target-select";
         targetLabel.appendChild(this.targetSelect);
 
         const filterBtn = document.createElement("button");
@@ -39,18 +37,24 @@ export class GraphFilterView {
         });
 
         const resetBtn = document.createElement("button");
-        resetBtn.textContent = "Show All";
+        resetBtn.textContent = "All";
         resetBtn.addEventListener("click", () => this.controller.showAll());
-
-        this.detailPanel = document.createElement("div");
-        this.detailPanel.className = "association-detail";
 
         filterDiv.appendChild(relLabel);
         filterDiv.appendChild(targetLabel);
         filterDiv.appendChild(filterBtn);
         filterDiv.appendChild(resetBtn);
         container.appendChild(filterDiv);
-        container.appendChild(this.detailPanel);
+
+        // Floating detail panel appended to body so it overlays the workspace
+        this.detailPanel = document.createElement("div");
+        this.detailPanel.className = "association-detail";
+        document.body.appendChild(this.detailPanel);
+
+        // Close on outside click
+        document.addEventListener("click", (e) => {
+            if (!this.detailPanel.contains(e.target as Node)) this.detailPanel.innerHTML = "";
+        });
     }
 
     updateDropdowns(relationTypes: string[], entityIds: string[]): void {
