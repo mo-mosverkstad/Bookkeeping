@@ -2943,3 +2943,154 @@ Sticky positioning is relative to the nearest scrolling ancestor. Since
 `#workspace` is the scroll container, `top: 0` means "stick to the top of
 `#workspace`'s visible area". This gives the standard spreadsheet behaviour
 of frozen column headers without any JavaScript scroll event handling.
+
+---
+
+## Phase 9 — Geometry Syntax Plugin
+
+---
+
+### Overview
+
+Phase 9 adds a geometry syntax plugin. A cell with `typeId: "geometry"` contains a multi-line textual description of a geometric figure. The plugin parses it into a `GeometryProgram` AST and renders it as an SVG diagram.
+
+The plugin follows the same five-file structure as the math plugin:
+
+```
+src/plugins/geometry/
+├── types.ts     — AST node interfaces
+├── grammar.ts   — PEG grammar + exported parser + parseGeometry()
+├── el.ts        — svgEl() and svgText() helpers
+├── render.ts    — renderGeometry() SVG renderer
+└── index.ts     — Plugin entry point
+```
+
+---
+
+### `types.ts` — AST node interfaces
+
+Every geometry construct has its own interface. All numeric/algebraic values are typed as `MathNode` (from the math plugin), not as raw strings. This means the geometry AST carries fully parsed math sub-trees, not unparsed text.
+
+Key types:
+
+- `GeometryProgram` — root node, holds `statements: GeoStatement[]`
+- `GeoExpr` — union of `SegmentExpr | LineExpr | RayExpr | AngleExpr` — used as arguments inside relation nodes
+- `GeoStatement` — union of all 25 statement node types
+
+---
+
+### `grammar.ts` — PEG grammar
+
+#### Why a separate skip pattern
+
+The math parser uses `skip: /^[ \t\r\n]+/` — it skips all whitespace including newlines, because a math expression is a single line. The geometry parser uses `skip: /^[ \t]+/` — spaces and tabs only. Newlines are the statement separator in the `Program` rule and must not be consumed by the skip pattern.
+
+#### Grammar structure
+
+```
+Program      = Statement (\n Statement)*
+Statement    = AssignStatement | CallStatement | BlankOrComment
+AssignStatement = CallExpr "=" RhsValue
+CallStatement   = CallExpr
+CallExpr     = Name "(" ArgList ")"
+ArgList      = Arg ("," Arg)*  |  empty
+Arg          = PointGroup | CallExpr | MathArg
+PointGroup   = "(" Label ("," Label)* ")"
+MathArg      = /^[^,)\n\r]+/
+RhsValue     = CallExpr | RhsRaw
+RhsRaw       = /^[^\n\r]+/
+```
+
+#### `CallExpr` — the central rule
+
+`CallExpr` is a PEG sequence: `Name "(" ArgList ")"`. It produces a `ParsedCall { name: string, args: ParsedArg[] }`. By the time `build()` is called, the name and all arguments are already parsed — `build()` only does `switch(name)` and assembles the AST node.
+
+This is the key architectural difference from the first (incorrect) implementation, which captured the entire `"Point(A,B,C)"` as a single regex string and re-parsed it inside `build()`.
+
+#### `Arg` — three cases
+
+The `Arg` rule handles three kinds of argument, tried in order:
+
+1. **`PointGroup`** — `"(" Label ("," Label)* ")"` — for `Circle((A,B,C),O)` where the first argument is a group of point labels in parens. Tried first to prevent `(A,B,C)` from being consumed as a math expression.
+
+2. **`CallExpr`** — recursive — for nested calls like `Parallel(Line(A,B),Line(C,D))`. The `Line(A,B)` inside `Parallel(...)` is itself a `CallExpr`.
+
+3. **`MathArg`** — regex `/^[^,)\n\r]+/` — everything up to the next comma, closing paren, or newline. Captures point labels (`A`), numbers (`5`), and math expressions (`2*x+1`).
+
+#### Math delegation
+
+`MathArg` and `RhsRaw` capture raw text spans. `build()` calls `mathParser.parse("Expression", span)` on those spans to produce `MathNode` values. The two parsers are composed at the `build()` boundary: the geometry PEG grammar handles geometric structure; the math parser handles algebraic content.
+
+#### `BlankOrComment`
+
+Matches whitespace-only lines (`[ \t]+`) and comment lines (`#...` or `//...`). Uses `+` not `*` — must match at least one character so it never matches empty string and steals real statement lines. Tried last in the `Statement` choice so real statements are always tried first.
+
+---
+
+### `el.ts` — SVG element helpers
+
+```ts
+svgEl(tag, attrs)   // createElementNS(SVG_NS, tag) + setAttribute for each attr
+svgText(x, y, content, cls)  // SVG text element
+```
+
+Mirrors `math/el.ts`. Keeps `render.ts` free of element creation boilerplate.
+
+---
+
+### `render.ts` — SVG renderer
+
+#### Point layout
+
+Two-pass layout:
+1. `PointDecl` statements with explicit coordinates are collected and scaled to fit the 400×300 viewport (with 30px padding). Y-axis is flipped (SVG Y increases downward; math Y increases upward).
+2. All remaining point labels (collected from all statement types) are auto-laid-out in a circle centred in the viewport.
+
+#### Drawing dispatch
+
+`renderGeometry()` iterates `program.statements` and dispatches each to a drawing function:
+
+| Statement type | Drawing function | Output |
+|---|---|---|
+| `Segment` | `drawSegment` | `<line>` + optional math label in `<foreignObject>` |
+| `Line` | `drawLine` | `<line>` extended to viewport edges (dashed) |
+| `Ray` | `drawRay` | `<line>` from origin extending to viewport edge |
+| `Arrow` | `drawArrow` | `<line>` with `marker-end: url(#arrowhead)` |
+| `Angle` | `drawAngle` | SVG arc path + optional math label |
+| `Triangle/Quadrilateral/Polygon` | `drawPolygon` | Closed `<path>` |
+| `Circle` | `drawCircle` | `<circle>` — radius from explicit value or circumpoint distance |
+| `Ellipse` | `drawEllipse` | `<ellipse>` — rx/ry from explicit axes or defaults |
+| `Arc` | `drawArc` | SVG arc path |
+| `Parallel` | `drawParallelMarks` | Tick marks on both lines |
+| `Perpendicular` | `drawPerpMark` | Small square at intersection |
+| `Intersection` | inline | Point dot + label at result point |
+| `Midpoint` | inline | Point dot + label at midpoint, added to point map |
+| `Geodesic` | inline | `<line>` with geodesic CSS class |
+
+Points are drawn last (on top of all primitives) by `drawPoints()`.
+
+#### SVG defs
+
+An `<defs>` block defines the `arrowhead` marker used by `Arrow` statements.
+
+---
+
+### UI changes in Phase 9
+
+#### Formula bar inverted (cell always rendered)
+
+Previously: clicking a cell made it `contenteditable` and showed a rendered preview in the formula bar.
+
+Now: cells always show rendered output. The formula bar is the source editor. Clicking a cell highlights it and puts its raw source into the formula bar textarea. The cell re-renders live as the user types. Enter commits; Escape cancels; blur commits.
+
+This is the correct spreadsheet model — the cell shows the value, the bar shows the formula.
+
+#### Formula bar is a `<textarea>` not `<input>`
+
+`<input type="text">` cannot hold newlines. Geometry source is multi-line (one statement per line). The formula bar uses `<textarea rows="1">` that auto-expands via `autoResize()` (sets `height: auto` then `height: scrollHeight`).
+
+**Alt+Enter** inserts a newline at the cursor position. Plain Enter commits. The `suppressBlur` flag prevents the `blur` listener from committing when Alt+Enter temporarily moves focus.
+
+#### Formula result div removed
+
+The old `#result` div rendered the formula bar content as a math expression on Enter. This caused geometry cells to be re-interpreted as algebraic syntax. Removed entirely — the formula bar has no automatic rendering of its own content.

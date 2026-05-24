@@ -21,15 +21,10 @@
       <div id="session-banner" class="session-banner" hidden></div>
     </div>
 
-    <!-- 2. Formula bar: expression input + rendered preview -->
+    <!-- 2. Formula bar: source editor for the active cell -->
     <div id="formula-bar">
       <span class="formula-label">fx</span>
-      <input type="text" id="input" placeholder="BobaMath expression…" />
-      <button id="render">Render</button>
-      <div id="cell-edit-bar" class="cell-edit-bar" hidden>
-        <div id="cell-edit-preview" class="cell-edit-bar-preview"></div>
-      </div>
-      <div id="result" class="formula-result"></div>
+      <textarea id="cell-source-input" rows="1" placeholder="Select a cell to edit…" spellcheck="false"></textarea>
       <pre class="error-message" id="error-message"></pre>
     </div>
 

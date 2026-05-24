@@ -2,18 +2,16 @@ import { renderCell } from "../plugins/registry.ts";
 import type { Table, Row } from "../model/index.ts";
 import type { AppController } from "../controller/index.ts";
 
-const TEXT_TYPES = new Set(["text", "plain", "plaintext"]);
-
 export class TableView {
     private container: HTMLElement;
-    private editBar: HTMLElement;
-    private editPreview: HTMLElement;
     private tabStrip: HTMLElement;
+    private sourceInput: HTMLTextAreaElement;
     private controller: AppController | null = null;
     private onEntityClick: ((entityId: string) => void) | null = null;
     private onStatus: ((msg: string) => void) | null = null;
     private activeTabIdx = 0;
     private currentTables: Table[] = [];
+    private suppressBlur = false;   // set true during Alt+Enter to block blur-commit
 
     private activeCell: {
         td: HTMLElement;
@@ -23,11 +21,49 @@ export class TableView {
         cancel: () => void;
     } | null = null;
 
-    constructor(container: HTMLElement, tabStrip: HTMLElement, editBar: HTMLElement, editPreview: HTMLElement) {
+    constructor(container: HTMLElement, tabStrip: HTMLElement, sourceInput: HTMLTextAreaElement) {
         this.container = container;
         this.tabStrip = tabStrip;
-        this.editBar = editBar;
-        this.editPreview = editPreview;
+        this.sourceInput = sourceInput;
+
+        this.sourceInput.addEventListener("input", () => {
+            this.autoResize();
+            if (!this.activeCell) return;
+            this.showRendered(this.activeCell.td, this.sourceInput.value, this.activeCell.typeId);
+        });
+
+        this.sourceInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && e.altKey) {
+                // Alt+Enter — insert newline, stay focused
+                e.preventDefault();
+                e.stopPropagation();
+                this.suppressBlur = true;
+                const el = this.sourceInput;
+                const start = el.selectionStart ?? el.value.length;
+                const end   = el.selectionEnd   ?? el.value.length;
+                el.value = el.value.slice(0, start) + "\n" + el.value.slice(end);
+                el.selectionStart = el.selectionEnd = start + 1;
+                this.autoResize();
+                if (this.activeCell)
+                    this.showRendered(this.activeCell.td, el.value, this.activeCell.typeId);
+                // Re-focus in next tick in case the browser moved focus away
+                requestAnimationFrame(() => {
+                    this.suppressBlur = false;
+                    el.focus();
+                });
+            } else if (e.key === "Enter" && !e.altKey) {
+                e.preventDefault();
+                this.activeCell?.commit(this.sourceInput.value);
+            } else if (e.key === "Escape") {
+                e.preventDefault();
+                this.activeCell?.cancel();
+            }
+        });
+
+        this.sourceInput.addEventListener("blur", () => {
+            if (this.suppressBlur) return;
+            if (this.activeCell) this.activeCell.commit(this.sourceInput.value);
+        });
     }
 
     setController(controller: AppController): void { this.controller = controller; }
@@ -100,7 +136,7 @@ export class TableView {
 
             const thead = document.createElement("thead");
             const headerRow = document.createElement("tr");
-            if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // drag handle col
+            if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // drag handle
             table.columns.forEach((col, i) => {
                 const th = document.createElement("th");
                 th.textContent = col.name + (i === sortCol ? (sortAsc ? " ▲" : " ▼") : "");
@@ -114,7 +150,7 @@ export class TableView {
                 });
                 headerRow.appendChild(th);
             });
-            if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // actions col
+            if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // actions
             thead.appendChild(headerRow);
             tableEl.appendChild(thead);
 
@@ -136,18 +172,32 @@ export class TableView {
 
                 row.cells.forEach((cell, colIdx) => {
                     const td = document.createElement("td");
+
                     if (colIdx === 0 && this.onEntityClick) {
                         td.style.cursor = "pointer";
                         td.style.textDecoration = "underline";
-                        td.addEventListener("click", () => this.onEntityClick!(row.entityId));
-                    }
-                    if (tableIdx >= 0 && this.controller) {
-                        this.makeEditableCell(td, cell.value, cell.typeId, (newValue) => {
-                            this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
+                        td.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            this.onEntityClick!(row.entityId);
                         });
-                    } else {
-                        td.appendChild(renderCell(cell.typeId, cell.value));
                     }
+
+                    // Cell always shows rendered output
+                    this.showRendered(td, cell.value, cell.typeId);
+
+                    if (tableIdx >= 0 && this.controller) {
+                        td.classList.add("editable-cell");
+                        td.addEventListener("click", (e) => {
+                            if (colIdx === 0 && this.onEntityClick) return; // entity click handled above
+                            e.stopPropagation();
+                            if (this.activeCell?.td === td) return;
+                            this.cancelActive();
+                            this.activateCell(td, cell.value, cell.typeId, (newValue) => {
+                                this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
+                            });
+                        });
+                    }
+
                     tr.appendChild(td);
                 });
 
@@ -200,111 +250,72 @@ export class TableView {
             e.preventDefault();
             tr.classList.remove("row-drag-over");
             const toIdx = Number(tr.dataset.rowIdx);
-            if (this.dragSrcIdx !== null && this.dragSrcIdx !== toIdx) {
+            if (this.dragSrcIdx !== null && this.dragSrcIdx !== toIdx)
                 this.controller!.moveRow(tableIdx, this.dragSrcIdx, toIdx);
-            }
             this.dragSrcIdx = null;
         });
     }
 
-    // ── Cell editing ──────────────────────────────────────────────────────────
+    // ── Cell activation — formula bar becomes the editor ─────────────────────
 
-    private makeEditableCell(td: HTMLElement, value: string, typeId: string, onCommit: (newValue: string) => void): void {
-        this.showRendered(td, value, typeId);
-        td.classList.add("editable-cell");
-        td.addEventListener("click", (e) => {
-            if (this.activeCell?.td === td) return;
-            this.cancelActive();
-            e.stopPropagation();
-            this.activateCell(td, value, typeId, onCommit);
-        });
-    }
-
-    private activateCell(td: HTMLElement, originalValue: string, typeId: string, onCommit: (value: string) => void): void {
-        const isText = TEXT_TYPES.has(typeId);
+    private activateCell(
+        td: HTMLElement,
+        originalValue: string,
+        typeId: string,
+        onCommit: (value: string) => void,
+    ): void {
         td.classList.add("cell-active");
-        td.innerHTML = "";
-        td.contentEditable = "true";
-        td.textContent = originalValue;
-        td.focus();
 
-        const range = document.createRange();
-        range.selectNodeContents(td);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-
-        if (!isText) {
-            this.showPreview(originalValue, typeId);
-            const onInput = () => this.showPreview(td.textContent ?? "", typeId);
-            td.addEventListener("input", onInput);
-            (td as any).__onInput = onInput;
-        }
+        this.sourceInput.value = originalValue;
+        this.sourceInput.placeholder = typeId;
+        this.autoResize();
+        requestAnimationFrame(() => {
+            this.sourceInput.focus();
+            this.sourceInput.select();
+        });
 
         const commit = (value: string) => {
-            if (!isText) { td.removeEventListener("input", (td as any).__onInput); this.hidePreview(); }
             this.activeCell = null;
-            td.contentEditable = "false";
             td.classList.remove("cell-active");
+            this.sourceInput.value = "";
+            this.sourceInput.placeholder = "Select a cell to edit…";
+            this.resetResize();
             onCommit(value);
             this.showRendered(td, value, typeId);
         };
 
         const cancel = () => {
-            if (!isText) { td.removeEventListener("input", (td as any).__onInput); this.hidePreview(); }
             this.activeCell = null;
-            td.contentEditable = "false";
             td.classList.remove("cell-active");
+            this.sourceInput.value = "";
+            this.sourceInput.placeholder = "Select a cell to edit…";
+            this.resetResize();
             this.showRendered(td, originalValue, typeId);
         };
 
         this.activeCell = { td, originalValue, typeId, commit, cancel };
-
-        td.addEventListener("keydown", onKey);
-        td.addEventListener("blur", onBlur);
-
-        function onKey(e: KeyboardEvent) {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                td.removeEventListener("keydown", onKey);
-                td.removeEventListener("blur", onBlur);
-                commit(td.textContent ?? "");
-            } else if (e.key === "Escape") {
-                e.preventDefault();
-                td.removeEventListener("keydown", onKey);
-                td.removeEventListener("blur", onBlur);
-                cancel();
-            }
-        }
-
-        function onBlur() {
-            td.removeEventListener("keydown", onKey);
-            td.removeEventListener("blur", onBlur);
-            commit(td.textContent ?? "");
-        }
-    }
-
-    private showPreview(value: string, typeId: string): void {
-        this.editPreview.innerHTML = "";
-        this.editPreview.appendChild(renderCell(typeId, value));
-        this.editBar.hidden = false;
-    }
-
-    private hidePreview(): void {
-        this.editBar.hidden = true;
-        this.editPreview.innerHTML = "";
     }
 
     commitActive(): void {
         if (!this.activeCell) return;
-        this.activeCell.commit(this.activeCell.td.textContent ?? "");
+        this.activeCell.commit(this.sourceInput.value);
     }
 
     cancelActive(): void { this.activeCell?.cancel(); }
 
+    // ── Auto-resize textarea to fit content ───────────────────────────────────
+
+    private autoResize(): void {
+        const el = this.sourceInput;
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+    }
+
+    private resetResize(): void {
+        this.sourceInput.style.height = "";
+    }
+
     private showRendered(td: HTMLElement, value: string, typeId: string): void {
-        td.contentEditable = "false";
         td.innerHTML = "";
         td.appendChild(renderCell(typeId, value));
     }

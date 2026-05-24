@@ -93,7 +93,7 @@ Contents:
 
 ---
 
-## Source Structure (after Phase 8 refactoring)
+## Source Structure (after Phase 9 refactoring)
 
 ```
 src/
@@ -111,28 +111,43 @@ src/
 │   └── index.ts         # Barrel re-export only
 ├── controller/      # Orchestration (AppController)
 ├── view/            # Presentation (TableView, GraphFilterView, SearchView, session)
-├── plugins/         # Syntax plugins (math, text, ...)
-│   ├── math/        # Math syntax (self-contained)
-│   └── text/        # Plain text (fallback)
-├── data/            # Data persistence (CSV parser, re-exports)
+├── plugins/         # Syntax plugins
+│   ├── interface.ts     # Plugin contract
+│   ├── registry.ts      # Plugin dispatch + renderCell
+│   ├── math/            # Math syntax plugin
+│   │   ├── types.ts     # MathNode union
+│   │   ├── grammar.ts   # PEG grammar + exported parser
+│   │   ├── render.ts    # AST → HTML
+│   │   ├── el.ts        # DOM helper
+│   │   └── index.ts     # Plugin entry point
+│   ├── geometry/        # Geometry syntax plugin
+│   │   ├── types.ts     # GeoStatement union + all node interfaces
+│   │   ├── grammar.ts   # PEG grammar + exported parser + parseGeometry()
+│   │   ├── render.ts    # AST → SVG
+│   │   ├── el.ts        # SVG element helpers
+│   │   └── index.ts     # Plugin entry point
+│   └── text/            # Plain text plugin (fallback)
+├── data/            # Data persistence (CSV parser, types)
 ├── search/          # Search engine
 ├── ui/              # Legacy UI functions (backward compat for tests)
 └── main.ts          # App entry point (MVC wiring)
 
 test/                # Mirrors src structure
 ├── engine/
-├── plugins/math/
+├── plugins/
+│   ├── math/
+│   └── geometry/
 ├── data/
 └── ui/
 ```
 
-**`index.html` shell structure (Phase 8):**
+**`index.html` shell structure (Phase 8+):**
 ```
 #menu-bar      ← fixed: app title, file open, session banner
-#formula-bar   ← fixed: fx label, expression input, render, cell preview
+#formula-bar   ← fixed: fx label, textarea source editor (multiline, Alt+Enter)
 #toolbar       ← fixed: row actions | graph filter | search
 #tab-bar       ← fixed: one tab per loaded CSV
-#workspace     ← scrollable: active table lives here
+#workspace     ← scrollable: active table lives here (cells always rendered)
 #status-bar    ← fixed: TableName — N rows × M cols
 ```
 

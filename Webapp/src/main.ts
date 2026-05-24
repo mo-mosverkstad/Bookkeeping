@@ -2,48 +2,55 @@ import { AppController } from "./controller/index.ts";
 import { TableView } from "./view/table-view.ts";
 import { GraphFilterView } from "./view/graph-filter-view.ts";
 import { SearchView } from "./view/search-view.ts";
-import { mathPlugin } from "./plugins/math/index.ts";
-import type { MathNode } from "./plugins/math/types.ts";
-import { renderMath } from "./plugins/math/render.ts";
 import { saveSession, loadSession } from "./view/session.ts";
 
 window.addEventListener("load", () => {
-    const input = document.getElementById("input") as HTMLInputElement;
-    const renderBtn = document.getElementById("render")!;
-    const result = document.getElementById("result")!;
-    const errorEl = document.getElementById("error-message")!;
-    const fileInput = document.getElementById("file-input") as HTMLInputElement;
-    const workspace = document.getElementById("workspace")!;
-    const tableContainer = document.getElementById("table-container")!;
-    const tabStrip = document.getElementById("tab-strip")!;
+    const sourceInput     = document.getElementById("cell-source-input") as HTMLTextAreaElement;
+    const errorEl         = document.getElementById("error-message")!;
+    const fileInput       = document.getElementById("file-input") as HTMLInputElement;
+    const workspace       = document.getElementById("workspace")!;
+    const tableContainer  = document.getElementById("table-container")!;
+    const tabStrip        = document.getElementById("tab-strip")!;
     const graphFilterContainer = document.getElementById("graph-filter-container")!;
     const searchContainer = document.getElementById("search-container")!;
-    const sessionBanner = document.getElementById("session-banner") as HTMLElement;
-    const editBar = document.getElementById("cell-edit-bar") as HTMLElement;
-    const editPreview = document.getElementById("cell-edit-preview") as HTMLElement;
-    const btnAddRow = document.getElementById("btn-add-row")!;
-    const btnExport = document.getElementById("btn-export-csv")!;
-    const statusText = document.getElementById("status-text")!;
+    const sessionBanner   = document.getElementById("session-banner") as HTMLElement;
+    const btnAddRow       = document.getElementById("btn-add-row")!;
+    const btnExport       = document.getElementById("btn-export-csv")!;
+    const statusText      = document.getElementById("status-text")!;
 
     // ── MVC wiring ────────────────────────────────────────────────────────────
     const controller = new AppController();
 
-    const tableView = new TableView(tableContainer, tabStrip, editBar, editPreview);
+    const tableView = new TableView(tableContainer, tabStrip, sourceInput);
     const graphFilterView = new GraphFilterView(graphFilterContainer, controller);
     const searchView = new SearchView(searchContainer, controller);
 
     controller.setTableView(tableView);
     controller.setGraphFilterView(graphFilterView);
     tableView.setController(controller);
+    tableView.setStatusCallback((msg) => { statusText.textContent = msg; });
 
     tableView.setEntityClickHandler((entityId) => {
         graphFilterView.showEntityAssociations(entityId);
         searchView.showNeighbourhood(entityId);
     });
 
-    tableView.setStatusCallback((msg) => { statusText.textContent = msg; });
+    document.addEventListener("click", (e) => {
+        // Do not cancel when clicking inside the formula bar
+        if (sourceInput.contains(e.target as Node)) return;
+        tableView.cancelActive();
+    });
 
-    // ── Toolbar: add row / export ─────────────────────────────────────────────
+    // ── Undo / Redo ───────────────────────────────────────────────────────────
+    document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+            e.preventDefault(); controller.undo();
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+            e.preventDefault(); controller.redo();
+        }
+    });
+
+    // ── Toolbar ───────────────────────────────────────────────────────────────
     btnAddRow.addEventListener("click", () => {
         const idx = tableView.getActiveTableIdx();
         if (idx >= 0) controller.addRow(idx);
@@ -58,18 +65,6 @@ window.addEventListener("load", () => {
         const a = document.createElement("a");
         a.href = url; a.download = `${name}.csv`; a.click();
         URL.revokeObjectURL(url);
-    });
-
-    // ── Cancel active cell edit when clicking outside ─────────────────────────
-    document.addEventListener("click", () => tableView.cancelActive());
-
-    // ── Undo / Redo ───────────────────────────────────────────────────────────
-    document.addEventListener("keydown", (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-            e.preventDefault(); controller.undo();
-        } else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
-            e.preventDefault(); controller.redo();
-        }
     });
 
     // ── File loading ──────────────────────────────────────────────────────────
@@ -104,33 +99,11 @@ window.addEventListener("load", () => {
         sessionBanner.innerHTML =
             `<span>Last session: <strong>${session.fileNames.join(", ")}</strong></span>` +
             `<button id="dismiss-session">✕</button>`;
-        document.getElementById("dismiss-session")?.addEventListener("click", () => {
-            sessionBanner.hidden = true;
+        sessionBanner.addEventListener("click", (e) => {
+            if ((e.target as HTMLElement).id === "dismiss-session") {
+                e.stopPropagation();
+                sessionBanner.hidden = true;
+            }
         });
     }
-
-    // ── Expression renderer ───────────────────────────────────────────────────
-    renderBtn.addEventListener("click", () => {
-        try {
-            const ast = mathPlugin.parse(input.value) as MathNode;
-            result.innerHTML = "";
-            result.appendChild(renderMath(ast));
-            errorEl.textContent = "";
-        } catch (e) { errorEl.textContent = (e as Error).message; result.innerHTML = ""; }
-    });
-
-    // ── Demo test cases ───────────────────────────────────────────────────────
-    const testCases = [
-        "-2*(3+5)*4e^x^2", "a/b + c/d", "\\int{0, 1, x^2}", "\\sqrt{x+1}",
-        "`1T / `1t", "\\a + \\1b", "[a]", "[[a, b], [c, d]]", "(a, b, c)",
-        "A[k]", "u.v", "+{k=0, n, A[k]}", "*{k=0, n, A[k]}", "x_i^2",
-        "a <= b", "x != y", "x \\in \\\\R", "\\ha_0", "n!", "f'(x)", "f''(x)",
-        "|x|", "[a_1, ..., a_n]", "\\floor{x+1}", "\\ceil{x}", "\\bar{x}",
-        "\\hat{x}", "\\inner{x, y}", "\\binom{n, r}", "\\S{k=0, n, k^2}",
-        "\\lim{x->0, f(x)}",
-    ];
-    let idx = 0;
-    input.value = testCases[0];
-    renderBtn.click();
-    (window as any).__nextTest = () => { idx = (idx + 1) % testCases.length; input.value = testCases[idx]; renderBtn.click(); };
 });

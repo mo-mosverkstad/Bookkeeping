@@ -2206,50 +2206,438 @@ Click ⬇ Export in the toolbar to download the active table.
 
 ---
 
-#### Phase 9 — Semantic Layer: Ordered Knowledge Topology 📐 *in study*
+#### Phase 9 — Geometry Syntax Plugin ✅ *complete*
 
-##### Background and motivation
+**Goal:** Implement a geometry syntax plugin that can represent and render
+geometric diagrams symbolically. A geometry cell in a knowledge table
+contains a textual description of a geometric figure that the plugin
+parses into a structured AST and renders as an SVG diagram.
 
-The current model treats knowledge as flat rows in a table connected by
-unordered graph edges. This is sufficient for storage and retrieval, but
-it loses the structural information that makes mathematics meaningful:
+##### Design philosophy
 
-> Mathematics is not just connected concepts. It has derivation order,
-> dependency order, pedagogical order, logical proof order, canonical
-> presentation order, transformation order, operator precedence order,
-> and hierarchy order.
+Geometry syntax is a **declarative structural language**, not a drawing
+language. It describes topology, coordinates, labels, and relations —
+not visual rendering properties (shading, perspective, line thickness).
+The same geometry source renders identically regardless of display size.
+Rendering independence is a hard constraint: the parser must never infer
+visual depth, perspective projection, or hidden surfaces.
 
-A reference sheet is therefore not a flat list of formulas. It is a
-**layered, ordered knowledge topology** — a partially ordered semantic
-graph with structural sequencing.
+Math syntax is a declared dependency. Coordinate values, measurements,
+and angle values are math syntax expressions embedded inside geometry
+constructs.
 
-The key insight is that the same concept can simultaneously belong to
-multiple ordered systems with different positions in each:
+##### Geometry syntax specification
 
-| Concept | Collection | Position | Ordering type |
-|---------|-----------|----------|---------------|
-| Complex Numbers | Algebra Curriculum | 12 | pedagogical |
-| Complex Numbers | Polynomial Theory | 4 | logical |
-| Complex Numbers | Fourier Analysis | 2 | derivational |
-| Complex Numbers | Historical Development | 19 | historical |
+**Coordinate system declaration** (default if omitted):
+```
+System(2,Euclidean)
+```
+Syntax: `System(dimension, geometry_type)`
+Examples: `System(2,Euclidean)`, `System(3,Euclidean)`, `System(2,Spherical)`,
+`System(2,Hyperbolic)`, `System(4,Euclidean)`
 
-This is impossible in ordinary spreadsheets but natural in a graph model.
+**Point declaration**:
+```
+Point(A,B,C,D)
+```
+All points must be explicitly declared. Unnamed points may be inferred
+only when necessary to preserve topology, using unused uppercase letters
+in alphabetical order.
 
-##### Chosen approach: Option C — separate semantic layer
+**Point coordinates** (optional, uses math syntax for values):
+```
+Point(A)=(2,3)
+Point(B)=(x,y)
+Point(C)=(a+b,2c)
+Point(P)=(x,y,z)
+```
 
-Three options were considered:
+**Primitives**:
+```
+Segment(A,B)          — line segment from A to B
+Segment(A,B)=a        — segment with label
+Segment(A,B)=5        — segment with numeric measurement
+Line(A,B)             — infinite line through A and B
+Ray(A,B)              — ray from A through B
+Arrow(A,B)            — directed arrow, tip at B
+```
 
-- **Option A** — enrich the existing model in-place (two parallel
-  representations, risk of drift)
-- **Option B** — replace `Table`/`Row`/`Cell` with the new model (clean
-  but breaks all existing tests and requires a new file format)
-- **Option C** — add a completely separate `SemanticGraph` alongside
-  `KnowledgeBase`, linked by entity ID strings, populated from a sidecar
-  JSON file
+**Angles**:
+```
+Angle(A,B,C)          — angle at vertex B, from A to C
+Angle(A,B,C)=\t       — angle labelled with math expression
+Angle(A,B,C)=30\deg   — angle with degree measurement
+```
+Rules: exactly 3 parameters; middle point is the vertex.
 
-Option C is chosen because it adds zero disruption to existing code and
-can be built and validated incrementally. The existing CSV loading,
-editing, export, search, and all tests are completely unchanged.
+**Relations**:
+```
+Parallel(Line(A,B),Line(C,D))
+Perpendicular(Line(A,B),Line(C,D))
+Intersection(Line(A,B),Line(C,D))=E
+Midpoint(M,Segment(A,B))
+```
+
+**Equality relations**:
+```
+Segment(A,B)=Segment(C,D)
+Angle(A,B,C)=Angle(D,E,F)
+```
+
+**Polygons**:
+```
+Triangle(A,B,C)
+Quadrilateral(A,B,C,D)
+Polygon(A,B,C,D,...)
+```
+
+**Circles, ellipses, arcs**:
+```
+Circle((A,B,C),O,4)       — circumference points A,B,C; center O; radius 4 (optional)
+Ellipse((A,B,C),O,5,3)    — circumference points; center O; major axis 5, minor 3 (optional)
+Arc(A,B,O)                — arc from A to B on circle centered at O
+```
+
+**Higher-dimensional objects** (same syntax, coordinates determine dimension):
+```
+Plane(A,B,C)
+Plane(x+y+z=1)
+Hyperplane(x1+x2+x3+x4=0)
+Sphere((A,B),O,r)         — lateral surface points A,B; center O; radius r (optional)
+```
+
+**Coordinate axes and origin**:
+```
+Axis(x)
+Axis(y)
+Axis(z)
+Axis(x')=2x+3y            — transformed axis (math syntax expression)
+Origin(O)
+```
+
+**Curves and planes via equations**:
+```
+l1=Graph(y=sin(x))
+l2=Graph(x^2+y^2=1)
+```
+
+**Non-Euclidean relations**:
+```
+Geodesic(A,B)
+Curvature(K)=1
+```
+
+##### AST node types
+
+```
+GeometryProgram       — root: system declaration + statement list
+SystemDecl            — System(dim, type)
+PointDecl             — Point(A,B,...) with optional coordinate assignment
+PrimitiveNode         — Segment | Line | Ray | Arrow (base, optional label)
+AngleNode             — Angle(A,B,C) with optional value
+RelationNode          — Parallel | Perpendicular | Intersection | Midpoint
+EqualityNode          — lhs = rhs (two geometry expressions)
+PolygonNode           — Triangle | Quadrilateral | Polygon
+CircleNode            — Circle | Sphere (circumference points, center, optional radius)
+EllipseNode           — Ellipse | Ellipsoid (points, center, optional axes)
+ArcNode               — Arc(A,B,O)
+PlaneNode             — Plane | Hyperplane (points or equation)
+AxisDecl              — Axis(name) with optional math expression
+OriginDecl            — Origin(label)
+GraphNode             — name=Graph(equation)
+GeodesicNode          — Geodesic(A,B)
+CurvatureNode         — Curvature(K)=value
+```
+
+Coordinate values and measurement values are `MathNode` subtrees
+(from the math syntax plugin), not raw strings.
+
+##### Renderer
+
+The geometry renderer produces an SVG element. It lays out declared
+points using their coordinates (if given) or an automatic layout
+algorithm (if coordinates are absent). It draws segments, lines, arcs,
+polygons, and circles as SVG paths. Labels are placed near their
+associated elements. Relation markers (parallel tick marks,
+perpendicular squares) are drawn at the relevant points.
+
+Rendering independence is enforced: the renderer never infers perspective,
+hidden surfaces, shading, or 3D depth from 2D projections.
+
+##### Concrete tasks
+- [ ] Define the geometry grammar in `src/plugins/geometry/grammar.ts`
+      covering all constructs above
+- [ ] Define geometry AST node types in `src/plugins/geometry/types.ts`
+- [ ] Implement the geometry parser using the existing PEG engine
+- [ ] Implement the SVG renderer in `src/plugins/geometry/render.ts`:
+      point layout, segment/line/ray/arrow drawing, polygon fill,
+      circle/arc drawing, label placement, relation markers
+- [ ] Register the geometry plugin with `type_id: "geometry"` in
+      `src/plugins/registry.ts`
+- [ ] Add `src/public/geometry-sample.csv` with geometry cells
+- [ ] Add grammar tests covering all construct types and edge cases
+- [ ] Add render tests for SVG output structure
+
+**Completion criteria:**
+- `Point(A,B,C)` declares three points
+- `Segment(A,B)=5` renders a labelled segment
+- `Angle(A,B,C)=30\deg` renders an angle arc with label
+- `Triangle(A,B,C)` renders a closed triangle
+- `Circle((A,B,C),O)` renders a circle through three points
+- `Parallel(Line(A,B),Line(C,D))` renders tick marks on both lines
+- `Perpendicular(Line(A,B),Line(C,D))` renders a right-angle square
+- `System(3,Euclidean)` with 3D coordinates renders a projected diagram
+- `Graph(y=sin(x))` renders a curve
+- Parse errors display inline without crashing the table
+- All existing Phase 1–8 tests pass without modification
+
+**Demo:** Load a CSV with a `geometry` column. Cells contain geometry
+source like `Triangle(A,B,C)\nSegment(A,B)=5\nAngle(A,B,C)=60\deg`.
+The table renders each cell as an SVG diagram. A cell with
+`System(2,Euclidean)\nPoint(A)=(0,0)\nPoint(B)=(3,0)\nPoint(C)=(0,4)\nTriangle(A,B,C)`
+renders a right triangle with coordinates.
+
+---
+
+#### Phase 10 — Physics Free-Body Syntax Plugin 📐 *planned*
+
+**Goal:** Implement a physics syntax plugin for free-body diagrams and
+physical system descriptions. A physics cell describes bodies, forces,
+constraints, and motion quantities symbolically.
+
+##### Design philosophy
+
+Physics syntax extends geometry syntax with physical quantities. A
+free-body diagram is a geometry diagram annotated with force vectors,
+motion vectors, torques, and constraints. Math syntax provides the
+scalar and vector values. Geometry syntax provides the spatial structure.
+Physics syntax adds the physical layer on top.
+
+The plugin declares dependencies on both `math` and `geometry` plugins.
+
+##### Physics syntax specification
+
+**Body declaration**:
+```
+Body(B1)                      — a rigid body
+Body(B1)=mass(m)              — body with mass
+Body(B1)=mass(m),moment(I)    — body with mass and moment of inertia
+```
+
+**Force vectors** (applied at a point, in a direction):
+```
+Force(F1,A,\d)=mg             — force named F1, at point A, direction \d (down), magnitude mg
+Force(F1,A,\u)=N              — normal force upward
+Force(F1,A,\t)=f              — force at angle \t
+Force(F1,A,[v])               — force in direction of vector v
+```
+
+**Motion vectors**:
+```
+Velocity(v,A,[d])=v_0         — velocity at point A in direction d
+Acceleration(a,A,[d])=a_0
+AngularVelocity(\w,B1)=\w_0
+AngularAcceleration(\a,B1)=\a_0
+```
+
+**Torques**:
+```
+Torque(\t,B1,O)=r*F           — torque on body B1 about point O
+```
+
+**Constraints**:
+```
+Fixed(A)                      — point A is fixed (pin joint)
+Roller(A,[d])                 — roller constraint at A in direction d
+Contact(A,B)                  — contact between two bodies at point A
+String(A,B)                   — inextensible string from A to B
+Spring(A,B)=k                 — spring between A and B with stiffness k
+Damper(A,B)=c                 — damper between A and B
+```
+
+**Reference frames**:
+```
+Frame(F1,O,[x],[y])           — reference frame F1 with origin O and axes
+Inertial(F1)                  — declare F1 as inertial frame
+```
+
+**Equations of motion** (uses math syntax):
+```
+EOM(\S{F}=m*a)
+EOM(\S{\t}=I*\a)
+```
+
+##### AST node types
+
+```
+PhysicsProgram        — root: geometry base + physics statements
+BodyDecl              — Body(name) with optional mass/moment
+ForceNode             — Force(name, point, direction, magnitude)
+VelocityNode          — Velocity | Acceleration (name, point, direction, value)
+AngularNode           — AngularVelocity | AngularAcceleration (name, body, value)
+TorqueNode            — Torque(name, body, pivot, value)
+ConstraintNode        — Fixed | Roller | Contact | String | Spring | Damper
+FrameDecl             — Frame(name, origin, axes)
+EOMNode               — EOM(math expression)
+```
+
+##### Renderer
+
+The physics renderer extends the geometry SVG renderer. Bodies are drawn
+as rectangles or polygons. Force vectors are drawn as arrows with labels.
+Velocity and acceleration vectors are drawn with distinct arrow styles
+(double-headed for acceleration). Constraints are drawn as standard
+engineering symbols (pin joint circle, roller triangle, spring zigzag,
+damper rectangle). Reference frame axes are drawn as labelled arrows.
+
+##### Concrete tasks
+- [ ] Define physics grammar in `src/plugins/physics/grammar.ts`
+- [ ] Define physics AST types in `src/plugins/physics/types.ts`
+- [ ] Implement physics parser (extends geometry parser instance)
+- [ ] Implement physics SVG renderer in `src/plugins/physics/render.ts`
+- [ ] Register physics plugin with `type_id: "physics"`
+- [ ] Add grammar and render tests
+
+**Completion criteria:**
+- `Body(B1)=mass(m)` declares a body with mass
+- `Force(F1,A,\d)=mg` renders a downward force arrow labelled `mg`
+- `Fixed(A)` renders a pin joint symbol at A
+- `Spring(A,B)=k` renders a spring between A and B
+- A complete free-body diagram with multiple forces renders correctly
+- All existing Phase 1–9 tests pass without modification
+
+**Demo:** Load a CSV with a `physics` column. A cell contains a
+free-body diagram of a block on an inclined plane: body, weight force
+downward, normal force perpendicular to surface, friction force along
+surface. The cell renders as an SVG free-body diagram.
+
+---
+
+#### Phase 11 — Chemistry Reaction Syntax Plugin 📐 *planned*
+
+**Goal:** Implement a chemistry syntax plugin for chemical reactions,
+compound structures, and stoichiometric equations.
+
+##### Design philosophy
+
+Chemistry syntax covers two distinct levels:
+1. **Reaction equations** — stoichiometric notation with compounds,
+   arrows, states, and conditions
+2. **Structural formulas** — molecular connectivity (bonds, atoms,
+   functional groups)
+
+Math syntax is a dependency for numeric coefficients, concentrations,
+and thermodynamic quantities.
+
+##### Chemistry syntax specification
+
+**Compounds** (molecular formula notation):
+```
+Compound(H2O)
+Compound(C6H12O6)
+Compound(NaCl,(s))            — with state: (s) solid, (l) liquid, (g) gas, (aq) aqueous
+```
+
+**Reaction arrows**:
+```
+->                            — forward reaction (irreversible)
+<->                           — reversible equilibrium
+<=>                           — equilibrium (double arrow)
+-->                           — slow/multi-step reaction
+```
+
+**Reaction equations**:
+```
+Reaction(2*H2 + O2 -> 2*H2O)
+Reaction(N2 + 3*H2 <=> 2*NH3, cond(T=450\deg,P=200atm,cat=Fe))
+```
+
+**Conditions**:
+```
+cond(T=value, P=value, cat=name, light, heat, ...)
+```
+
+**Thermodynamic quantities** (uses math syntax):
+```
+DeltaH(reaction)=-286kJ/mol
+DeltaG(reaction)=-237kJ/mol
+DeltaS(reaction)=-163J/(mol*K)
+Ka(reaction)=1.8e-5
+```
+
+**Structural formula** (connectivity):
+```
+Atom(C1)
+Atom(C2)
+Bond(C1,C2,single)
+Bond(C1,C2,double)
+Bond(C1,C2,triple)
+Bond(C1,C2,aromatic)
+```
+
+**Functional groups** (shorthand):
+```
+Group(C1,OH)                  — hydroxyl group at C1
+Group(C1,COOH)                — carboxyl group
+Group(C1,NH2)                 — amine group
+```
+
+**Ionic notation**:
+```
+Ion(Na,+1)
+Ion(Cl,-1)
+Ion(SO4,-2)
+```
+
+##### AST node types
+
+```
+ChemistryProgram      — root: list of chemistry statements
+CompoundNode          — Compound(formula, optional state)
+ReactionNode          — reactants, arrow type, products, optional conditions
+ReactionTerm          — coefficient (MathNode) + compound
+ConditionNode         — temperature, pressure, catalyst, other flags
+ThermodynamicNode     — DeltaH | DeltaG | DeltaS | Ka (value as MathNode)
+AtomNode              — Atom(label)
+BondNode              — Bond(atom1, atom2, type)
+GroupNode             — Group(atom, functional group name)
+IonNode               — Ion(symbol, charge)
+```
+
+##### Renderer
+
+The chemistry renderer produces SVG. Reaction equations are rendered
+as horizontal layouts: reactants on the left, arrow in the middle
+(with conditions above/below), products on the right. Coefficients
+are rendered using math syntax. States are rendered as subscripts.
+Structural formulas are rendered as bond-line diagrams with atoms at
+vertices. Functional groups use standard abbreviations.
+
+##### Concrete tasks
+- [ ] Define chemistry grammar in `src/plugins/chemistry/grammar.ts`
+- [ ] Define chemistry AST types in `src/plugins/chemistry/types.ts`
+- [ ] Implement chemistry parser
+- [ ] Implement chemistry SVG renderer in `src/plugins/chemistry/render.ts`
+- [ ] Register chemistry plugin with `type_id: "chemistry"`
+- [ ] Add grammar and render tests
+
+**Completion criteria:**
+- `Reaction(2*H2 + O2 -> 2*H2O)` renders a balanced reaction equation
+- `Reaction(N2 + 3*H2 <=> 2*NH3, cond(T=450\deg,cat=Fe))` renders
+  with conditions above the equilibrium arrow
+- `Compound(NaCl,(s))` renders with state subscript
+- `DeltaH(reaction)=-286kJ/mol` renders as a thermodynamic annotation
+- Structural formula with atoms and bonds renders as a bond-line diagram
+- All existing Phase 1–10 tests pass without modification
+
+**Demo:** Load a CSV with a `chemistry` column. Cells contain reaction
+equations. The Haber process cell renders as a full equilibrium reaction
+with temperature, pressure, and catalyst conditions. A structural formula
+cell renders ethanol as a bond-line diagram.
+
+---
+
+#### Phase 12 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
 
 ##### New model classes (additive — no existing classes modified)
 
@@ -2511,14 +2899,14 @@ model is generic, the panel is configured rather than hardcoded:
 The flat table editor (Phases 3–8) is unchanged. The semantic graph
 panel is an additional view layer on top.
 
-##### What is explicitly deferred to Phase 10
+##### What is explicitly deferred to Phase 13
 
 - **Stable entity IDs** — `sourceEntityId` still uses the fragile
   first-cell string. Renaming a row in the CSV breaks the sidecar link.
-  Phase 10 introduces UUIDs and a stable ID registry.
-- **Semantic editing** — Phase 9 is read-only for the semantic layer.
-  Creating/editing nodes and edges via the UI is Phase 10.
-- **Native format** — CSV remains the canonical storage. Phase 11
+  Phase 13 introduces UUIDs and a stable ID registry.
+- **Semantic editing** — Phase 12 is read-only for the semantic layer.
+  Creating/editing nodes and edges via the UI is Phase 13.
+- **Native format** — CSV remains the canonical storage. Phase 14
   replaces it with a format that natively encodes the semantic layer.
 
 ##### Concrete tasks
@@ -2551,7 +2939,7 @@ panel is an additional view layer on top.
 - The semantic panel renders a tree driven by the configured edge label
 - Clicking a node with a `sourceEntityId` highlights its row in the
   flat table
-- All existing Phase 1–8 tests pass without modification
+- All existing Phase 1–11 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. The semantic panel
 shows a tree built from `"child-of"` edges: `Differential Calculus >
@@ -2563,11 +2951,11 @@ completely different tree structure from the same generic model.
 
 ---
 
-#### Phase 10 — Stable Entity Identity & Semantic Editing 📐 *planned*
+#### Phase 13 — Stable Entity Identity & Semantic Editing 📐 *planned*
 
 ##### Background and motivation
 
-Phase 9 introduces the semantic layer but leaves one critical fragility
+Phase 12 introduces the semantic layer but leaves one critical fragility
 intact: `sourceEntityId` is still the mutable first-cell string value of
 a CSV row. If the user renames "Fundamental Theorem of Calculus" to
 "FTC" in the flat table, the sidecar link silently breaks — the
@@ -2605,7 +2993,7 @@ the semantic layer fully stable against renames.
 
 ##### Semantic editing
 
-Phase 9 is read-only for the semantic layer. Phase 10 makes it editable:
+Phase 12 is read-only for the semantic layer. Phase 13 makes it editable:
 
 - **Create node** — right-click a row in the flat table → "Add to
   semantic graph" → assigns a UUID, creates a `SemanticNode` with
@@ -2629,7 +3017,7 @@ Ctrl+Z / Ctrl+Y undo/redo works across both flat and semantic edits.
 ##### Impact on `AssociationGraph`
 
 The existing `AssociationGraph` uses display-name strings as node
-identifiers. Phase 10 adds a UUID resolution pass at CSV load time:
+identifiers. Phase 13 adds a UUID resolution pass at CSV load time:
 
 1. CSV is parsed → rows loaded into flat model as before
 2. Registry is loaded from sidecar (or created fresh if absent)
@@ -2676,7 +3064,7 @@ the user saves a sidecar.
 - All semantic edits are undoable with Ctrl+Z
 - Exporting a sidecar and reloading it restores the full semantic layer
   including all UUIDs
-- All existing Phase 1–9 tests pass without modification
+- All existing Phase 1–12 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. Rename
 "Fundamental Theorem of Calculus" to "FTC" in the flat table — the
@@ -2688,7 +3076,7 @@ sidecar. Reload — the node, edge, and properties are all preserved.
 
 ---
 
-#### Phase 11 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
+#### Phase 14 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
 
 ##### Background and motivation
 
@@ -2702,10 +3090,10 @@ semantic layer grows:
 2. **No typed cells** — the type row convention (`text`, `math`) is a
    custom encoding on top of CSV, not part of the format.
 3. **No stable identity** — entity IDs are display-name strings. The
-   UUID registry (Phase 10) patches this but the patch lives outside
+   UUID registry (Phase 13) patches this but the patch lives outside
    the CSV.
 
-Phase 11 introduces a native JSON format (`.bk.json`) that natively
+Phase 14 introduces a native JSON format (`.bk.json`) that natively
 encodes everything: flat table data, cell types, the semantic graph,
 the entity registry, and the association vocabulary. CSV becomes an
 import/export adapter, not the canonical format.
@@ -2755,7 +3143,7 @@ Key design decisions:
 ##### CSV as import/export adapter
 
 The existing `parseCSV` function becomes a CSV importer: it produces
-a `KnowledgeBase` from CSV text, auto-assigning UUIDs (as in Phase 10).
+a `KnowledgeBase` from CSV text, auto-assigning UUIDs (as in Phase 13).
 A new `exportCSV(table)` function (already exists in `KnowledgeBase`)
 remains for exporting individual tables back to CSV for interoperability.
 
@@ -2793,7 +3181,7 @@ layer on top of them.
 - CSV files still load correctly via the existing path
 - The semantic layer (concepts, collections, items, families) survives
   the round-trip without any sidecar file
-- All existing Phase 1–10 tests pass without modification
+- All existing Phase 1–13 tests pass without modification
 
 **Demo:** Load `sample.bk.json` directly. The flat table, association
 graph, and collection browser all populate from a single file. Edit a
@@ -2904,7 +3292,10 @@ Webapp/
 │   │   └── index.ts             ← barrel re-export only
 │   ├── controller/              ← AppController
 │   ├── view/                    ← TableView, GraphFilterView, SearchView, session
-│   ├── plugins/                 ← math, text plugins + registry
+│   ├── plugins/                 ← math, text, geometry plugins + registry
+│   │   ├── math/
+│   │   ├── text/
+│   │   └── geometry/            ← geometry syntax plugin (types, grammar, render)
 │   ├── data/                    ← CSV parser, types
 │   ├── search/                  ← search engine
 │   ├── ui/                      ← legacy UI functions (backward compat for tests)

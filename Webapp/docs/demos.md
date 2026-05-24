@@ -665,3 +665,178 @@ Try the raw name without the backslash.
 `localStorage` must be available. In private/incognito mode, `localStorage`
 may be disabled. The banner only appears if files were loaded in a previous
 session.
+
+---
+
+## Phase 9 — Geometry Syntax Plugin
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Load the geometry sample CSV
+
+1. Click **📂 Open** in the menu bar
+2. Navigate to `Webapp/public/geometry-sample.csv`
+3. Select and open
+
+The table appears with three columns: **Name** (text), **Diagram** (geometry),
+**Notes** (text). Each cell in the Diagram column renders as an SVG diagram.
+
+---
+
+### 2. Verify rendered diagrams
+
+| Row | Expected diagram |
+|-----|-----------------|
+| Right Triangle | Triangle with vertices A, B, C; segments labelled 3, 4, 5; perpendicular mark at A |
+| Parallel Lines | Two horizontal lines with parallel tick marks |
+| Circle | Circle through three points A, B, C with centre O |
+| Angle Demo | Two segments from B with an angle arc between them |
+
+---
+
+### 3. Edit a geometry cell
+
+1. Click any cell in the **Diagram** column
+2. The cell stays rendered — the formula bar at the top fills with the raw
+   geometry source (multi-line)
+3. The source is editable in the formula bar textarea
+4. Add a new statement on a new line using **Alt+Enter**:
+   ```
+   Segment(A,C)
+   ```
+5. The cell re-renders live as you type — the new segment appears in the diagram
+6. Press **Enter** to commit
+
+---
+
+### 4. Write a geometry cell from scratch
+
+1. Click **+ Row** in the toolbar to add a new row
+2. Click the empty Diagram cell
+3. Type the following in the formula bar (use **Alt+Enter** between lines):
+   ```
+   Point(A,B,C)
+   Point(A)=(0,0)
+   Point(B)=(4,0)
+   Point(C)=(2,3)
+   Triangle(A,B,C)
+   Segment(A,B)=4
+   ```
+4. Press **Enter** — the cell renders a triangle with a labelled base
+
+---
+
+### 5. Test multi-line editing
+
+1. Click a geometry cell with multiple statements
+2. The formula bar expands to show all lines
+3. Use **Alt+Enter** to insert a new line between existing statements
+4. Use plain **Enter** to commit
+5. Use **Escape** to cancel and restore the original source
+
+---
+
+### 6. Test parse error display
+
+1. Click a geometry cell
+2. In the formula bar, type an invalid statement:
+   ```
+   UnknownConstruct(A,B)
+   ```
+3. The cell shows a red **Parse error:** message inline
+4. The rest of the table is unaffected
+5. Press **Escape** to restore the original
+
+---
+
+### 7. Geometry syntax reference
+
+The following constructs are supported in geometry cells:
+
+**Declarations:**
+```
+System(2,Euclidean)        — coordinate system (default if omitted)
+Point(A,B,C)               — declare points
+Point(A)=(2,3)             — point with coordinates
+Axis(x)                    — coordinate axis
+Origin(O)                  — origin declaration
+```
+
+**Primitives:**
+```
+Segment(A,B)               — line segment
+Segment(A,B)=5             — segment with measurement label
+Line(A,B)                  — infinite line (dashed)
+Ray(A,B)                   — ray from A through B
+Arrow(A,B)                 — directed arrow, tip at B
+Angle(A,B,C)               — angle at vertex B
+Angle(A,B,C)=30            — angle with value label
+```
+
+**Relations:**
+```
+Parallel(Line(A,B),Line(C,D))
+Perpendicular(Line(A,B),Line(C,D))
+Intersection(Line(A,B),Line(C,D))=E
+Midpoint(M,Segment(A,B))
+```
+
+**Polygons:**
+```
+Triangle(A,B,C)
+Quadrilateral(A,B,C,D)
+Polygon(A,B,C,D,E)
+```
+
+**Curves:**
+```
+Circle((A,B,C),O)          — circle through A,B,C with centre O
+Circle((A,B,C),O,4)        — with explicit radius
+Ellipse((A,B,C),O,5,3)     — with major/minor axes
+Arc(A,B,O)                 — arc from A to B on circle centred at O
+```
+
+**Higher-dimensional:**
+```
+Plane(A,B,C)               — plane through three points
+Plane(x+y+z=1)             — plane by equation
+Geodesic(A,B)              — geodesic (non-Euclidean)
+```
+
+---
+
+## Troubleshooting
+
+### Geometry cell shows a parse error for valid-looking source
+Check that each statement is on its own line. The geometry parser is
+newline-sensitive — statements must be separated by newlines, not semicolons
+or spaces. Use **Alt+Enter** in the formula bar to insert newlines.
+
+### Alt+Enter inserts a newline but focus is lost
+This is a browser-specific issue. The `suppressBlur` flag in `TableView`
+should prevent this. If it still occurs, click back on the formula bar
+textarea and continue editing.
+
+### Diagram renders but points are in unexpected positions
+Points without explicit coordinates are auto-laid-out in a circle. To
+control positions, add `Point(A)=(x,y)` declarations with numeric coordinates.
+The renderer scales all explicit coordinates to fit the 400×300 viewport.
+
+### Circle or Ellipse renders as a dot
+The circumference points `(A,B,C)` must be declared and have coordinates
+(or be auto-laid-out) before the circle can compute its radius. If all
+points land at the same auto-layout position, the radius will be zero.
+Add explicit coordinates: `Point(A)=(2,0)`, `Point(O)=(0,0)`, etc.

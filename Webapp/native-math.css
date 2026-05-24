@@ -247,3 +247,90 @@
   display: inline-block;
   transform: skewX(20deg);
 }
+
+/* ── Geometry diagram ────────────────────────────────────────────────────────── */
+.geo-wrapper {
+  display: inline-block;
+  max-width: 100%;
+}
+.geo-diagram {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  display: block;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+}
+
+/* Primitives */
+.geo-segment, .geo-ray, .geo-line, .geo-geodesic {
+  stroke: #1e293b;
+  stroke-width: 1.5;
+  fill: none;
+}
+.geo-line    { stroke-dasharray: 4 3; stroke: #475569; }
+.geo-ray     { stroke: #1e293b; }
+.geo-geodesic{ stroke-dasharray: 6 3; stroke: #7c3aed; }
+
+/* Arrow */
+.geo-arrow {
+  stroke: #1e293b;
+  stroke-width: 1.5;
+  fill: none;
+}
+.geo-arrowhead { fill: #1e293b; }
+
+/* Angle arc */
+.geo-angle-arc {
+  stroke: #2563eb;
+  stroke-width: 1.2;
+  fill: none;
+}
+
+/* Polygons */
+.geo-polygon {
+  stroke: #1e293b;
+  stroke-width: 1.5;
+  fill: rgba(59, 130, 246, 0.06);
+}
+
+/* Circles / ellipses / arcs */
+.geo-circle, .geo-ellipse {
+  stroke: #1e293b;
+  stroke-width: 1.5;
+  fill: rgba(59, 130, 246, 0.04);
+}
+.geo-arc {
+  stroke: #1e293b;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+/* Points */
+.geo-point { fill: #1e293b; stroke: none; }
+
+/* Labels */
+.geo-label {
+  fill: #1e293b;
+  font-size: 11px;
+  font-family: 'Cambria Math', serif;
+  font-style: italic;
+}
+
+/* Relation markers */
+.geo-tick {
+  stroke: #1e293b;
+  stroke-width: 1.5;
+}
+.geo-perp-mark {
+  stroke: #1e293b;
+  stroke-width: 1.2;
+  fill: none;
+}
+
+/* Embedded math labels inside SVG foreignObject */
+.geo-math-label {
+  font-size: 10px;
+  line-height: 1;
+  display: inline-block;
+}

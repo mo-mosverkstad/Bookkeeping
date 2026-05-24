@@ -926,3 +926,145 @@ Full rewrite. Key additions:
 5. **`thead th { position: sticky; top: 0 }`.** The table header row stays
    visible as the user scrolls through a long table. This is the standard
    spreadsheet behaviour — column names are always visible.
+
+---
+
+## Phase 9 — Geometry Syntax Plugin
+
+---
+
+### Implementation
+
+**Added — `src/plugins/geometry/`**
+
+New plugin directory with five files mirroring the math plugin structure:
+
+| File | Role |
+|------|------|
+| `types.ts` | AST node interfaces — no logic, no imports except `MathNode` |
+| `grammar.ts` | PEG grammar definition + exported `parser` instance + `parseGeometry()` |
+| `build.ts` | *(intermediate, superseded — see refactoring below)* |
+| `el.ts` | `svgEl()` and `svgText()` SVG element helpers |
+| `render.ts` | `renderGeometry()` — AST → SVG element |
+| `index.ts` | Plugin entry point: `type_id: "geometry"`, `version: "1.0.0"` |
+
+**Grammar design:**
+
+The geometry grammar uses `PEGParser` with `skip: /^[ \t]+/` (spaces and tabs only — newlines are statement separators, not whitespace). The grammar structure:
+
+```
+Program      = Statement (\n Statement)*
+Statement    = AssignStatement | CallStatement | BlankOrComment
+AssignStatement = CallExpr "=" RhsValue
+CallStatement   = CallExpr
+CallExpr     = Name "(" ArgList ")"
+ArgList      = Arg ("," Arg)*  |  empty
+Arg          = PointGroup | CallExpr | MathArg
+PointGroup   = "(" Label ("," Label)* ")"
+MathArg      = /^[^,)\n\r]+/
+RhsValue     = CallExpr | RhsRaw
+```
+
+`CallExpr` is a proper PEG sequence (name + `(` + ArgList + `)`) — not a raw string regex. By the time `build()` is called, it receives a fully structured `ParsedCall { name, args[] }`. `build()` only does a `switch(name)` and assembles the AST node — no string splitting, no re-parsing.
+
+Math sub-expressions (coordinates, labels, measurements) are isolated by the PEG grammar and passed as raw strings to `build()`, which calls `mathParser.parse("Expression", span)` on the already-isolated text.
+
+**AST node types** (all in `types.ts`):
+
+`SystemDeclNode`, `PointDeclNode`, `SegmentExpr`, `LineExpr`, `RayExpr`, `ArrowNode`, `AngleExpr`, `ParallelNode`, `PerpendicularNode`, `IntersectionNode`, `MidpointNode`, `EqualityNode`, `TriangleNode`, `QuadrilateralNode`, `PolygonNode`, `CircleNode`, `EllipseNode`, `ArcNode`, `PlaneNode`, `HyperplaneNode`, `AxisDeclNode`, `OriginDeclNode`, `GraphNode`, `GeodesicNode`, `CurvatureNode`, `GeometryProgram`.
+
+**Renderer** (`render.ts`):
+
+SVG renderer with a 400×300 internal viewport. Points with explicit coordinates are scaled to fit; remaining points are auto-laid-out in a circle. Draws all primitives as SVG elements. Imports `svgEl`/`svgText` from `el.ts`.
+
+**Added — `src/plugins/registry.ts`**
+
+`geometryPlugin` registered with `type_id: "geometry"`.
+
+**Added — `native-math.css`**
+
+Geometry diagram styles: `.geo-diagram`, `.geo-segment`, `.geo-line`, `.geo-ray`, `.geo-arrow`, `.geo-angle-arc`, `.geo-polygon`, `.geo-circle`, `.geo-ellipse`, `.geo-arc`, `.geo-point`, `.geo-label`, `.geo-tick`, `.geo-perp-mark`, `.geo-arrowhead`, `.geo-math-label`, `.geo-wrapper`.
+
+**Added — `public/geometry-sample.csv`**
+
+Sample CSV with `geometry` type column demonstrating right triangle, parallel lines, circle, and angle constructs.
+
+**Added — `test/plugins/geometry/grammar.test.ts`**
+
+25 tests covering all construct types, coordinate parsing, multi-statement programs, and comment/blank-line handling.
+
+**Added — `vitest.config.ts`**
+
+Added `cacheDir` pointing to `~/.vite-cache/Webapp` (Linux native filesystem) to avoid WSL DrvFs cache coherency issues with newly created directories.
+
+---
+
+### Refactoring — modular architecture matching math plugin
+
+The initial `grammar.ts` was a monolith mixing the PEG grammar, build helpers (`splitArgs`, `callNameOf`, `innerOf`, `buildCall`, `buildAssign`, `parseGeoExpr`), and the public entry point. It was also using a single regex to capture entire `"Name(...)"` calls as raw strings, then re-parsing them inside `build()`.
+
+**Refactored to match `src/plugins/math/` structure exactly:**
+
+| File | Contents |
+|------|----------|
+| `types.ts` | AST node interfaces only |
+| `grammar.ts` | PEG grammar + exported `parser` + `parseGeometry()` |
+| `el.ts` | `svgEl()`, `svgText()` — mirrors `math/el.ts` |
+| `render.ts` | Renderer only, imports from `el.ts` |
+| `index.ts` | Plugin entry point |
+
+The `build.ts` intermediate file (created during the first refactor pass) was superseded when the grammar was rewritten to parse structure properly — build helpers are now inline in `grammar.ts` as in the math plugin.
+
+---
+
+### Bug fixes
+
+**Bug 1 — `BlankOrComment` matching empty string**
+
+`BlankOrComment` regex `/^(?:#[^\n]*|\/\/[^\n]*|[ \t]*)/` used `*` (zero or more) for whitespace, so it matched empty string on every line. Since `Statement` tried `BlankOrComment` first (PEG ordered choice), it always succeeded with an empty match, leaving the real statement unconsumed. The parser then expected a newline or EOF and found the statement text instead.
+
+Fix: reorder `Statement` choices to try `AssignStatement` and `CallStatement` before `BlankOrComment`, and change `[ \t]*` to `[ \t]+` so `BlankOrComment` only matches lines with actual whitespace or comment characters.
+
+**Bug 2 — `build()` re-parsing raw strings**
+
+The first grammar implementation captured `"Point(A,B,C)"` as a single regex string, then `build()` called `callNameOf()`, `innerOf()`, `splitArgs()` to re-parse it. This violated the architecture principle: `build()` should only assemble AST nodes from already-parsed data.
+
+Fix: rewrote `CallExpr` as a proper PEG sequence `Name "(" ArgList ")"` with `ArgList` parsing individual arguments. `build()` now receives `{ name: "Point", args: ["A","B","C"] }` and only does `switch(name)` + node construction.
+
+**Bug 3 — Formula bar dismissing cell focus on click**
+
+The `document.addEventListener("click", () => tableView.cancelActive())` fired on every click including clicks on the formula bar textarea, committing and deactivating the active cell before the user could reposition the cursor.
+
+Fix: added a `sourceInput.contains(e.target)` guard — clicks inside the formula bar are excluded from the cancel-active listener.
+
+**Bug 4 — Alt+Enter causing blur instead of newline**
+
+On Chromium-based browsers, pressing Alt+Enter on a `<textarea>` dispatches `blur` before `keydown` completes. The `blur` listener was firing and calling `commit()`, clearing the textarea.
+
+Fix: added `suppressBlur` flag set to `true` at the start of the Alt+Enter handler. The `blur` listener checks `if (this.suppressBlur) return`. After inserting the newline, `requestAnimationFrame` resets the flag and re-focuses the textarea.
+
+**Bug 5 — Session dismiss button not working**
+
+`document.getElementById("dismiss-session")?.addEventListener(...)` was called after `sessionBanner.innerHTML = ...`. The button was found correctly, but the document-level click listener (`tableView.cancelActive()`) was also firing on the same click, potentially interfering. More critically, the listener was attached via `getElementById` which is fragile after `innerHTML` replacement.
+
+Fix: replaced with event delegation on `sessionBanner` itself with `e.stopPropagation()` to prevent the click from bubbling to the document listener.
+
+**Bug 6 — Formula result div rendering algebraic syntax for all cell types**
+
+The formula bar previously had a `#result` div that rendered the formula bar content as a math expression on Enter. This caused geometry cells to be re-interpreted as algebraic syntax, producing incorrect renders.
+
+Fix: removed `#result` div, all `mathPlugin`/`renderMath` imports, and the standalone renderer block from `main.ts`. The formula bar is now a pure source editor with no automatic rendering of its own content.
+
+---
+
+### Design decisions
+
+1. **`skip: /^[ \t]+/` not `/^[ \t\r\n]+/`** — Geometry is a statement-list language where newlines are the statement separator. The math plugin skips all whitespace including newlines because it parses a single expression. Geometry must not skip newlines or the `Program` rule cannot detect statement boundaries.
+
+2. **`CallExpr` as PEG sequence, not regex** — Capturing `"Name(...)"` as a raw string and re-parsing in `build()` duplicates the parser's job and produces fragile code. The PEG grammar parses the full structure; `build()` only assembles.
+
+3. **`PointGroup` rule for `Circle((A,B,C),O)`** — The inner `(A,B,C)` is a group of point labels, not a math expression. A dedicated `PointGroup` rule (tried before `CallExpr` and `MathArg` in the `Arg` choice) handles this correctly without ambiguity.
+
+4. **Math delegation in `build()`** — Math sub-expressions (coordinates, measurements) are captured as raw strings by `MathArg` and `RhsRaw`. `build()` calls `mathParser.parse("Expression", span)` on the already-isolated text. This is correct: the PEG grammar handles geometry structure; the math parser handles math content. The two parsers are composed at the `build()` boundary, not at the grammar level.
+
+5. **`el.ts` for SVG helpers** — Mirrors `math/el.ts` for HTML helpers. Keeps `render.ts` focused on drawing logic, not element creation boilerplate.
