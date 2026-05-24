@@ -2638,7 +2638,712 @@ cell renders ethanol as a bond-line diagram.
 
 ---
 
-#### Phase 12 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
+#### Phase 12 — Control File & Map Views 📐 *planned*
+
+**Goal:** Introduce a `control.json` file that declares how a folder of CSV
+files should be loaded and rendered. Standard tables continue to render as
+spreadsheets. Map declarations bind one or more CSV files together and
+dispatch them to a diagram renderer instead of a table renderer.
+
+---
+
+##### Core insight
+
+A map is a special kind of CSV table **physically** — nodes are rows, edges
+are rows, all stored as plain CSV. The difference from a standard table is
+purely in **rendering intent** and **column role assignment**. The control
+file is the single place where both are declared.
+
+This means:
+- No new file format is needed — CSV remains the storage medium
+- The same CSV file can appear as both a standard table tab and a diagram
+  node source simultaneously — two views over the same data
+- Adding a new diagram type requires only a new renderer and a new `view`
+  value in the control file — no changes to existing files or the data model
+
+---
+
+##### Control file — `control.json`
+
+Lives alongside the CSV files in the same folder. Optional — if absent,
+every CSV in the folder loads as a standard table (backward compatible).
+
+```json
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "id": "theorems",
+      "view": "table",
+      "file": "theorems.csv"
+    },
+    {
+      "id": "glycolysis",
+      "view": "flow",
+      "nodes": {
+        "file": "glycolysis-nodes.csv",
+        "mapping": {
+          "id":    "Formula",
+          "label": "Name",
+          "type":  "Kind",
+          "x":     "PosX",
+          "y":     "PosY"
+        }
+      },
+      "edges": {
+        "file": "glycolysis-edges.csv",
+        "mapping": {
+          "from":  "Reactant",
+          "to":    "Product",
+          "type":  "ReactionType",
+          "label": "Enzyme"
+        }
+      }
+    },
+    {
+      "id": "anatomy",
+      "view": "spatial",
+      "nodes": {
+        "file": "anatomy-nodes.csv",
+        "mapping": {
+          "id":     "Structure",
+          "label":  "Name",
+          "type":   "Category",
+          "x":      "X",
+          "y":      "Y",
+          "width":  "W",
+          "height": "H",
+          "parent": "ContainedIn"
+        }
+      },
+      "edges": {
+        "file": "anatomy-edges.csv",
+        "mapping": {
+          "from":  "From",
+          "to":    "To",
+          "type":  "Relation"
+        }
+      }
+    },
+    {
+      "id": "uml-classes",
+      "view": "relation",
+      "nodes": {
+        "file": "classes.csv",
+        "mapping": { "id": "ClassName", "label": "ClassName", "type": "Kind" }
+      },
+      "edges": {
+        "file": "relationships.csv",
+        "mapping": { "from": "Source", "to": "Target", "type": "RelType", "label": "Label" }
+      }
+    },
+    {
+      "id": "login-sequence",
+      "view": "sequence",
+      "actors": {
+        "file": "actors.csv",
+        "mapping": { "id": "Actor", "label": "Actor" }
+      },
+      "messages": {
+        "file": "messages.csv",
+        "mapping": { "from": "From", "to": "To", "label": "Message", "time": "Order" }
+      }
+    }
+  ]
+}
+```
+
+---
+
+##### Full mapping — design rationale
+
+Full explicit mapping is used rather than reserved column names or
+convention-based defaults. Rationale:
+
+- A knowledge storage system cannot anticipate every domain's column naming
+  conventions during development. Forcing schema conformance on the CSV
+  defeats the reusability property — the same CSV cannot serve as both a
+  standard table and a diagram node source if its columns must be renamed.
+- Full mapping in the control file is the only approach that is both
+  fully reusable and fully explicit. Every column role is declared once,
+  in one place, without touching the CSV.
+- The control file is the single source of truth for rendering intent.
+  No in-band metadata in the CSV beyond the existing types row.
+
+---
+
+##### Map view taxonomy
+
+Four structurally distinct map types, each with its own renderer:
+
+| `view` value | Structure | Layout | Covers |
+|---|---|---|---|
+| `flow` | Directed graph, possibly cyclic | Directional (LR or TB), force-directed | Reaction pathway, metabolism map, flowchart, dependency graph |
+| `spatial` | Containment hierarchy + adjacency | Fixed spatial positions, containment boxes | Anatomy diagram, system architecture, UML package diagram |
+| `relation` | General directed graph | Force-directed or hierarchical by relation type | UML class diagram, ER diagram, concept map, knowledge graph |
+| `sequence` | Ordered actors × ordered messages | 2D timeline: actors as vertical lifelines, messages as horizontal arrows | UML sequence diagram, signal timing diagram |
+
+`flow`, `spatial`, and `relation` all use nodes + edges CSV files.
+`sequence` uses actors + messages CSV files (different file roles).
+
+---
+
+##### Mapping fields per view type
+
+**Nodes mapping** (used by `flow`, `spatial`, `relation`):
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | Stable node identity — referenced by edge `from`/`to` |
+| `label` | no | Display name (falls back to `id` if absent) |
+| `type` | no | Node type — drives shape and colour via `nodeStyles` |
+| `x`, `y` | no | Position hints for fixed-layout maps (`spatial`) |
+| `width`, `height` | no | Size hints for containment boxes (`spatial`) |
+| `parent` | no | Parent node id for containment hierarchy (`spatial`) |
+
+All other columns in the nodes CSV are **domain content** — rendered
+inside the node using the column's plugin type from the CSV types row.
+
+**Edges mapping** (used by `flow`, `spatial`, `relation`):
+
+| Field | Required | Meaning |
+|---|---|---|
+| `from` | yes | Source node id |
+| `to` | yes | Target node id |
+| `type` | no | Edge type — drives arrow style via `edgeStyles` |
+| `label` | no | Edge label displayed near the midpoint |
+
+**Actors mapping** (used by `sequence`):
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | Actor identity — referenced by message `from`/`to` |
+| `label` | no | Display name |
+
+**Messages mapping** (used by `sequence`):
+
+| Field | Required | Meaning |
+|---|---|---|
+| `from` | yes | Source actor id |
+| `to` | yes | Target actor id |
+| `label` | no | Message label |
+| `time` | no | Ordering key (integer or float, ascending) |
+| `type` | no | Message type (sync, async, return, create, destroy) |
+
+---
+
+##### Multiple node files
+
+A diagram can draw nodes from multiple CSV files — useful when a large
+map spans multiple domain tables:
+
+```json
+{
+  "id": "metabolism",
+  "view": "flow",
+  "nodes": [
+    { "file": "glycolysis-nodes.csv",  "mapping": { "id": "Formula", "label": "Name", "type": "Kind" } },
+    { "file": "tca-nodes.csv",         "mapping": { "id": "Formula", "label": "Name", "type": "Kind" } },
+    { "file": "pentose-nodes.csv",     "mapping": { "id": "Formula", "label": "Name", "type": "Kind" } }
+  ],
+  "edges": {
+    "file": "metabolism-edges.csv",
+    "mapping": { "from": "Reactant", "to": "Product", "type": "ReactionType" }
+  }
+}
+```
+
+The renderer merges all node files into one node map keyed by `id`.
+Edge `from`/`to` references resolve across all node files. Node `id`
+values must be unique across all node files in a diagram.
+
+---
+
+##### Inline edges via `_associations` column
+
+If no `edges` key is present in a diagram declaration, the renderer
+falls back to reading the `_associations` column from the nodes CSV
+(the existing Phase 4 convention). This means existing CSVs with
+`_associations` columns can be rendered as diagrams with zero additional
+configuration:
+
+```json
+{ "id": "concept-map", "view": "relation", "nodes": { "file": "concepts.csv", "mapping": { "id": "Name", "label": "Name" } } }
+```
+
+---
+
+##### Style declarations (optional)
+
+Node and edge appearance is driven by the `type` column value. Styles
+are declared in the control file entry:
+
+```json
+"nodeStyles": {
+  "compound": { "shape": "ellipse", "color": "#e0f2fe" },
+  "enzyme":   { "shape": "rect",    "color": "#fef9c3" },
+  "cofactor": { "shape": "diamond", "color": "#f0fdf4" }
+},
+"edgeStyles": {
+  "substrate": { "arrow": "open",   "dash": false },
+  "product":   { "arrow": "filled", "dash": false },
+  "inhibits":  { "arrow": "flat",   "dash": true  },
+  "activates": { "arrow": "filled", "dash": false, "color": "#16a34a" }
+}
+```
+
+If `nodeStyles`/`edgeStyles` are absent, the renderer uses defaults
+per view type. Unknown type values use the default style.
+
+---
+
+##### Reusability — same file as table and diagram
+
+The same CSV file can appear in multiple entries:
+
+```json
+{ "id": "glycolysis-table", "view": "table", "file": "glycolysis-nodes.csv" },
+{ "id": "glycolysis-map",   "view": "flow",  "nodes": { "file": "glycolysis-nodes.csv", "mapping": { ... } }, "edges": { ... } }
+```
+
+Two tabs in the UI — one spreadsheet, one diagram — both reading the
+same file. Editing a cell in the spreadsheet tab updates the node label
+in the diagram tab on next render.
+
+---
+
+##### Backward compatibility
+
+If `control.json` is absent, every `.csv` file in the folder loads as
+a standard table, exactly as before. No existing files need to change.
+The control file is purely additive.
+
+---
+
+##### In-memory model additions
+
+The existing `KnowledgeBase` model is unchanged. Two new model classes
+are added:
+
+**`DiagramDecl`** — parsed from a control file entry with a non-`table`
+view. Holds the view type, resolved node/edge table references, mapping
+definitions, and style declarations. Not a `Table` — it is a rendering
+declaration over existing tables.
+
+**`ControlFile`** — top-level container parsed from `control.json`.
+Holds a list of entries, each either a `TableDecl` (view: table) or a
+`DiagramDecl` (view: flow/spatial/relation/sequence).
+
+`KnowledgeBase` gains one new field:
+```
+readonly diagrams: DiagramDecl[] = []
+```
+
+No existing fields or methods change.
+
+---
+
+##### UI additions
+
+The tab strip currently shows one tab per loaded CSV table. With the
+control file, tabs are driven by the control file entries instead:
+- `table` entries → standard spreadsheet tab (existing behaviour)
+- `flow`/`spatial`/`relation`/`sequence` entries → diagram tab
+
+Clicking a diagram tab renders the diagram in `#workspace` instead of
+a spreadsheet. The formula bar and toolbar are hidden or repurposed
+for diagram interaction (pan, zoom, node selection).
+
+---
+
+##### View architecture — `WorkspaceView` class hierarchy
+
+Cell plugins (math, chemistry, geometry, physics) operate at **micro
+scale** — one cell, one expression, stateless, interchangeable. The
+cell plugin registry pattern fits them perfectly.
+
+Display views operate at **macro scale** — one or more entire CSV files,
+rendered as a coherent view filling the workspace. They are stateful,
+have layout, support interaction (pan, zoom, click, select), and own
+the workspace for the duration of a tab's active lifetime. The plugin
+registry pattern is the wrong model for them.
+
+The right model is a **view component class hierarchy**. Each view type
+is a proper class. The existing `TableView` is already a view component
+— the new diagram views extend the same pattern:
+
+```
+WorkspaceView (interface)
+  mount(container, data, args, state?): void
+  unmount(): ViewState
+  update(data): void
+
+TableView          implements WorkspaceView   ← already exists, refactored to conform
+FlowDiagramView    implements WorkspaceView   ← Phase 12
+SpatialView        implements WorkspaceView   ← Phase 12
+RelationView       implements WorkspaceView   ← Phase 12
+SequenceView       implements WorkspaceView   ← Phase 12
+```
+
+The controller holds `activeView: WorkspaceView`. Tab switching:
+```ts
+const state = activeView.unmount();          // save state
+savedStates.set(activeEntryId, state);       // store opaque blob
+activeView = viewFactory(entry, data);       // create new view
+activeView.mount(workspaceEl, data, args,    // restore state
+    savedStates.get(newEntryId));
+```
+
+`viewFactory` is a simple switch on `entry.view` — not a registry,
+just a factory function. Adding a new view type = new class + one line
+in the factory. No interface changes, no registry updates.
+
+---
+
+##### View state — what each view remembers
+
+State means the view remembers where the user left off and restores it
+when they return to that tab. Each view type defines its own state shape
+internally. The controller stores states as opaque `unknown` blobs and
+passes them back to the same view type that produced them — it never
+inspects them.
+
+**`unmount()` returns state. `mount()` accepts optional saved state.**
+
+State per view type:
+
+| View | State fields |
+|---|---|
+| `TableView` | `scrollTop`, `scrollLeft`, `sortCol`, `sortAsc` |
+| `FlowDiagramView` | `panX`, `panY`, `zoom`, `selectedNodeIds[]`, `nodePositions: Record<id, {x,y}>` |
+| `SpatialView` | `panX`, `panY`, `zoom`, `selectedNodeId` |
+| `RelationView` | `panX`, `panY`, `zoom`, `selectedNodeIds[]`, `nodePositions: Record<id, {x,y}>` |
+| `SequenceView` | `scrollTop`, `selectedMessageId` |
+
+**Two state lifetimes:**
+
+- **In-session** — lives as long as the app session. Held by the
+  controller in `savedStates: Map<entryId, unknown>`. Lost on page
+  reload. Covers all state fields above.
+
+- **Persistent** — survives page reload. Stored in `localStorage`
+  alongside the session file names. Only the lightweight subset:
+  `panX`, `panY`, `zoom`, `scrollTop`, `sortCol`, `sortAsc`, active
+  tab id. Not layout positions (too large to serialise on every change).
+
+**Layout positions — the special case:**
+
+Force-directed layout is non-deterministic. Once the algorithm settles
+(or the user drags nodes manually), those positions must be frozen and
+remembered — otherwise every tab switch re-runs the layout from scratch.
+
+- **Default**: positions are in-session state only. Layout runs once
+  on first mount. Positions stored in `FlowViewState.nodePositions`
+  and restored on tab switch. Lost on page reload — layout re-runs.
+
+- **Future — "Save Layout"**: a toolbar button writes the computed
+  `x`/`y` positions back into the nodes CSV (or a sidecar). On next
+  load, those positions are read as the `x`/`y` mapping fields and
+  the layout algorithm is skipped. This is equivalent to promoting a
+  `flow` view to a `spatial` view by persisting its layout. Deferred
+  to a later phase.
+
+---
+
+##### Concrete tasks
+- [ ] Define `ControlFile`, `TableDecl`, `DiagramDecl`, `NodeMapping`,
+      `EdgeMapping`, `ActorMapping`, `MessageMapping`, `NodeStyle`,
+      `EdgeStyle` interfaces in `src/data/control.ts`
+- [ ] Implement `parseControlFile(json): ControlFile` in `src/data/control.ts`
+- [ ] Add `readonly diagrams: DiagramDecl[]` to `KnowledgeBase`
+- [ ] Update `AppController.loadFiles()`: if a `control.json` is present
+      among dropped files, parse it and use it to drive table/diagram loading
+      instead of loading all CSVs as tables
+- [ ] Implement `FlowDiagramView` in `src/view/`: reads `DiagramDecl`,
+      resolves node/edge rows via mapping, renders as SVG directed graph
+      with force-directed layout (D3-force or hand-written spring layout)
+- [ ] Implement `SpatialDiagramView` in `src/view/`: containment boxes
+      at declared `x`/`y`/`width`/`height`, adjacency edges between boxes
+- [ ] Implement `RelationDiagramView` in `src/view/`: force-directed
+      layout, typed edge arrows, node shapes by type
+- [ ] Implement `SequenceDiagramView` in `src/view/`: vertical lifelines,
+      horizontal message arrows ordered by `time` column
+- [ ] Update `TableView` tab strip: driven by `ControlFile` entries when
+      present, falling back to one-tab-per-CSV when absent
+- [ ] Add diagram CSS: node shapes (ellipse, rect, diamond), edge arrows
+      (open, filled, flat), dashed edges, lifelines, message arrows
+- [ ] Add sample control file `public/control.json` with a flow diagram
+      declaration over new sample node/edge CSVs
+- [ ] Add `public/glycolysis-nodes.csv` and `public/glycolysis-edges.csv`
+      as sample data for the flow diagram demo
+- [ ] Add tests for `parseControlFile`
+- [ ] Add tests for node/edge resolution via mapping
+
+**Completion criteria:**
+- Loading a folder with `control.json` drives tab creation from the
+  control file entries, not from raw CSV filenames
+- A `table` entry renders as a standard spreadsheet tab (unchanged)
+- A `flow` entry renders as a directed graph SVG in `#workspace`
+- Node labels use the mapped `label` column; node shapes use `nodeStyles`
+- Edge arrows use the mapped `type` column and `edgeStyles`
+- Multiple node files merge correctly; edge references resolve across files
+- The same CSV file appears as both a table tab and a diagram node source
+  simultaneously — editing a cell in the table tab is reflected in the
+  diagram tab on next render
+- Absent `control.json` → all CSVs load as standard tables (backward compat)
+- All existing Phase 1–11 tests pass without modification
+
+**Demo:** Drop a folder containing `control.json`, `glycolysis-nodes.csv`,
+`glycolysis-edges.csv`, and `theorems.csv`. The tab strip shows three tabs:
+"theorems" (standard table), "glycolysis-table" (spreadsheet view of nodes),
+"glycolysis-map" (flow diagram). Click the flow diagram tab — the glycolysis
+pathway renders as a directed graph with compound nodes (ellipses, blue),
+enzyme nodes (rectangles, yellow), and labelled reaction arrows between them.
+Click the glycolysis-table tab, edit a compound name — switch back to the
+diagram tab and the node label has updated.
+
+---
+
+#### Phase 13 — File System Access & Save Strategy 📐 *planned*
+
+**Goal:** Upgrade the file open/save lifecycle from download-only to
+direct filesystem access where the browser supports it, using a
+capability-detection pattern that delegates to the correct strategy at
+startup — no try/catch, no browser version checks, no hardcoded data.
+
+---
+
+##### The problem with the current approach
+
+The current save mechanism creates a `Blob`, generates an object URL,
+and triggers a download via a hidden `<a download>` element. This works
+everywhere but forces the user to manually replace the original file
+after every save — the browser cannot write back to the file it opened.
+
+The File System Access API (`showOpenFilePicker`, `showSaveFilePicker`)
+solves this: it returns a `FileSystemFileHandle` that the app can write
+through directly, enabling true Ctrl+S save-in-place. But it is not
+supported in all browsers (Firefox does not support it as of 2025;
+Safari support is partial).
+
+---
+
+##### Why not try/catch and why not browser version checks
+
+**try/catch** for capability detection is wrong because:
+- It conflates "API not present" with "API present but failed" — a
+  write failure (disk full, permission denied) would silently fall back
+  to download instead of surfacing the real error
+- It makes the control flow implicit and hard to reason about
+- The fallback fires at the wrong time — after the user has already
+  interacted with a picker that may not have appeared
+
+**Browser version checks** are wrong because:
+- They require hardcoded version tables that rot immediately
+- A browser may support the API in some versions but not others, or
+  behind a flag, or only on certain platforms
+- The source of truth for whether an API exists is the runtime, not
+  a lookup table
+
+---
+
+##### The correct approach — capability detection at startup
+
+Check for the existence of the API functions themselves at startup,
+not at call time. The check is a simple property existence test:
+
+```ts
+const HAS_FILE_SYSTEM_ACCESS =
+    typeof window.showOpenFilePicker === "function" &&
+    typeof window.showSaveFilePicker === "function";
+```
+
+This is evaluated once when the module loads. It is a pure boolean —
+no async, no try/catch, no side effects. The result is used to select
+which strategy implementation to instantiate.
+
+---
+
+##### Strategy pattern — `FileSystemStrategy` interface
+
+Two concrete strategies implement one interface. The controller holds
+a single `FileSystemStrategy` reference, set at startup. All file
+operations go through the strategy — the controller never branches on
+browser capability after startup.
+
+```ts
+interface FileSystemStrategy {
+    // Open one or more files. Returns file contents + opaque handles
+    // (handles are null in the fallback strategy)
+    open(options: OpenOptions): Promise<OpenedFile[]>;
+
+    // Save content to a file. Uses the stored handle if available,
+    // otherwise triggers a download.
+    save(content: string, handle: FileHandle | null, suggestedName: string): Promise<FileHandle | null>;
+
+    // Save As — always prompts for a new location.
+    saveAs(content: string, suggestedName: string): Promise<FileHandle | null>;
+
+    // Whether this strategy supports in-place save (handle != null)
+    readonly canSaveInPlace: boolean;
+}
+
+type FileHandle = FileSystemFileHandle;   // native handle, opaque to callers
+
+interface OpenedFile {
+    name: string;
+    text: string;
+    handle: FileHandle | null;   // null in fallback strategy
+}
+```
+
+**`NativeFileSystemStrategy`** — used when `HAS_FILE_SYSTEM_ACCESS` is true:
+- `open()` calls `showOpenFilePicker()`, reads each file via
+  `handle.getFile().text()`, returns handles alongside content
+- `save()` with a non-null handle calls `handle.createWritable()`,
+  writes content, closes the writable — direct in-place save
+- `save()` with a null handle delegates to `saveAs()`
+- `saveAs()` calls `showSaveFilePicker()`, writes, returns new handle
+- `canSaveInPlace = true`
+
+**`DownloadFallbackStrategy`** — used when `HAS_FILE_SYSTEM_ACCESS` is false:
+- `open()` programmatically clicks a hidden `<input type="file">`,
+  reads via `FileReader`, returns null handles
+- `save()` and `saveAs()` both create a `Blob`, generate an object URL,
+  trigger a download via `<a download>`, revoke the URL— no handle returned
+- `canSaveInPlace = false`
+
+**Startup wiring** in `main.ts`:
+```ts
+const fileSystem: FileSystemStrategy = HAS_FILE_SYSTEM_ACCESS
+    ? new NativeFileSystemStrategy()
+    : new DownloadFallbackStrategy();
+
+controller.setFileSystemStrategy(fileSystem);
+```
+
+The controller never inspects `HAS_FILE_SYSTEM_ACCESS` again. It only
+calls `fileSystem.open()`, `fileSystem.save()`, `fileSystem.saveAs()`.
+
+---
+
+##### Handle storage — per-file, not per-session
+
+Each loaded file has its own handle. The controller stores handles
+alongside the loaded data:
+
+```ts
+interface LoadedEntry {
+    name: string;
+    text: string;
+    handle: FileHandle | null;   // null if opened via fallback
+}
+
+loadedFiles: Map<string, LoadedEntry>   // keyed by filename
+```
+
+When the user saves a specific file (CSV, control.json, meta.json),
+the controller looks up its handle and calls `fileSystem.save(content,
+handle, name)`. If the handle is null (fallback browser), a download
+is triggered. If the handle is non-null (native browser), the file is
+written in place.
+
+---
+
+##### Permission model
+
+`FileSystemFileHandle` requires write permission. On Chrome, the first
+write after opening triggers a permission prompt. The permission is not
+persistent across page reloads — the user must re-grant each session.
+This is a browser security constraint, not something the app can work
+around. The strategy handles this transparently: `createWritable()`
+will prompt if needed; the app does not need to manage permissions
+explicitly.
+
+---
+
+##### Open path upgrade
+
+The current open path uses `<input type="file">` which returns a `File`
+object (read-only blob, no handle). To support save-in-place, the open
+path must also be upgraded to `showOpenFilePicker` in the native
+strategy — only `showOpenFilePicker` returns a `FileSystemFileHandle`.
+
+The fallback strategy continues to use `<input type="file">` and
+returns null handles. The rest of the app is unchanged — it only sees
+`OpenedFile[]` from the strategy, not the underlying mechanism.
+
+---
+
+##### UI changes
+
+- **Save button** (Ctrl+S): calls `fileSystem.save(content, handle, name)`
+  for each modified file. On native browsers: writes in place, no dialog.
+  On fallback browsers: triggers a download per modified file.
+- **Save As button**: always calls `fileSystem.saveAs()` — prompts for
+  location on native browsers, triggers download on fallback.
+- **Status indicator**: when `canSaveInPlace` is false, a small indicator
+  in the status bar shows "⇓ Download mode" so the user knows saves
+  produce downloads rather than in-place writes.
+- **Dirty indicator**: a `●` dot in the tab title or status bar when
+  the in-memory model differs from the last saved state.
+
+---
+
+##### Concrete tasks
+- [ ] Define `FileSystemStrategy`, `OpenOptions`, `OpenedFile`,
+      `FileHandle` interfaces in `src/data/file-system.ts`
+- [ ] Implement `NativeFileSystemStrategy` in `src/data/file-system.ts`:
+      `showOpenFilePicker` open, `createWritable` save, `showSaveFilePicker`
+      save-as
+- [ ] Implement `DownloadFallbackStrategy` in `src/data/file-system.ts`:
+      `<input type="file">` open, `Blob` + object URL download save
+- [ ] Add `HAS_FILE_SYSTEM_ACCESS` capability constant in
+      `src/data/file-system.ts` — property existence check only, no
+      try/catch, no version strings
+- [ ] Wire strategy selection in `main.ts`: instantiate correct strategy
+      based on `HAS_FILE_SYSTEM_ACCESS`, pass to controller
+- [ ] Add `setFileSystemStrategy(s)` and `loadedFiles: Map<string,
+      LoadedEntry>` to `AppController`
+- [ ] Update `AppController.loadFiles()` to use `fileSystem.open()` and
+      store returned handles in `loadedFiles`
+- [ ] Add `AppController.saveFile(name)` — serialises the named file,
+      calls `fileSystem.save(content, handle, name)`
+- [ ] Add `AppController.saveAllModified()` — calls `saveFile` for each
+      entry where in-memory state differs from last-saved text
+- [ ] Wire Ctrl+S to `saveAllModified()` in `main.ts`
+- [ ] Add Save As button to toolbar, wired to `fileSystem.saveAs()`
+- [ ] Add dirty indicator to tab titles and status bar
+- [ ] Add "⇓ Download mode" indicator when `canSaveInPlace` is false
+- [ ] Add tests for `NativeFileSystemStrategy` (mock `showOpenFilePicker`
+      and `showSaveFilePicker`)
+- [ ] Add tests for `DownloadFallbackStrategy`
+- [ ] Add tests for `AppController.saveFile` and `saveAllModified`
+
+**Completion criteria:**
+- On a browser with File System Access API: opening a CSV and pressing
+  Ctrl+S writes directly back to the original file with no dialog
+- On a browser without File System Access API: Ctrl+S triggers a
+  download of the modified file
+- The controller never branches on browser capability after startup —
+  all branching is inside the strategy implementations
+- No try/catch used for capability detection anywhere in the codebase
+- No browser version strings or hardcoded compatibility tables anywhere
+- `HAS_FILE_SYSTEM_ACCESS` is the single point of capability detection,
+  evaluated once at module load time
+- Dirty indicator appears when unsaved changes exist
+- All existing Phase 1–12 tests pass without modification
+
+**Demo:** Open `theorems.csv` in Chrome. Edit a cell. Press Ctrl+S —
+no download dialog appears; the file is written in place. Open the file
+in a text editor — the edit is present. Open the same file in Firefox.
+Edit a cell. Press Ctrl+S — a download is triggered. The status bar
+shows "⇓ Download mode". The Save As button always prompts for a
+location regardless of browser.
+
+---
+
+#### Phase 14 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
 
 ##### New model classes (additive — no existing classes modified)
 
@@ -2905,9 +3610,9 @@ panel is an additional view layer on top.
 - **Stable entity IDs** — `sourceEntityId` still uses the fragile
   first-cell string. Renaming a row in the CSV breaks the sidecar link.
   Phase 13 introduces UUIDs and a stable ID registry.
-- **Semantic editing** — Phase 12 is read-only for the semantic layer.
-  Creating/editing nodes and edges via the UI is Phase 13.
-- **Native format** — CSV remains the canonical storage. Phase 14
+- **Semantic editing** — Phase 14 is read-only for the semantic layer.
+  Creating/editing nodes and edges via the UI is Phase 15.
+- **Native format** — CSV remains the canonical storage. Phase 16
   replaces it with a format that natively encodes the semantic layer.
 
 ##### Concrete tasks
@@ -2940,7 +3645,7 @@ panel is an additional view layer on top.
 - The semantic panel renders a tree driven by the configured edge label
 - Clicking a node with a `sourceEntityId` highlights its row in the
   flat table
-- All existing Phase 1–11 tests pass without modification
+- All existing Phase 1–13 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. The semantic panel
 shows a tree built from `"child-of"` edges: `Differential Calculus >
@@ -2952,11 +3657,11 @@ completely different tree structure from the same generic model.
 
 ---
 
-#### Phase 13 — Stable Entity Identity & Semantic Editing 📐 *planned*
+#### Phase 15 — Stable Entity Identity & Semantic Editing 📐 *planned*
 
 ##### Background and motivation
 
-Phase 12 introduces the semantic layer but leaves one critical fragility
+Phase 14 introduces the semantic layer but leaves one critical fragility
 intact: `sourceEntityId` is still the mutable first-cell string value of
 a CSV row. If the user renames "Fundamental Theorem of Calculus" to
 "FTC" in the flat table, the sidecar link silently breaks — the
@@ -2994,7 +3699,7 @@ the semantic layer fully stable against renames.
 
 ##### Semantic editing
 
-Phase 12 is read-only for the semantic layer. Phase 13 makes it editable:
+Phase 13 is read-only for the semantic layer. Phase 14 makes it editable:
 
 - **Create node** — right-click a row in the flat table → "Add to
   semantic graph" → assigns a UUID, creates a `SemanticNode` with
@@ -3065,7 +3770,7 @@ the user saves a sidecar.
 - All semantic edits are undoable with Ctrl+Z
 - Exporting a sidecar and reloading it restores the full semantic layer
   including all UUIDs
-- All existing Phase 1–12 tests pass without modification
+- All existing Phase 1–14 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. Rename
 "Fundamental Theorem of Calculus" to "FTC" in the flat table — the
@@ -3077,7 +3782,7 @@ sidecar. Reload — the node, edge, and properties are all preserved.
 
 ---
 
-#### Phase 14 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
+#### Phase 16 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
 
 ##### Background and motivation
 
@@ -3094,7 +3799,7 @@ semantic layer grows:
    UUID registry (Phase 13) patches this but the patch lives outside
    the CSV.
 
-Phase 14 introduces a native JSON format (`.bk.json`) that natively
+Phase 15 introduces a native JSON format (`.bk.json`) that natively
 encodes everything: flat table data, cell types, the semantic graph,
 the entity registry, and the association vocabulary. CSV becomes an
 import/export adapter, not the canonical format.
@@ -3182,7 +3887,7 @@ layer on top of them.
 - CSV files still load correctly via the existing path
 - The semantic layer (concepts, collections, items, families) survives
   the round-trip without any sidecar file
-- All existing Phase 1–13 tests pass without modification
+- All existing Phase 1–15 tests pass without modification
 
 **Demo:** Load `sample.bk.json` directly. The flat table, association
 graph, and collection browser all populate from a single file. Edit a
