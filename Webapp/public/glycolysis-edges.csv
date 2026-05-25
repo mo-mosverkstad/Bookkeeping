@@ -1,0 +1,17 @@
+From,To,Type,Enzyme
+text,text,text,text
+Glucose,Hexokinase,reaction,
+Hexokinase,G6P,reaction,Hexokinase
+G6P,PGI,reaction,
+PGI,F6P,reaction,PGI
+F6P,PFK,reaction,
+PFK,F16BP,reaction,PFK
+F16BP,Aldolase,reaction,
+Aldolase,DHAP,reaction,Aldolase
+Aldolase,G3P,reaction,Aldolase
+DHAP,TPI,reaction,
+TPI,G3P,reaction,TPI
+G3P,GAPDH,reaction,
+GAPDH,Pyruvate,reaction,GAPDH
+Pyruvate,PK,reaction,
+PK,Pyruvate,reaction,PK

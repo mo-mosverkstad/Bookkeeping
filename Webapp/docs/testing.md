@@ -932,3 +932,62 @@ the complete test suite. No regression was introduced by skipping Phase 6
 Per `docs/exception.md`, tests are written by the assistant and executed
 by the user on the target environment. Results will be recorded here after
 the user runs `npm test`.
+
+---
+
+## Phase 12 — Control File & Map Views
+
+---
+
+### Automated test files
+
+| File | What is covered |
+|------|-----------------|
+| `test/data/control.test.ts` | `parseControlFile`, `resolveNodes`, `resolveEdges`, `resolveActors`, `resolveMessages` |
+
+### Phase 12 test cases
+
+#### `parseControlFile` tests
+
+| Test | Input | Expected |
+|------|-------|----------|
+| Parses version | `{ version: "1.0", entries: [] }` | `controlFile.version === "1.0"` |
+| Parses table entry | `{ view: "table", file: "x.csv" }` | `entry.view === "table"`, `entry.file === "x.csv"` |
+| Parses flow entry with nodes + edges | flow entry with mapping | `entry.nodes.mapping.id` present |
+| Parses sequence entry | sequence entry with actors + messages | `entry.actors.mapping.id` present |
+| Parses nodeStyles | `nodeStyles: { compound: { shape: "ellipse" } }` | `entry.nodeStyles.compound.shape === "ellipse"` |
+| Parses edgeStyles | `edgeStyles: { reaction: { arrow: "filled" } }` | `entry.edgeStyles.reaction.arrow === "filled"` |
+| Throws on missing entries array | `{ version: "1.0" }` | throws with message containing "entries" |
+| Throws on unknown view type | `{ view: "unknown" }` | throws with message containing "Unknown view type" |
+| Throws on missing nodes id mapping | nodes mapping without `id` | throws with message containing "id" |
+| Throws on missing edges from/to mapping | edges mapping without `from` | throws with message containing "from" |
+
+#### `resolveNodes` tests
+
+| Test | Setup | Expected |
+|------|-------|----------|
+| Maps id column | headers `["Formula","Name"]`, mapping `{id:"Formula"}` | `node.id === row[0]` |
+| Falls back label to id | mapping without `label` | `node.label === node.id` |
+| Maps label column | mapping `{label:"Name"}` | `node.label === row[1]` |
+| Maps type column | mapping `{type:"Kind"}` | `node.type === row[2]` |
+| Maps x/y columns | mapping `{x:"PosX",y:"PosY"}` | `node.x` and `node.y` are floats |
+| Puts unmapped columns in extra | headers with extra column | `node.extra["Notes"] === value` |
+| Skips mapped columns from extra | mapped columns | not present in `node.extra` |
+
+#### `resolveEdges` tests
+
+| Test | Setup | Expected |
+|------|-------|----------|
+| Maps from/to | mapping `{from:"From",to:"To"}` | `edge.from`, `edge.to` correct |
+| Maps type and label | mapping with type/label | `edge.type`, `edge.label` correct |
+| Defaults missing optional fields | mapping without type/label | `edge.type === ""`, `edge.label === ""` |
+
+---
+
+### Test run results
+
+**Status: awaiting execution on target (WSL Ubuntu)**
+
+Per `docs/exception.md`, tests are written by the assistant and executed
+by the user on the target environment. Results will be recorded here after
+the user runs `npm test`.

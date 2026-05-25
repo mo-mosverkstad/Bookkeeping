@@ -1,0 +1,20 @@
+Formula,Name,Kind
+text,text,text
+AcCoA,Acetyl-CoA,compound
+OAA,Oxaloacetate,compound
+Citrate,Citrate,compound
+IsoCitrate,Isocitrate,compound
+aKG,α-Ketoglutarate,compound
+SucCoA,Succinyl-CoA,compound
+Succinate,Succinate,compound
+Fumarate,Fumarate,compound
+Malate,Malate,compound
+CS,Citrate synthase,enzyme
+Aconitase,Aconitase,enzyme
+IDH,Isocitrate dehydrogenase,enzyme
+KGDH,α-Ketoglutarate dehydrogenase,enzyme
+SCS,Succinyl-CoA synthetase,enzyme
+SDH,Succinate dehydrogenase,enzyme
+Fumarase,Fumarase,enzyme
+MDH,Malate dehydrogenase,enzyme
+PDH,Pyruvate dehydrogenase,enzyme

@@ -1,5 +1,7 @@
 import { KnowledgeBase, Table, Column, Row, Cell, EditHistory } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
+import { parseControlFile, resolveNodes, resolveEdges, resolveActors, resolveMessages } from "../data/control.ts";
+import type { ControlFile, FlowDecl, SequenceDecl, NodeSource, ResolvedDiagram } from "../data/control.ts";
 import { searchText, searchByIdentifier, getNeighbourhood, crossTableJoin } from "../search/index.ts";
 import type { SearchHit, NeighbourHit, JoinHit } from "../search/index.ts";
 import type { TableView } from "../view/table-view.ts";
@@ -175,6 +177,99 @@ export class AppController {
     /** Names of all currently loaded files (for session persistence). */
     getLoadedFileNames(): string[] {
         return this.knowledgeBase.tables.map(t => t.name);
+    }
+
+    /**
+     * Load a control.json file. Parses it and stores the ControlFile on the
+     * knowledge base. Diagram entries are resolved once all CSV files are
+     * loaded — call resolveAllDiagrams() after all CSVs are loaded.
+     */
+    loadControlFile(jsonText: string): ControlFile {
+        const parsed = JSON.parse(jsonText) as unknown;
+        return parseControlFile(parsed);
+    }
+
+    /**
+     * Resolve all diagram declarations in a ControlFile against the loaded
+     * CSV tables. Stores resolved diagrams in knowledgeBase.diagrams.
+     *
+     * csvFiles: map of filename → { headers, rows } from parseCSV.
+     */
+    resolveAllDiagrams(
+        controlFile: ControlFile,
+        csvFiles: Map<string, { headers: string[]; types: string[]; rows: string[][] }>,
+    ): void {
+        this.knowledgeBase.diagrams.length = 0;
+        for (const entry of controlFile.entries) {
+            if (entry.view === "table") continue;
+
+            if (entry.view === "sequence") {
+                const seq = entry as SequenceDecl;
+                const actorFile = csvFiles.get(seq.actors.file);
+                const msgFile   = csvFiles.get(seq.messages.file);
+                if (!actorFile || !msgFile) continue;
+                const diagram: ResolvedDiagram = {
+                    entry,
+                    actors:   resolveActors(actorFile.headers, actorFile.rows, seq.actors.mapping),
+                    messages: resolveMessages(msgFile.headers, msgFile.rows, seq.messages.mapping),
+                    nodeStyles: {},
+                    edgeStyles: {},
+                };
+                this.knowledgeBase.diagrams.push(diagram);
+                continue;
+            }
+
+            // flow / spatial / relation
+            const flow = entry as FlowDecl;
+            const nodeSources: NodeSource[] = Array.isArray(flow.nodes)
+                ? flow.nodes
+                : [flow.nodes];
+
+            const allNodes = nodeSources.flatMap(src => {
+                const f = csvFiles.get(src.file);
+                if (!f) return [];
+                return resolveNodes(f.headers, f.rows, src.mapping);
+            });
+
+            let allEdges = undefined;
+            if (flow.edges) {
+                const ef = csvFiles.get(flow.edges.file);
+                if (ef) allEdges = resolveEdges(ef.headers, ef.rows, flow.edges.mapping);
+            }
+
+            // Fallback: _associations column from first node source
+            if (!allEdges && nodeSources.length > 0) {
+                const firstFile = csvFiles.get(nodeSources[0].file);
+                if (firstFile) {
+                    const assocIdx = firstFile.headers.indexOf("_associations");
+                    if (assocIdx >= 0) {
+                        allEdges = [];
+                        firstFile.rows.forEach((row, i) => {
+                            const srcId = row[firstFile.headers.indexOf(nodeSources[0].mapping.id)] ?? "";
+                            const assocVal = row[assocIdx] ?? "";
+                            for (const part of assocVal.split(";")) {
+                                const [rel, tgt] = part.split(":");
+                                if (tgt) allEdges!.push({ from: srcId, to: tgt.trim(), type: rel?.trim() ?? "", label: "" });
+                            }
+                        });
+                    }
+                }
+            }
+
+            const diagram: ResolvedDiagram = {
+                entry,
+                nodes: allNodes,
+                edges: allEdges ?? [],
+                nodeStyles: flow.nodeStyles ?? {},
+                edgeStyles: flow.edgeStyles ?? {},
+            };
+            this.knowledgeBase.diagrams.push(diagram);
+        }
+    }
+
+    /** Get all resolved diagrams. */
+    getDiagrams(): ResolvedDiagram[] {
+        return this.knowledgeBase.diagrams;
     }
 
     private refreshViews(): void {

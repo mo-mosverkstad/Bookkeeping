@@ -3409,3 +3409,455 @@ span)` to produce `MathNode` values. Same composition pattern as geometry.
 5. **State symbols as lowercase closed set** — `(s)`, `(l)`, `(g)`, `(aq)`
    are distinguished from group `(OH)2` by the fact that element symbols
    always start uppercase. No explicit lookahead needed.
+
+---
+
+## Phase 12 — Control File & Map Views
+
+---
+
+### Overview
+
+Phase 12 introduces two things:
+
+1. **`control.json`** — a file that declares how a folder of CSVs should be
+   loaded and rendered. Standard tables continue to work as before. Diagram
+   entries bind CSV files to a diagram renderer instead of a spreadsheet.
+
+2. **`FlowDiagramView`** — an SVG diagram renderer that handles four view
+   types: `flow`, `spatial`, `relation`, and `sequence`. The renderer
+   automatically detects cycles in the graph and chooses the correct layout
+   algorithm for each part of the diagram.
+
+---
+
+### `src/data/control.ts` — Control File Parser
+
+This file defines all the TypeScript interfaces for the control file format
+and the functions that parse and resolve them.
+
+#### Interfaces
+
+**`ControlFile`** — the top-level object parsed from `control.json`:
+```ts
+interface ControlFile {
+    version: string;
+    entries: ControlEntry[];
+}
+```
+
+**`ControlEntry`** — a union of three entry types:
+- `TableDecl` — `{ id, view: "table", file }` — loads a CSV as a spreadsheet
+- `FlowDecl` — `{ id, view: "flow"|"spatial"|"relation", nodes, edges?, nodeStyles?, edgeStyles? }` — loads a diagram
+- `SequenceDecl` — `{ id, view: "sequence", actors, messages }` — loads a sequence diagram
+
+**`NodeMapping`** — declares which CSV column plays each role in a node:
+```ts
+interface NodeMapping {
+    id: string;      // column name → node identity
+    label?: string;  // column name → display label
+    type?: string;   // column name → node type (drives shape/colour)
+    x?: string;      // column name → x position hint
+    y?: string;      // column name → y position hint
+    ...
+}
+```
+
+**`ResolvedNode`** — a node after the mapping has been applied to a CSV row:
+```ts
+interface ResolvedNode {
+    id: string;
+    label: string;
+    type: string;
+    x?: number;
+    y?: number;
+    extra: Record<string, string>;  // all other columns
+}
+```
+
+#### `parseControlFile(json)`
+
+Validates the raw JSON object and constructs a `ControlFile`. Throws
+descriptive errors for missing required fields (e.g. `"entries"` array,
+`"id"` in node mapping). This is the only place where the control file
+format is validated — all downstream code can assume the structure is correct.
+
+#### `resolveNodes(headers, rows, mapping)`
+
+Takes the raw CSV data (headers array + rows array) and a `NodeMapping`,
+and produces a `ResolvedNode[]`. For each row:
+1. Looks up the column index for each mapping field using `headers.indexOf`
+2. Reads the value at that index from the row
+3. Parses `x`, `y`, `width`, `height` as floats if present
+4. Puts all non-mapped columns into `extra`
+
+This function is the bridge between the CSV world (column names, string values)
+and the diagram world (typed node objects with known fields).
+
+---
+
+### `src/view/workspace-view.ts` — WorkspaceView Interface
+
+Defines the contract that all workspace-level views must implement:
+
+```ts
+interface WorkspaceView {
+    mount(container: HTMLElement, data: WorkspaceData, state?: ViewState): void;
+    unmount(): ViewState;
+    update(data: WorkspaceData): void;
+}
+```
+
+**Why an interface instead of a plugin registry?**
+
+Cell plugins (math, chemistry, geometry, physics) are stateless, interchangeable,
+and operate on one cell at a time. A registry pattern fits them perfectly.
+
+Workspace views are stateful (they remember pan/zoom/scroll position), own
+the entire workspace DOM for the duration of a tab's lifetime, and have
+complex lifecycle (mount → interact → unmount → restore state). A class
+hierarchy with a shared interface is the correct model for this.
+
+`viewFactory(entry, ...)` is a simple switch on `entry.view` that instantiates
+the correct class. Adding a new view type = new class + one line in the factory.
+
+---
+
+### `src/view/flow-diagram-view.ts` — The Graph Renderer
+
+This is the most algorithmically complex file in the project. It renders
+directed graphs as SVG diagrams. The key challenge is that the same renderer
+must handle two structurally different graph shapes:
+
+- **Linear/DAG graphs** (glycolysis): a chain of nodes with no cycles, or
+  with only small back-edges. Best rendered as a top-to-bottom layered layout.
+- **Cyclic graphs** (Krebs cycle): a ring of nodes where every node is part
+  of a cycle. Best rendered as a circle with nodes evenly spaced around the ring.
+
+The renderer detects which case applies using **Tarjan's SCC algorithm** and
+dispatches to the correct layout strategy for each part of the graph.
+
+---
+
+#### Step 1 — Tarjan's Strongly Connected Components (SCC) Algorithm
+
+**What is a strongly connected component?**
+
+A strongly connected component (SCC) is a maximal set of nodes where every
+node can reach every other node by following directed edges. In a cycle
+`A → B → C → A`, all three nodes form one SCC because you can get from any
+node to any other by following the arrows.
+
+A node with no cycle is its own SCC of size 1.
+
+**Why do we need SCCs?**
+
+We need to know which nodes are part of a cycle so we can:
+1. Place cycle nodes on a circle (ring layout)
+2. Place non-cycle nodes in ranks above/below the circle (layered layout)
+3. Draw cycle edges as arcs (following the ring) vs DAG edges as right-angle paths
+
+**How Tarjan's algorithm works — step by step:**
+
+Tarjan's algorithm does a single depth-first search (DFS) over the graph.
+It uses three data structures:
+
+- `index` — assigns each node a discovery order number (when it was first visited)
+- `lowlink` — tracks the lowest discovery number reachable from a node's subtree
+- `stack` — a stack of nodes currently being explored
+
+The key insight: a node `v` is the root of an SCC if and only if
+`lowlink[v] === index[v]`. This means no node in `v`'s subtree can reach
+anything discovered before `v` — so `v` and everything on the stack above
+it form a complete SCC.
+
+Here is the algorithm in plain English:
+
+```
+function strongconnect(v):
+    assign v a discovery index and lowlink (both = counter++)
+    push v onto the stack, mark v as "on stack"
+
+    for each neighbour w of v:
+        if w has not been visited yet:
+            recurse: strongconnect(w)
+            lowlink[v] = min(lowlink[v], lowlink[w])
+            // w's subtree might reach back to something before v
+        else if w is currently on the stack:
+            lowlink[v] = min(lowlink[v], index[w])
+            // w is an ancestor — this is a back-edge (cycle!)
+
+    if lowlink[v] === index[v]:
+        // v is the root of an SCC — pop everything above v off the stack
+        scc = []
+        repeat:
+            w = stack.pop()
+            scc.push(w)
+        until w === v
+        if scc.length > 1: record this SCC (it's a real cycle)
+```
+
+**Example — Krebs cycle:**
+
+The Krebs cycle has edges: OAA→CS→Citrate→Aconitase→IsoCitrate→IDH→aKG→KGDH→SucCoA→SCS→Succinate→SDH→Fumarate→Fumarase→Malate→MDH→OAA (closing the loop).
+
+When Tarjan's DFS reaches OAA and follows the chain all the way around, it
+eventually finds the back-edge `MDH→OAA`. At that point, `lowlink[MDH]` is
+updated to `index[OAA]` (the discovery number of OAA). When the DFS unwinds
+back to OAA, `lowlink[OAA] === index[OAA]` — OAA is the SCC root. All 16+
+nodes on the stack above OAA are popped and recorded as one SCC.
+
+In the implementation, `findCycles` returns all SCCs with size > 1. The
+largest SCC is selected as the "main cycle" for layout purposes.
+
+---
+
+#### Step 2 — Circular Layout for Cycle Nodes
+
+Once the main cycle is identified, its nodes are placed on a circle.
+
+**Ordering the nodes around the ring:**
+
+The nodes must be placed in the order they appear in the cycle, not in
+arbitrary order. `orderCycleNodes` walks the cycle edges starting from the
+entry point (the node that has an incoming edge from outside the cycle, or
+the first node if none):
+
+```
+start at entry node
+while current node is in the cycle and not yet visited:
+    add current to ordered list
+    current = outMap[current]  (follow the next edge in the cycle)
+```
+
+This produces the nodes in traversal order, which is the correct visual
+order around the ring.
+
+**Computing the radius:**
+
+The radius must be large enough that no two adjacent nodes overlap. The
+correct formula is:
+
+```
+totalPerimeter = sum of (nodeWidth + gap) for all cycle nodes
+radius = totalPerimeter / (2π)
+```
+
+This ensures the ring's circumference equals the total space needed by all
+nodes. The old formula `(maxNodeWidth + gap) × n / 2π` was wrong — it used
+the widest node for every slot, inflating the radius when one node had a
+much longer label than the others.
+
+**Placing nodes on the circle:**
+
+Each node `i` of `n` total is placed at angle:
+```
+angle = -π/2 + (2π × i / n)
+```
+
+Starting at `-π/2` (top of the circle) and going clockwise. The node's
+centre coordinates are:
+```
+x = circleCentreX + radius × cos(angle)
+y = circleCentreY + radius × sin(angle)
+```
+
+---
+
+#### Step 3 — Layered Layout for Non-Cycle Nodes
+
+Non-cycle nodes (like the glycolysis chain feeding into the Krebs ring) are
+placed in horizontal ranks above the circle.
+
+**BFS rank assignment:**
+
+Starting from all source nodes (nodes with no incoming DAG edges), BFS
+assigns each node a rank equal to its longest path from any source:
+
+```
+for each source node: rank = 0, add to queue
+while queue is not empty:
+    node = dequeue
+    for each outgoing DAG edge to next:
+        if rank[node] + 1 > rank[next]:
+            rank[next] = rank[node] + 1
+            if next not yet enqueued: enqueue next
+```
+
+The `enqueued` set prevents re-enqueuing nodes in cyclic subgraphs (the
+fix for the `RangeError: Invalid array length` bug).
+
+**Placing nodes in ranks:**
+
+Nodes in the same rank are distributed evenly across the canvas width.
+The total width of all nodes in a rank (plus gaps) is centred horizontally.
+Each rank is placed above the topmost cycle node, with `RANK_GAP` pixels
+between ranks.
+
+---
+
+#### Step 4 — Edge Routing
+
+Two different routing strategies are used depending on whether an edge is
+a cycle edge or a DAG edge.
+
+**Orthogonal routing for DAG edges:**
+
+DAG edges (at least one endpoint off the cycle) use right-angle routing.
+The path goes:
+1. Straight down from the bottom of the source node
+2. Horizontal jog at the vertical midpoint between source and target
+3. Straight down into the top of the target node
+
+```
+M x1 y1  L x1 midY  L x2 midY  L x2 y2
+```
+
+If source and target have the same x coordinate, the path is a straight
+vertical line. If source is below target (same rank), the path routes
+outward with a horizontal detour below both nodes.
+
+This produces the clean right-angle paths characteristic of chemistry
+pathway diagrams and flowcharts.
+
+**Bézier arcs for cycle edges:**
+
+Cycle edges (both endpoints on the cycle ring) use a quadratic Bézier curve
+that bows outward from the circle centre. This makes the edges follow the
+ring perimeter rather than cutting through the interior.
+
+The control point is computed as:
+```
+midpoint = average of (from.x, from.y) and (to.x, to.y)
+direction from centre to midpoint = (midpoint - centre) / |midpoint - centre|
+controlPoint = centre + direction × (distance × pushFactor + offset)
+```
+
+`pushFactor = 1.35` pushes the control point 35% further from the centre
+than the midpoint, creating a visible outward bow.
+
+The SVG path is:
+```
+M x1 y1  Q controlX controlY  x2 y2
+```
+
+where `Q` is the SVG quadratic Bézier command.
+
+---
+
+#### Step 5 — Pan and Zoom
+
+All nodes and edges are placed inside a single `<g>` element. Pan and zoom
+are applied as a CSS transform on this group:
+
+```
+panGroup.setAttribute("transform", `translate(${panX},${panY}) scale(${zoom})`)
+```
+
+Three event listeners on the SVG element update the transform:
+- `mousedown` / `mousemove` — drag to pan (updates `panX`, `panY`)
+- `wheel` — scroll to zoom (multiplies `zoom` by 1.1 or 0.9)
+
+The state (`panX`, `panY`, `zoom`) is stored in `DiagramState` and returned
+by `unmount()` so it can be restored when the user switches back to this tab.
+
+---
+
+### `src/main.ts` — Phase 12 Loading Flow
+
+The key change is that `loadFiles(files[])` now handles a batch of files
+rather than one file at a time.
+
+**Control path (when `control.json` is present):**
+
+```
+1. Read all files in parallel (Promise.all)
+2. Find control.json in the batch
+3. Parse it: parseControlFile(json)
+4. Build csvMap: filename → { headers, types, rows }
+5. For each "table" entry in control file:
+   - Call controller.loadCSV(file, text) to add it to the KnowledgeBase
+6. Call controller.resolveAllDiagrams(controlFile, csvMap)
+   - This resolves all diagram entries against the CSV data
+   - Stores ResolvedDiagram[] in kb.diagrams
+7. Call renderControlTabs(controlFile)
+   - Builds the tab strip from control file entries
+   - Table tabs: call renderTableRows() directly (not renderAll())
+   - Diagram tabs: mount a FlowDiagramView
+```
+
+**Why `renderTableRows` instead of `renderAll`:**
+
+`TableView.renderAll()` has a side effect: it calls `renderTabStrip()` which
+does `tabStrip.innerHTML = ""` and rebuilds the strip with one tab per raw
+CSV table. In control-file mode, the tab strip is owned by `renderControlTabs`
+and must not be touched by `TableView`. Calling `renderTableRows()` directly
+renders only the table body into `tableContainer`, leaving the tab strip intact.
+
+**Fallback path (no `control.json`):**
+
+All CSV files are loaded as plain tables via `controller.loadCSV()`. The
+`TableView.renderAll()` path is used as before. This is identical to the
+pre-Phase-12 behaviour — full backward compatibility.
+
+---
+
+### Sample Data Files
+
+**`public/krebs-nodes.csv`**
+
+18 nodes representing the Krebs cycle participants:
+- 9 compounds: Acetyl-CoA, Oxaloacetate, Citrate, Isocitrate, α-Ketoglutarate,
+  Succinyl-CoA, Succinate, Fumarate, Malate
+- 8 enzymes: Citrate synthase, Aconitase, IDH, KGDH, SCS, SDH, Fumarase, MDH
+- 1 entry enzyme: PDH (Pyruvate dehydrogenase) — converts Pyruvate to Acetyl-CoA
+
+**`public/krebs-edges.csv`**
+
+19 edges. The cycle: OAA → CS → Citrate → Aconitase → IsoCitrate → IDH →
+aKG → KGDH → SucCoA → SCS → Succinate → SDH → Fumarate → Fumarase → Malate →
+MDH → OAA (closing the loop). Entry: Pyruvate → PDH → AcCoA → CS.
+
+**`public/metabolism-edges.csv`**
+
+All glycolysis edges plus all Krebs edges in one file. `Pyruvate` is the
+shared node — it appears in both `glycolysis-nodes.csv` (as a product of
+GAPDH/PK) and is the entry point into the Krebs cycle via PDH. The
+`metabolism-map` entry in `control.json` merges both node files and uses
+this combined edge file.
+
+---
+
+### Design Decisions
+
+**Why two separate pathway maps plus one combined map?**
+
+The study.md principle "same schema = same table" applies to maps too:
+same conceptual scope = same map. Glycolysis and Krebs are distinct pathways.
+Merging them into one map at the data level would make both maps uneditable
+independently. The control file's `nodes: [...]` array syntax provides the
+combined view without touching the source data — the same CSV files serve
+as both independent maps and the combined overview simultaneously.
+
+**Why Tarjan's SCC instead of simple cycle detection?**
+
+Simple cycle detection (DFS with a visited set) finds *a* cycle but not
+necessarily the *largest* one, and it cannot handle graphs with multiple
+overlapping cycles. Tarjan's algorithm finds *all* SCCs in one pass and
+correctly handles nested cycles, self-loops, and disconnected components.
+The largest SCC is always the main cycle regardless of graph complexity.
+
+**Why circular layout for cycle nodes?**
+
+A cycle has no natural "top" or "bottom" — all nodes are equivalent in the
+cycle. A circular layout makes this symmetry visually explicit. It also
+naturally separates the cycle from the linear prefix (which sits above the
+ring), making the two structural regions immediately recognisable.
+
+**Why Bézier arcs for cycle edges?**
+
+Straight lines between cycle nodes would cut through the ring interior,
+making the diagram look like a spider web. Orthogonal routing would produce
+awkward right-angle paths that don't follow the ring shape. Bézier arcs
+that bow outward from the centre follow the ring perimeter naturally,
+matching the visual convention used in biochemistry textbooks.

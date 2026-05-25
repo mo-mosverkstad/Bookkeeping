@@ -1,0 +1,16 @@
+Formula,Name,Kind
+text,text,text
+Glucose,Glucose,compound
+G6P,Glucose-6-phosphate,compound
+F6P,Fructose-6-phosphate,compound
+F16BP,Fructose-1-6-bisphosphate,compound
+DHAP,Dihydroxyacetone phosphate,compound
+G3P,Glyceraldehyde-3-phosphate,compound
+Pyruvate,Pyruvate,compound
+Hexokinase,Hexokinase,enzyme
+PGI,Phosphoglucose isomerase,enzyme
+PFK,Phosphofructokinase,enzyme
+Aldolase,Aldolase,enzyme
+TPI,Triosephosphate isomerase,enzyme
+GAPDH,GAPDH,enzyme
+PK,Pyruvate kinase,enzyme

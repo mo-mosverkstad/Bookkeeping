@@ -1293,3 +1293,329 @@ the new closing delimiter.
    and `CondItem` values are captured as raw text by `LineRest` and
    `CondValue` rules, then passed to `mathParser.parse("Expression", span)`
    in `build()`. Same composition pattern as geometry and physics.
+
+---
+
+## Phase 12 — Control File & Map Views
+
+---
+
+### Implementation
+
+**Added — `src/data/control.ts`**
+
+New file. Defines all interfaces and the parser for `control.json`.
+
+| Export | Purpose |
+|--------|---------|
+| `NodeMapping`, `EdgeMapping`, `ActorMapping`, `MessageMapping` | Column role declarations per diagram type |
+| `NodeSource`, `EdgeSource`, `ActorSource`, `MessageSource` | File + mapping pairs |
+| `NodeStyle`, `EdgeStyle` | Per-type visual style declarations |
+| `TableDecl`, `FlowDecl`, `SequenceDecl`, `ControlEntry`, `ControlFile` | Control file structure |
+| `ResolvedNode`, `ResolvedEdge`, `ResolvedActor`, `ResolvedMessage`, `ResolvedDiagram` | Runtime-resolved diagram data |
+| `parseControlFile(json)` | Parses raw JSON into a `ControlFile` |
+| `resolveNodes`, `resolveEdges`, `resolveActors`, `resolveMessages` | Map CSV rows to resolved diagram data using a mapping declaration |
+
+**Added — `src/view/workspace-view.ts`**
+
+Defines the `WorkspaceView` interface and `viewFactory()`. All workspace-level views (table and diagram) implement this interface: `mount(container, data, state?)`, `unmount(): ViewState`, `update(data)`.
+
+**Added — `src/view/flow-diagram-view.ts`**
+
+New file. `FlowDiagramView` implements `WorkspaceView`. Renders flow, spatial, relation, and sequence diagrams as SVG.
+
+Layout algorithm:
+- Tarjan SCC detects strongly-connected components (cycles)
+- Cycle nodes are placed on a circle (polygon layout)
+- Non-cycle nodes are placed in layered ranks above the circle via BFS
+- Cycle edges use outward-bowing Bézier arcs
+- DAG edges use orthogonal routing (right-angle paths)
+- Pan/zoom via mousedown/mousemove/wheel on a `<g>` transform
+
+**Added — `src/view/table-view-adapter.ts`**
+
+Wraps `TableView` to conform to `WorkspaceView`. Allows the tab-switching machinery to treat table tabs and diagram tabs uniformly.
+
+**Added — `KnowledgeBase.diagrams`**
+
+`src/model/KnowledgeBase.ts` gains `readonly diagrams: ResolvedDiagram[] = []`. No existing fields or methods change.
+
+**Changed — `src/controller/index.ts`**
+
+Added:
+- `loadControlFile(jsonText)` — parses JSON text into a `ControlFile`
+- `resolveAllDiagrams(controlFile, csvMap)` — resolves all diagram declarations against loaded CSV data, populates `kb.diagrams`
+- `getDiagrams()` — returns `kb.diagrams`
+
+**Changed — `src/main.ts`**
+
+Rewritten to handle the Phase 12 loading flow:
+- File input now accepts `.csv,.json`
+- `loadFiles(files[])` reads all files in parallel via `Promise.all`
+- Detects `control.json` in the batch
+- **Control path**: parses control file, loads table-entry CSVs, resolves diagrams, builds tab strip from control file entries
+- **Fallback path**: no `control.json` → loads all CSVs as plain tables (backward compatible)
+- `renderControlTabs(controlFile)` builds the tab strip; table tabs call `renderTableRows` directly (bypassing `renderAll` to avoid tab strip overwrite); diagram tabs mount a `FlowDiagramView`
+
+**Changed — `index.html`**
+
+File input `accept` attribute changed from `.csv` to `.csv,.json`.
+
+**Added — `public/control.json`**
+
+Sample control file with 6 entries: `theorems` (table), `glycolysis-table` (table), `glycolysis-map` (flow), `krebs-table` (table), `krebs-map` (flow), `metabolism-map` (flow with multiple node files).
+
+**Added — `public/krebs-nodes.csv`**
+
+18 nodes: 9 compounds (Acetyl-CoA, Oxaloacetate, Citrate, Isocitrate, α-Ketoglutarate, Succinyl-CoA, Succinate, Fumarate, Malate) + 8 enzymes + PDH (Pyruvate dehydrogenase, the entry-point enzyme).
+
+**Added — `public/krebs-edges.csv`**
+
+19 edges encoding the full Krebs cycle. Entry: `Pyruvate → PDH → AcCoA`. Cycle closes: `MDH → OAA → CS`.
+
+**Added — `public/metabolism-edges.csv`**
+
+Combined glycolysis + Krebs edges in one file. `Pyruvate` is the shared linking node between the two pathways.
+
+---
+
+### Bug fixes
+
+**Bug 1 — `erasableSyntaxOnly` error in `FlowDiagramView`**
+
+Constructor parameter shorthand `constructor(private readonly viewType: string)` is forbidden by `erasableSyntaxOnly`. Fixed by declaring the field explicitly above the constructor and assigning in the body.
+
+**Bug 2 — Infinite BFS loop on cyclic graphs**
+
+The BFS rank assignment in `layeredLayout` re-enqueued nodes every time a longer path was found (`r + 1 > cur`). In a cycle (`Pyruvate → PK → Pyruvate`), this caused unbounded queue growth until `RangeError: Invalid array length`. Fixed by adding an `enqueued` Set — each node is pushed onto the queue at most once.
+
+**Bug 3 — Tab strip overwritten on table tab click**
+
+Clicking a table tab called `tableView.renderAll()`, which internally calls `renderTabStrip()` — this does `tabStrip.innerHTML = ""` and rebuilds the strip with one tab per raw CSV table, wiping out the control-file-driven tabs. Fixed by calling `renderTableRows()` directly instead of `renderAll()`, so only the table body is rendered and the tab strip is left untouched.
+
+---
+
+### Design decisions
+
+1. **Two maps + one combined map, not one merged map.** Glycolysis and Krebs are distinct pathways. Forcing them into one map produces an unreadable diagram at scale. The control file's `nodes: [...]` array syntax merges both node files into `metabolism-map` for the linked overview, while `glycolysis-map` and `krebs-map` remain independent.
+
+2. **`renderTableRows` instead of `renderAll` for control-file table tabs.** `renderAll` rebuilds the tab strip as a side effect. In control-file mode the tab strip is owned by `renderControlTabs`, not by `TableView`. Calling `renderTableRows` directly renders only the table body, leaving the tab strip untouched.
+
+3. **Tarjan SCC for cycle detection.** Tarjan's algorithm finds all strongly-connected components in O(V+E). The largest SCC is the main cycle. This correctly handles both purely cyclic graphs (Krebs) and graphs with a linear prefix feeding into a cycle (glycolysis → Krebs in the metabolism map).
+
+4. **Circular layout for cycle nodes, layered layout for DAG nodes.** Cycle nodes are placed on a circle ordered by traversal. Non-cycle nodes are placed in BFS ranks above the circle. This produces the correct visual shape for both pathway types without any manual coordinate specification.
+
+5. **Radius formula uses total perimeter, not max node width.** The old formula `(maxNodeW + gap) × n / 2π` used the widest node for every slot, inflating the ring for graphs with one long label. The correct formula sums all node widths plus gaps and divides by 2π — the ring circumference equals the total perimeter needed.
+
+6. **Bézier arcs for cycle edges, orthogonal paths for DAG edges.** Cycle edges bow outward from the circle centre using a quadratic Bézier with a control point pushed away from the centre. DAG edges use right-angle routing (vertical → horizontal jog → vertical). This visually distinguishes the two edge types and prevents cycle edges from cutting through the ring interior.
+
+---
+
+## Phase 12 — Post-mortem & Technical Debt Record
+
+*Written at end-of-session. Records what was completed, what was left broken,
+what needs refactoring, and what future phases must address.*
+
+---
+
+### What was completed
+
+- `src/data/control.ts` — fully implemented and type-correct after the
+  `as unknown as NodeMapping` cast fix
+- `src/view/flow-diagram-view.ts` — fully implemented: Tarjan SCC, circular
+  layout for cycles, layered BFS layout for DAG nodes, orthogonal edge routing,
+  Bézier arc routing for cycle edges, pan/zoom
+- `src/view/workspace-view.ts` — `WorkspaceView` interface and `viewFactory`
+  defined; `editBar`/`editPreview` stale parameters removed
+- `src/view/table-view-adapter.ts` — constructor fixed to match current
+  `TableView(container, tabStrip, sourceInput)` 3-argument signature
+- `src/main.ts` — Phase 12 loading flow: `Promise.all` batch read, control.json
+  detection, `renderControlTabs`, fallback path
+- `public/control.json`, `krebs-nodes.csv`, `krebs-edges.csv`,
+  `metabolism-edges.csv` — sample data for glycolysis, Krebs, and combined map
+- All four documentation files updated
+
+---
+
+### What was left broken or incomplete
+
+**1. `TableView.renderTableRows` is private — called via `(tableView as any)`**
+
+In `main.ts`, `renderControlTabs` calls:
+```ts
+(tableView as any).renderTableRows(table, table.rows, tableIdx);
+```
+This bypasses TypeScript's access control. `renderTableRows` must be made
+`public` (or a dedicated `renderSingleTable(table, tableIdx)` public method
+added) so the call is type-safe. The `as any` cast is a known technical debt.
+
+**2. `TableViewAdapter` uses `(this.tableView as any).container = container`**
+
+The adapter re-wires `TableView`'s private `container` field on mount:
+```ts
+(this.tableView as any).container = container;
+```
+This is fragile — if `TableView` is refactored, this silently breaks.
+`TableView` needs a `setContainer(el: HTMLElement)` public method.
+
+**3. Tab strip ownership is split between `TableView` and `main.ts`**
+
+In the fallback path (no `control.json`), `TableView.renderAll()` owns and
+rebuilds the tab strip. In the control-file path, `renderControlTabs` in
+`main.ts` owns the tab strip and must prevent `TableView` from touching it.
+This dual ownership is the root cause of the "tabs disappear" bug that was
+fixed by calling `renderTableRows` directly. The correct fix is a single
+`TabStripController` class that owns the tab strip and is the only entity
+that writes to it.
+
+**4. `TableViewAdapter` is unused in the current `main.ts`**
+
+`workspace-view.ts` defines `viewFactory` and `TableViewAdapter`, but
+`main.ts` does not use `viewFactory` at all — it directly instantiates
+`TableView` and `FlowDiagramView` separately. `TableViewAdapter` was
+written for a future unified tab-switching architecture that was not
+completed in Phase 12. It currently has no callers.
+
+**5. `src/ui/` legacy layer is dead code**
+
+`src/ui/file-loader.ts`, `src/ui/graph-filter.ts`, `src/ui/table.ts`,
+`src/ui/expression-input.ts` are kept for backward test compatibility but
+are not used by `main.ts`. They are dead code in the running application.
+
+---
+
+### Refactoring needed — the table/graph entanglement
+
+The core architectural problem is that `TableView` has two responsibilities
+that should be separate:
+
+1. **Tab strip management** — which tabs exist, which is active, switching
+   between them. This is currently done inside `renderAll()` → `renderTabStrip()`,
+   which means `TableView` owns the tab strip. But in Phase 12, `main.ts`
+   also needs to own the tab strip (to add diagram tabs). The result is two
+   competing owners of the same DOM element.
+
+2. **Table body rendering** — rendering a single `Table` object as an HTML
+   `<table>` with sortable columns, editable cells, drag handles, and row
+   actions. This is the core job of `TableView` and should be its only job.
+
+**The correct refactoring:**
+
+```
+TabStripController          — owns #tab-strip, manages tab buttons,
+                              fires onTabChange(entryId) callbacks
+                              knows nothing about tables or diagrams
+
+WorkspaceController         — owns #workspace, holds the active WorkspaceView,
+                              calls mount/unmount on tab change,
+                              dispatches to TableView or FlowDiagramView
+
+TableView                   — renders ONE table into a container
+                              no tab strip, no tab switching
+                              public renderTable(table, tableIdx): void
+                              public setContainer(el): void
+
+FlowDiagramView             — renders ONE diagram into a container
+                              already correct — no tab strip involvement
+
+AppController               — model operations only (loadCSV, editCell, etc.)
+                              no view references except callbacks
+```
+
+This separation means:
+- `TableView` never touches the tab strip
+- `FlowDiagramView` never touches the tab strip
+- `TabStripController` never touches table or diagram content
+- `WorkspaceController` is the single coordinator
+
+---
+
+### Future phases — diagram types beyond flow graphs
+
+The current `FlowDiagramView` handles directed graphs (flow, spatial,
+relation) and sequence diagrams. These cover reaction pathways and UML.
+They do not cover biological diagrams where the visual representation is
+spatial and pictorial rather than topological.
+
+**The electron transport chain problem:**
+
+The electron transport chain cannot be represented as a flow graph because:
+- Proteins (Complex I, II, III, IV, ATP synthase) are not abstract nodes —
+  they are spatial blobs with specific shapes embedded in a membrane
+- The inner mitochondrial membrane is a physical boundary that must be
+  rendered as a layered structure (matrix side vs intermembrane space)
+- Electron carriers (NADH, FADH₂, ubiquinone, cytochrome c) move between
+  proteins in specific spatial directions
+- Proton gradients are directional flows across the membrane, not graph edges
+- The visual convention is a cross-section diagram, not a node-edge graph
+
+This class of diagram — **spatial biology diagrams** — requires a different
+rendering approach entirely.
+
+**Proposed future view type: `"biology"` (or `"spatial-diagram"`)**
+
+A biology diagram is a declarative SVG scene where:
+- **Membranes** are rendered as layered bands (lipid bilayer, inner/outer
+  mitochondrial membrane, plasma membrane, etc.)
+- **Proteins** are rendered as named blobs with configurable shapes
+  (transmembrane proteins span the membrane; peripheral proteins sit on one side)
+- **Small molecules** are rendered as labelled circles or icons
+- **Flows** are rendered as directional arrows between named elements,
+  optionally constrained to one side of a membrane
+- **Compartments** are labelled regions (matrix, intermembrane space, cytosol)
+
+The data model for this would be a new CSV schema:
+
+```csv
+Type,Name,Location,Shape,Color
+text,text,text,text,text
+membrane,InnerMitochondrialMembrane,,band,#fde68a
+compartment,Matrix,below:InnerMitochondrialMembrane,,
+compartment,IntermembraneSpace,above:InnerMitochondrialMembrane,,
+protein,ComplexI,membrane:InnerMitochondrialMembrane,blob,#bfdbfe
+protein,ComplexIII,membrane:InnerMitochondrialMembrane,blob,#bfdbfe
+protein,ATPSynthase,membrane:InnerMitochondrialMembrane,blob,#bbf7d0
+molecule,NADH,compartment:Matrix,circle,#fca5a5
+molecule,Ubiquinone,membrane:InnerMitochondrialMembrane,circle,#d8b4fe
+flow,NADH,ComplexI,electron,
+flow,ComplexI,Ubiquinone,electron,
+flow,H+,Matrix,IntermembraneSpace,proton,
+```
+
+The control file would declare this as `"view": "biology"` with a mapping
+that identifies the Type, Name, Location, Shape, and Color columns.
+
+**This is a Phase 13+ concern.** The architecture is already prepared for it:
+- `WorkspaceView` interface is generic — any new view type implements it
+- `viewFactory` adds one `case "biology":` line
+- `control.json` adds `"view": "biology"` as a new entry type
+- The biology renderer is a new file `src/view/biology-diagram-view.ts`
+- No existing code changes
+
+**Other diagram types in the same category:**
+- Signal transduction pathways (receptor → cascade → transcription factor)
+  — partially representable as flow graphs but benefit from spatial membrane context
+- Cell structure diagrams (organelle positions within a cell)
+- Pharmacokinetic compartment models (absorption, distribution, metabolism,
+  excretion as spatial compartments with flow rates)
+- Neural circuit diagrams (neurons as blobs with dendrites/axons, synapses
+  as spatial connections)
+
+All of these share the same pattern: spatial containment + named blobs +
+directional flows. A single `"biology"` view type with a flexible enough
+data schema could cover all of them.
+
+---
+
+### Summary of technical debt priority
+
+| Priority | Item | Effort |
+|----------|------|--------|
+| High | Make `renderTableRows` public in `TableView` | Trivial |
+| High | Add `setContainer(el)` public method to `TableView` | Trivial |
+| High | Separate tab strip ownership into `TabStripController` | Medium |
+| Medium | Remove `src/ui/` dead code layer | Small |
+| Medium | Wire `viewFactory` / `TableViewAdapter` into `main.ts` | Medium |
+| Medium | Unify fallback and control-file tab paths in `main.ts` | Medium |
+| Low | `WorkspaceController` to replace `main.ts` tab logic | Large |
+| Future | `"biology"` view type for spatial membrane diagrams | Large |

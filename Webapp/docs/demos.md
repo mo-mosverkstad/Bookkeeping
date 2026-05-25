@@ -1149,3 +1149,161 @@ symbol with no space:
 ^14 C     ✗  (space not allowed)
 ^ 14C     ✗  (space not allowed)
 ```
+
+---
+
+## Phase 12 — Control File & Map Views
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Prepare the files
+
+The following files must all be in the same folder when dropped together:
+
+```
+control.json
+theorems.csv
+glycolysis-nodes.csv
+glycolysis-edges.csv
+krebs-nodes.csv
+krebs-edges.csv
+metabolism-edges.csv
+```
+
+All are in `Webapp/public/`.
+
+### 2. Drop the folder contents
+
+1. Open `Webapp/public/` in a file explorer
+2. Select all 7 files (Ctrl+A)
+3. Drag them onto the `#workspace` drop zone in the browser
+
+The tab strip populates with 6 tabs driven by `control.json`:
+`theorems`, `glycolysis-table`, `glycolysis-map`, `krebs-table`, `krebs-map`, `metabolism-map`
+
+### 3. Verify table tabs
+
+Click `theorems` — the theorems spreadsheet appears with math cells rendered.
+Click `glycolysis-table` — the glycolysis nodes CSV appears as a plain table.
+Click `krebs-table` — the Krebs cycle nodes CSV appears as a plain table.
+
+### 4. Verify glycolysis map
+
+Click `glycolysis-map`. The workspace shows an SVG diagram:
+- Compound nodes (ellipses, blue): Glucose, G6P, F6P, F16BP, DHAP, G3P, Pyruvate
+- Enzyme nodes (rectangles, yellow): Hexokinase, PGI, PFK, Aldolase, TPI, GAPDH, PK
+- Reaction arrows connecting compounds through enzymes
+- The Pyruvate ↔ PK back-edge renders as a curved arc (not a straight line)
+- All other edges use right-angle orthogonal routing
+
+### 5. Verify Krebs cycle map
+
+Click `krebs-map`. The workspace shows a ring diagram:
+- 9 compound nodes (ellipses, green) arranged in a circle: OAA, Citrate, Isocitrate, α-Ketoglutarate, Succinyl-CoA, Succinate, Fumarate, Malate, Acetyl-CoA
+- 8 enzyme nodes (rectangles, yellow) interspersed on the ring
+- PDH sits above the ring as the entry point (Pyruvate → PDH → Acetyl-CoA)
+- All cycle edges bow outward as Bézier arcs following the ring perimeter
+- The entry edges (PDH → AcCoA → CS) use orthogonal routing
+
+### 6. Verify metabolism map
+
+Click `metabolism-map`. The workspace shows the combined pathway:
+- Glycolysis nodes appear as a layered chain above the Krebs ring
+- The Krebs cycle nodes form the ring at the bottom
+- Pyruvate is the shared node linking the two pathways
+- Pan by dragging; zoom with the scroll wheel
+
+### 7. Verify backward compatibility
+
+Reload the page. Drop only `theorems.csv` (no `control.json`). The tab strip shows a single `theorems` tab — the fallback path loads all CSVs as plain tables, unchanged from Phase 11.
+
+---
+
+## Control File Format Reference
+
+```json
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "id": "my-table",
+      "view": "table",
+      "file": "data.csv"
+    },
+    {
+      "id": "my-flow",
+      "view": "flow",
+      "nodes": {
+        "file": "nodes.csv",
+        "mapping": { "id": "Formula", "label": "Name", "type": "Kind" }
+      },
+      "edges": {
+        "file": "edges.csv",
+        "mapping": { "from": "From", "to": "To", "type": "Type", "label": "Enzyme" }
+      },
+      "nodeStyles": {
+        "compound": { "shape": "ellipse", "color": "#e0f2fe" },
+        "enzyme":   { "shape": "rect",    "color": "#fef9c3" }
+      },
+      "edgeStyles": {
+        "reaction": { "arrow": "filled", "dash": false }
+      }
+    },
+    {
+      "id": "multi-source-map",
+      "view": "flow",
+      "nodes": [
+        { "file": "nodes-a.csv", "mapping": { "id": "Id", "label": "Name", "type": "Kind" } },
+        { "file": "nodes-b.csv", "mapping": { "id": "Id", "label": "Name", "type": "Kind" } }
+      ],
+      "edges": {
+        "file": "edges.csv",
+        "mapping": { "from": "From", "to": "To", "type": "Type" }
+      }
+    }
+  ]
+}
+```
+
+**View types:**
+
+| `view` | Layout | Use case |
+|--------|--------|----------|
+| `table` | Spreadsheet | Standard CSV table |
+| `flow` | Layered + circular for cycles | Metabolic pathway, flowchart |
+| `spatial` | Fixed x/y positions | Anatomy, architecture |
+| `relation` | Force-directed | UML class diagram, concept map |
+| `sequence` | Lifelines + message arrows | UML sequence diagram |
+
+**Node shape options:** `"ellipse"`, `"rect"`, `"diamond"`
+
+**Edge arrow options:** `"filled"`, `"open"`, `"flat"`
+
+---
+
+## Troubleshooting
+
+### Tabs do not appear after dropping files
+Check that `control.json` is included in the drop. Without it, all CSVs load as plain tables with the old tab strip. The browser console will show any JSON parse errors in `control.json`.
+
+### Diagram tab shows "No diagram data for..."
+The CSV file referenced in the control entry was not included in the drop. All files listed in `control.json` must be dropped together.
+
+### Krebs cycle renders as a straight line instead of a ring
+This indicates the cycle was not detected. Check that the edges form a closed loop — every node in the cycle must have both an incoming and an outgoing edge within the cycle. A missing edge breaks the SCC detection.
+
+### Nodes overlap in the diagram
+The radius is computed from the total perimeter of all cycle node labels. Very long labels increase the radius. Shorten labels in the CSV or increase the canvas size by resizing the browser window.

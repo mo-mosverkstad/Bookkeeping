@@ -2,7 +2,10 @@ import { AppController } from "./controller/index.ts";
 import { TableView } from "./view/table-view.ts";
 import { GraphFilterView } from "./view/graph-filter-view.ts";
 import { SearchView } from "./view/search-view.ts";
+import { FlowDiagramView } from "./view/flow-diagram-view.ts";
 import { saveSession, loadSession } from "./view/session.ts";
+import { parseCSV } from "./data/csv.ts";
+import type { ControlFile, ControlEntry } from "./data/control.ts";
 
 window.addEventListener("load", () => {
     const sourceInput     = document.getElementById("cell-source-input") as HTMLTextAreaElement;
@@ -36,7 +39,6 @@ window.addEventListener("load", () => {
     });
 
     document.addEventListener("click", (e) => {
-        // Do not cancel when clicking inside the formula bar
         if (sourceInput.contains(e.target as Node)) return;
         tableView.cancelActive();
     });
@@ -67,29 +69,163 @@ window.addEventListener("load", () => {
         URL.revokeObjectURL(url);
     });
 
+    // ── Diagram tab management ────────────────────────────────────────────────
+
+    /**
+     * Active diagram view — non-null when a diagram tab is selected.
+     * Null when a table tab is selected.
+     */
+    let activeDiagramView: FlowDiagramView | null = null;
+
+    /**
+     * Render the tab strip from a ControlFile, wiring both table tabs and
+     * diagram tabs. Table tabs delegate to tableView; diagram tabs mount a
+     * FlowDiagramView into tableContainer.
+     *
+     * TableView.renderAll() normally rebuilds the tab strip itself — we
+     * suppress that by passing an external tabStrip owner flag and rendering
+     * only the table body, not the tabs.
+     */
+    function renderControlTabs(controlFile: ControlFile): void {
+        tabStrip.innerHTML = "";
+        let firstTab = true;
+
+        function activateEntry(entry: ControlEntry, tab: HTMLButtonElement): void {
+            // Deactivate all tabs
+            tabStrip.querySelectorAll(".tab-btn").forEach(t => t.classList.remove("tab-active"));
+            tab.classList.add("tab-active");
+
+            // Unmount any active diagram view
+            if (activeDiagramView) {
+                activeDiagramView.unmount();
+                activeDiagramView = null;
+            }
+
+            if (entry.view === "table") {
+                // Render only the table body — do NOT let TableView touch the tab strip
+                tableContainer.innerHTML = "";
+                const tableIdx = controller.getLoadedFileNames().indexOf(
+                    (entry as { file: string }).file.replace(/\.csv$/, "")
+                );
+                if (tableIdx >= 0) {
+                    const table = controller.getKnowledgeBase().tables[tableIdx];
+                    if (table) {
+                        (tableView as any).renderTableRows(table, table.rows, tableIdx);
+                        statusText.textContent =
+                            `${table.name}  —  ${table.rows.length} rows × ${table.columns.length} cols`;
+                    }
+                }
+            } else {
+                // Show a diagram view
+                tableContainer.innerHTML = "";
+
+                const diagrams = controller.getDiagrams();
+                const diagram = diagrams.find(d => d.entry.id === entry.id);
+                if (!diagram) {
+                    tableContainer.textContent = `No diagram data for "${entry.id}"`;
+                    return;
+                }
+
+                activeDiagramView = new FlowDiagramView(entry.view as string);
+                activeDiagramView.mount(tableContainer, { diagram });
+                statusText.textContent = `Diagram: ${entry.id}`;
+            }
+        }
+
+        controlFile.entries.forEach((entry: ControlEntry) => {
+            const tab = document.createElement("button");
+            tab.className = "tab-btn";
+            tab.textContent = entry.id;
+            tab.addEventListener("click", () => activateEntry(entry, tab));
+            tabStrip.appendChild(tab);
+
+            if (firstTab) {
+                firstTab = false;
+                activateEntry(entry, tab);
+                tab.classList.add("tab-active");
+            }
+        });
+    }
+
     // ── File loading ──────────────────────────────────────────────────────────
-    function loadFile(file: File) {
-        const reader = new FileReader();
-        reader.onload = () => {
+
+    /**
+     * Read all dropped/selected files as text, then process them together.
+     * If a control.json is present, use it to drive tab creation and diagram
+     * resolution. Otherwise fall back to loading all CSVs as plain tables.
+     */
+    function loadFiles(files: File[]): void {
+        const reads: Promise<{ name: string; text: string }>[] = files.map(
+            file => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ name: file.name, text: reader.result as string });
+                reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+                reader.readAsText(file);
+            })
+        );
+
+        Promise.all(reads).then(results => {
             try {
-                controller.loadCSV(file.name, reader.result as string);
-                errorEl.textContent = "";
-                statusText.textContent = `Loaded: ${file.name}`;
-                saveSession(controller.getLoadedFileNames());
-            } catch (e) { errorEl.textContent = (e as Error).message; }
-        };
-        reader.readAsText(file);
+                const controlResult = results.find(r => r.name === "control.json");
+                const csvResults = results.filter(r => r.name.endsWith(".csv"));
+
+                if (controlResult) {
+                    // Phase 12 path: control.json present
+                    const controlFile = controller.loadControlFile(controlResult.text);
+
+                    // Build a map of filename → parsed CSV for diagram resolution
+                    const csvMap = new Map<string, { headers: string[]; types: string[]; rows: string[][] }>();
+                    for (const { name, text } of csvResults) {
+                        csvMap.set(name, parseCSV(text));
+                    }
+
+                    // Load only the CSV files referenced by table entries
+                    for (const entry of controlFile.entries) {
+                        if (entry.view === "table") {
+                            const file = (entry as { file: string }).file;
+                            const parsed = csvMap.get(file);
+                            if (parsed) {
+                                controller.loadCSV(file, csvResults.find(r => r.name === file)!.text);
+                            }
+                        }
+                    }
+
+                    // Resolve diagram declarations
+                    controller.resolveAllDiagrams(controlFile, csvMap);
+
+                    // Build tab strip from control file
+                    renderControlTabs(controlFile);
+
+                    errorEl.textContent = "";
+                    statusText.textContent = `Loaded control.json with ${controlFile.entries.length} entries`;
+                    saveSession(controller.getLoadedFileNames());
+
+                } else {
+                    // Fallback path: no control.json — load all CSVs as plain tables
+                    for (const { name, text } of csvResults) {
+                        controller.loadCSV(name, text);
+                    }
+                    errorEl.textContent = "";
+                    statusText.textContent = `Loaded: ${csvResults.map(r => r.name).join(", ")}`;
+                    saveSession(controller.getLoadedFileNames());
+                }
+            } catch (e) {
+                errorEl.textContent = (e as Error).message;
+            }
+        }).catch(e => {
+            errorEl.textContent = (e as Error).message;
+        });
     }
 
     fileInput.addEventListener("change", () => {
-        if (fileInput.files) for (const f of Array.from(fileInput.files)) loadFile(f);
+        if (fileInput.files) loadFiles(Array.from(fileInput.files));
     });
 
     workspace.addEventListener("dragover", (e) => { e.preventDefault(); workspace.classList.add("drag-over"); });
     workspace.addEventListener("dragleave", () => workspace.classList.remove("drag-over"));
     workspace.addEventListener("drop", (e) => {
         e.preventDefault(); workspace.classList.remove("drag-over");
-        if (e.dataTransfer?.files) for (const f of Array.from(e.dataTransfer.files)) loadFile(f);
+        if (e.dataTransfer?.files) loadFiles(Array.from(e.dataTransfer.files));
     });
 
     // ── Session restore ───────────────────────────────────────────────────────
