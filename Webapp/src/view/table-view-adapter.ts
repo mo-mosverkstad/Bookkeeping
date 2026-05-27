@@ -1,9 +1,7 @@
 /**
  * TableViewAdapter — wraps the existing TableView to conform to WorkspaceView.
  *
- * The existing TableView is already a view component. This adapter makes it
- * conform to the WorkspaceView interface so it can be managed by the same
- * tab-switching machinery as diagram views.
+ * Uses only the public API of TableView — no (x as any) casts.
  */
 
 import type { WorkspaceView, WorkspaceData, ViewState } from "./workspace-view.ts";
@@ -25,11 +23,12 @@ export class TableViewAdapter implements WorkspaceView {
     constructor(
         controller: AppController,
         tabStrip: HTMLElement,
+        sourceInput: HTMLTextAreaElement,
     ) {
         this.tableView = new TableView(
-            document.createElement("div"),      // placeholder — replaced on mount
+            document.createElement("div"),  // placeholder — replaced on mount via setContainer()
             tabStrip,
-            document.createElement("textarea"), // placeholder — not used by adapter
+            sourceInput,
         );
         this.tableView.setController(controller);
     }
@@ -39,10 +38,9 @@ export class TableViewAdapter implements WorkspaceView {
         if (savedState) this.state = savedState as TableState;
 
         // Re-wire the TableView's container to the actual workspace element
-        (this.tableView as any).container = container;
+        this.tableView.setContainer(container);
 
-        // Restore scroll position after render
-        const kb = (this.tableView as any).controller?.getKnowledgeBase?.();
+        const kb = this.tableView.getController()?.getKnowledgeBase();
         if (kb) {
             this.tableView.renderAll(kb.tables);
         }
@@ -54,18 +52,19 @@ export class TableViewAdapter implements WorkspaceView {
     }
 
     unmount(): ViewState {
+        const sort = this.tableView.getSortState();
         const state: TableState = {
             scrollTop:  this.container?.scrollTop  ?? 0,
             scrollLeft: this.container?.scrollLeft ?? 0,
-            sortCol: (this.tableView as any).sortCol ?? -1,
-            sortAsc: (this.tableView as any).sortAsc ?? true,
+            sortCol: sort.sortCol,
+            sortAsc: sort.sortAsc,
         };
         this.state = state;
         return state;
     }
 
     update(_data: WorkspaceData): void {
-        const kb = (this.tableView as any).controller?.getKnowledgeBase?.();
+        const kb = this.tableView.getController()?.getKnowledgeBase();
         if (kb) this.tableView.renderAll(kb.tables);
     }
 

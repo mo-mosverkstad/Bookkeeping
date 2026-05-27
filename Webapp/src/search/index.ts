@@ -8,7 +8,7 @@
  *   - Cross-table join: entities from two tables linked by a shared relation
  */
 
-import type { KnowledgeBase, Table, Row } from "../model/index.ts";
+import type { KnowledgeBase } from "../model/index.ts";
 import { parser } from "../plugins/math/grammar.ts";
 import type { MathNode } from "../plugins/math/types.ts";
 
@@ -54,16 +54,17 @@ export function searchText(kb: KnowledgeBase, query: string): SearchHit[] {
 
     kb.tables.forEach((table, tableIdx) => {
         table.rows.forEach((row, rowIdx) => {
-            row.cells.forEach((cell, colIdx) => {
-                if (cell.typeId !== "text" && cell.typeId !== "plain" && cell.typeId !== "plaintext") return;
-                const lower = cell.value.toLowerCase();
+            table.columns.forEach((col, colIdx) => {
+                if (col.typeId !== "text" && col.typeId !== "plain" && col.typeId !== "plaintext") return;
+                const value = table.getCellValue(rowIdx, colIdx);
+                const lower = value.toLowerCase();
                 const idx = lower.indexOf(q);
                 if (idx === -1) return;
                 hits.push({
                     tableIdx, tableName: table.name,
                     rowIdx, entityId: row.entityId,
-                    colIdx, colName: table.columns[colIdx]?.name ?? "",
-                    value: cell.value,
+                    colIdx, colName: col.name,
+                    value,
                     matchStart: idx, matchEnd: idx + q.length,
                 });
             });
@@ -88,18 +89,19 @@ export function searchByIdentifier(kb: KnowledgeBase, identifierName: string): S
 
     kb.tables.forEach((table, tableIdx) => {
         table.rows.forEach((row, rowIdx) => {
-            row.cells.forEach((cell, colIdx) => {
-                if (cell.typeId !== "math") return;
-                if (!cell.value.trim()) return;
+            table.columns.forEach((col, colIdx) => {
+                if (col.typeId !== "math") return;
+                const value = table.getCellValue(rowIdx, colIdx);
+                if (!value.trim()) return;
                 try {
-                    const ast = parser.parse("Expression", cell.value) as MathNode;
+                    const ast = parser.parse("Expression", value) as MathNode;
                     if (astContainsIdentifier(ast, identifierName)) {
                         hits.push({
                             tableIdx, tableName: table.name,
                             rowIdx, entityId: row.entityId,
-                            colIdx, colName: table.columns[colIdx]?.name ?? "",
-                            value: cell.value,
-                            matchStart: 0, matchEnd: cell.value.length,
+                            colIdx, colName: col.name,
+                            value,
+                            matchStart: 0, matchEnd: value.length,
                         });
                     }
                 } catch {

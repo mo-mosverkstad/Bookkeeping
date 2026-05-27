@@ -12,7 +12,7 @@ export class KnowledgeBase {
         const assocColIdx = table.getColumnIndex("_associations");
         if (assocColIdx !== -1) {
             const entityIds = table.getEntityIds();
-            const assocValues = table.rows.map(r => r.getCellValue(assocColIdx));
+            const assocValues = table.rows.map((_, rowIdx) => table.getCellValue(rowIdx, assocColIdx));
             this.graph.addFromColumn(entityIds, assocValues);
         }
     }
@@ -24,13 +24,6 @@ export class KnowledgeBase {
     }
 
     exportTableAsCSV(tableIdx: number): string {
-        const table = this.tables[tableIdx];
-        if (!table) return "";
-        const escape = (v: string) => v.includes(",") || v.includes('"') || v.includes("\n")
-            ? `"${v.replace(/"/g, '""')}"` : v;
-        const headerRow = table.columns.map(c => escape(c.name)).join(",");
-        const typeRow = table.columns.map(c => escape(c.typeId)).join(",");
-        const dataRows = table.rows.map(r => r.cells.map(c => escape(c.value)).join(","));
-        return [headerRow, typeRow, ...dataRows].join("\n");
+        return this.tables[tableIdx]?.toCSV() ?? "";
     }
 }

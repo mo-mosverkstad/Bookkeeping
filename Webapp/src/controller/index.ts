@@ -1,4 +1,4 @@
-import { KnowledgeBase, Table, Column, Row, Cell, EditHistory } from "../model/index.ts";
+import { KnowledgeBase, Table, EditHistory } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
 import { parseControlFile, resolveNodes, resolveEdges, resolveActors, resolveMessages } from "../data/control.ts";
 import type { ControlFile, FlowDecl, SequenceDecl, NodeSource, ResolvedDiagram } from "../data/control.ts";
@@ -25,11 +25,7 @@ export class AppController {
     /** Load a CSV file into the knowledge base. */
     loadCSV(fileName: string, csvText: string): void {
         const parsed = parseCSV(csvText);
-        const columns = parsed.headers.map((name, i) => new Column(name, parsed.types[i] ?? "text"));
-        const rows = parsed.rows.map(rawRow =>
-            new Row(columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId)))
-        );
-        const table = new Table(fileName.replace(/\.csv$/, ""), columns, rows);
+        const table = Table.fromCSV(fileName.replace(/\.csv$/, ""), parsed);
         this.knowledgeBase.addTable(table);
         this.refreshViews();
     }
@@ -62,12 +58,10 @@ export class AppController {
     editCell(tableIdx: number, rowIdx: number, colIdx: number, newValue: string): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
-        const cell = table.rows[rowIdx]?.cells[colIdx];
-        if (!cell) return;
-        const oldValue = cell.value;
+        const oldValue = table.getCellValue(rowIdx, colIdx);
         if (oldValue === newValue) return;
         this.history.push({ type: "cell", tableIdx, rowIdx, colIdx, oldValue, newValue });
-        cell.value = newValue;
+        table.setCellValue(rowIdx, colIdx, newValue);
         this.showAll();
     }
 
@@ -75,9 +69,8 @@ export class AppController {
     addRow(tableIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
-        const row = new Row(table.columns.map(c => new Cell("", c.typeId)));
+        const row = table.appendRow();
         this.history.push({ type: "addRow", tableIdx, row });
-        table.rows.push(row);
         this.showAll();
     }
 
@@ -85,9 +78,8 @@ export class AppController {
     insertRow(tableIdx: number, atIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
-        const row = new Row(table.columns.map(c => new Cell("", c.typeId)));
+        const row = table.insertRowAt(atIdx);
         this.history.push({ type: "addRow", tableIdx, row });
-        table.rows.splice(atIdx, 0, row);
         this.showAll();
     }
 
@@ -96,8 +88,7 @@ export class AppController {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table || fromIdx === toIdx) return;
         this.history.push({ type: "moveRow", tableIdx, fromIdx, toIdx });
-        const [row] = table.rows.splice(fromIdx, 1);
-        table.rows.splice(toIdx, 0, row);
+        table.moveRowFromTo(fromIdx, toIdx);
         this.showAll();
     }
 
@@ -105,7 +96,7 @@ export class AppController {
     deleteRow(tableIdx: number, rowIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
-        const [row] = table.rows.splice(rowIdx, 1);
+        const row = table.removeRowAt(rowIdx);
         if (!row) return;
         this.history.push({ type: "deleteRow", tableIdx, rowIdx, row });
         this.showAll();
@@ -118,14 +109,17 @@ export class AppController {
         const table = this.knowledgeBase.tables[action.tableIdx];
         if (!table) return;
         if (action.type === "cell") {
-            table.rows[action.rowIdx].cells[action.colIdx].value = action.oldValue;
+            table.setCellValue(action.rowIdx, action.colIdx, action.oldValue);
         } else if (action.type === "addRow") {
-            table.rows.pop();
+            // Remove the row that was added — it is always the last one
+            // (addRow appends, insertRow inserts at a specific index but
+            // the undo stack records the row object for redo restoration)
+            const idx = table.rows.lastIndexOf(action.row);
+            if (idx >= 0) table.removeRowAt(idx);
         } else if (action.type === "deleteRow") {
-            table.rows.splice(action.rowIdx, 0, action.row);
+            table.restoreRowAt(action.rowIdx, action.row);
         } else if (action.type === "moveRow") {
-            const [row] = table.rows.splice(action.toIdx, 1);
-            table.rows.splice(action.fromIdx, 0, row);
+            table.moveRowFromTo(action.toIdx, action.fromIdx);
         }
         this.showAll();
     }
@@ -137,14 +131,13 @@ export class AppController {
         const table = this.knowledgeBase.tables[action.tableIdx];
         if (!table) return;
         if (action.type === "cell") {
-            table.rows[action.rowIdx].cells[action.colIdx].value = action.newValue;
+            table.setCellValue(action.rowIdx, action.colIdx, action.newValue);
         } else if (action.type === "addRow") {
-            table.rows.push(action.row);
+            table.restoreRowAt(table.rows.length, action.row);
         } else if (action.type === "deleteRow") {
-            table.rows.splice(action.rowIdx, 1);
+            table.removeRowAt(action.rowIdx);
         } else if (action.type === "moveRow") {
-            const [row] = table.rows.splice(action.fromIdx, 1);
-            table.rows.splice(action.toIdx, 0, row);
+            table.moveRowFromTo(action.fromIdx, action.toIdx);
         }
         this.showAll();
     }

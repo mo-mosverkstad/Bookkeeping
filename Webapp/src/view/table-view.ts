@@ -11,7 +11,9 @@ export class TableView {
     private onStatus: ((msg: string) => void) | null = null;
     private activeTabIdx = 0;
     private currentTables: Table[] = [];
-    private suppressBlur = false;   // set true during Alt+Enter to block blur-commit
+    private suppressBlur = false;
+    private sortCol = -1;
+    private sortAsc = true;
 
     private activeCell: {
         td: HTMLElement;
@@ -70,6 +72,24 @@ export class TableView {
     setEntityClickHandler(handler: (entityId: string) => void): void { this.onEntityClick = handler; }
     setStatusCallback(cb: (msg: string) => void): void { this.onStatus = cb; }
     getActiveTableIdx(): number { return this.activeTabIdx; }
+    getController(): AppController | null { return this.controller; }
+    getSortState(): { sortCol: number; sortAsc: boolean } { return { sortCol: this.sortCol, sortAsc: this.sortAsc }; }
+    setContainer(el: HTMLElement): void { this.container = el; }
+
+    /**
+     * Render only the table body for a specific table index into the container,
+     * without touching the tab strip. Used by main.ts when control.json drives
+     * tab creation externally.
+     */
+    renderTable(tableIdx: number): void {
+        this.cancelActive();
+        this.container.innerHTML = "";
+        const table = this.currentTables[tableIdx];
+        if (!table) return;
+        this.container.className = "";
+        this.renderTableRows(table, table.rows, tableIdx);
+        this.onStatus?.(`${table.name}  —  ${table.rows.length} rows × ${table.columns.length} cols`);
+    }
 
     renderAll(tables: Table[]): void {
         this.cancelActive();
@@ -127,8 +147,6 @@ export class TableView {
         const tableEl = document.createElement("table");
         tableEl.className = "knowledge-table";
 
-        let sortCol = -1;
-        let sortAsc = true;
         let currentRows = rows;
 
         const render = () => {
@@ -139,12 +157,13 @@ export class TableView {
             if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // drag handle
             table.columns.forEach((col, i) => {
                 const th = document.createElement("th");
-                th.textContent = col.name + (i === sortCol ? (sortAsc ? " ▲" : " ▼") : "");
+                th.textContent = col.name + (i === this.sortCol ? (this.sortAsc ? " ▲" : " ▼") : "");
                 th.addEventListener("click", () => {
-                    if (sortCol === i) sortAsc = !sortAsc; else { sortCol = i; sortAsc = true; }
+                    if (this.sortCol === i) this.sortAsc = !this.sortAsc;
+                    else { this.sortCol = i; this.sortAsc = true; }
                     currentRows = [...rows].sort((a, b) => {
                         const av = a.getCellValue(i), bv = b.getCellValue(i);
-                        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+                        return this.sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
                     });
                     render();
                 });

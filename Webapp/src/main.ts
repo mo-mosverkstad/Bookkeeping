@@ -108,12 +108,7 @@ window.addEventListener("load", () => {
                     (entry as { file: string }).file.replace(/\.csv$/, "")
                 );
                 if (tableIdx >= 0) {
-                    const table = controller.getKnowledgeBase().tables[tableIdx];
-                    if (table) {
-                        (tableView as any).renderTableRows(table, table.rows, tableIdx);
-                        statusText.textContent =
-                            `${table.name}  —  ${table.rows.length} rows × ${table.columns.length} cols`;
-                    }
+                    tableView.renderTable(tableIdx);
                 }
             } else {
                 // Show a diagram view

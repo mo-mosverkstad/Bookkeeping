@@ -3861,3 +3861,161 @@ making the diagram look like a spider web. Orthogonal routing would produce
 awkward right-angle paths that don't follow the ring shape. Bézier arcs
 that bow outward from the centre follow the ring perimeter naturally,
 matching the visual convention used in biochemistry textbooks.
+
+---
+
+## Phase 12 — Table Encapsulation Refactoring
+
+---
+
+### The problem: controller doing table work
+
+Before this refactoring, the controller was the wrong place for several
+operations. The violations fell into four categories:
+
+**1. Object construction** — the controller built `Column`, `Row`, and `Cell`
+objects from raw CSV data:
+```ts
+const columns = parsed.headers.map((name, i) => new Column(name, parsed.types[i]));
+const rows = parsed.rows.map(rawRow =>
+    new Row(columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId)))
+);
+```
+The controller knew the internal structure of the model. If `Row` or `Cell`
+ever changed their constructor, the controller would break.
+
+**2. Direct array mutation** — the controller reached into `table.rows` and
+mutated it directly:
+```ts
+table.rows.push(row);
+table.rows.splice(atIdx, 0, row);
+const [row] = table.rows.splice(rowIdx, 1);
+```
+`Table` had no say in how its rows were added, removed, or reordered.
+
+**3. Direct cell mutation** — the controller navigated `table.rows[i].cells[j].value`:
+```ts
+table.rows[action.rowIdx].cells[action.colIdx].value = action.oldValue;
+```
+This is three levels of internal structure exposed to the controller.
+
+**4. CSV serialisation outside `Table`** — `KnowledgeBase.exportTableAsCSV`
+accessed `r.cells.map(c => c.value)` — the serialisation logic lived in a
+container class rather than the class that owns the data.
+
+---
+
+### The fix: `Table` owns its own operations
+
+#### `Table.fromCSV(name, parsed)` — factory
+
+```ts
+static fromCSV(name, parsed): Table {
+    const columns = parsed.headers.map((h, i) => new Column(h, parsed.types[i] ?? "text"));
+    const rows = parsed.rows.map(rawRow =>
+        new Row(columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId)))
+    );
+    return new Table(name, columns, rows);
+}
+```
+
+The controller now calls `Table.fromCSV(name, parsed)` — one line. It no
+longer imports `Column`, `Row`, or `Cell`.
+
+#### Row mutation methods
+
+```ts
+appendRow(): Row          // push empty row, return it
+insertRowAt(idx): Row     // splice empty row at idx, return it
+removeRowAt(idx): Row     // splice out row at idx, return it
+moveRowFromTo(from, to)   // splice + re-insert
+restoreRowAt(idx, row)    // splice in a previously removed row (for undo)
+```
+
+The controller calls these methods. It never touches `table.rows` directly.
+
+#### Cell access methods
+
+```ts
+getCellValue(rowIdx, colIdx): string   // safe read, "" if out of bounds
+setCellValue(rowIdx, colIdx, value)    // safe write, no-op if out of bounds
+```
+
+The controller calls `table.getCellValue(r, c)` and `table.setCellValue(r, c, v)`.
+It never accesses `table.rows[r].cells[c].value`.
+
+#### `toCSV(): string`
+
+```ts
+toCSV(): string {
+    const escape = (v) => ...;
+    const headerRow = this.columns.map(c => escape(c.name)).join(",");
+    const typeRow   = this.columns.map(c => escape(c.typeId)).join(",");
+    const dataRows  = this.rows.map((_, rowIdx) =>
+        this.columns.map((__, colIdx) => escape(this.getCellValue(rowIdx, colIdx))).join(",")
+    );
+    return [headerRow, typeRow, ...dataRows].join("\n");
+}
+```
+
+CSV serialisation belongs with the data. `KnowledgeBase.exportTableAsCSV`
+now delegates to `table.toCSV()` — one line.
+
+---
+
+### The fix: `TableView` public API
+
+Before the refactoring, `main.ts` and `TableViewAdapter` used `(x as any)`
+casts to access private members of `TableView`:
+
+```ts
+(tableView as any).renderTableRows(table, table.rows, tableIdx);  // private method
+(tableView as any).container = container;                          // private field
+(this.tableView as any).controller?.getKnowledgeBase();            // private field
+(this.tableView as any).sortCol;                                   // closure variable
+```
+
+These casts bypass TypeScript's access control. If `TableView` is refactored,
+they silently break.
+
+**New public methods added to `TableView`:**
+
+| Method | Replaces |
+|--------|---------|
+| `renderTable(tableIdx)` | `(tableView as any).renderTableRows(table, table.rows, tableIdx)` |
+| `setContainer(el)` | `(tableView as any).container = el` |
+| `getController()` | `(tableView as any).controller` |
+| `getSortState()` | `(tableView as any).sortCol` / `sortAsc` |
+
+**`sortCol` and `sortAsc` promoted to instance fields** — they were
+closure-local variables inside `renderTableRows`, invisible to any external
+code. Now they are `private sortCol = -1` and `private sortAsc = true`
+instance fields, readable via `getSortState()`.
+
+**`renderTable(tableIdx)`** renders only the table body without touching the
+tab strip. This is the correct method for `main.ts` to call when the tab
+strip is owned externally (by `renderControlTabs`). Previously `main.ts`
+called `renderAll()` which rebuilds the tab strip as a side effect — this
+was the root cause of the "tabs disappear" bug in Phase 12.
+
+---
+
+### Principle: encapsulation as a correctness guarantee
+
+The encapsulation violations were not just style issues — they caused real
+bugs:
+
+- The `addRow` undo always called `table.rows.pop()` (last row), which was
+  wrong for `insertRow` (which inserts at a specific index). The fix uses
+  `table.rows.lastIndexOf(action.row)` to find the specific row by reference.
+  This is only possible because `appendRow()` and `insertRowAt()` return the
+  row object, which is stored in the undo action.
+
+- The `renderTableRows` private call in `main.ts` caused the tab strip to
+  be overwritten whenever `renderAll()` was called from a table tab click.
+  The fix (`renderTable()`) renders only the body, leaving the tab strip
+  untouched.
+
+Both bugs were caused by the controller and view reaching into internals
+they should not have known about. The encapsulation fix eliminates the
+possibility of these bugs recurring.

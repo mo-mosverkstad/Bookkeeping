@@ -93,7 +93,7 @@ Contents:
 
 ---
 
-## Source Structure (after Phase 11 refactoring)
+## Source Structure (after Phase 12 refactoring)
 
 ```
 src/

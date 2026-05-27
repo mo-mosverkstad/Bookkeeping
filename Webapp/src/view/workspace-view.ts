@@ -32,7 +32,6 @@ export interface WorkspaceView {
     /**
      * Mount this view into the container element.
      * data: resolved diagram data (null for TableView which uses tables directly).
-     * args: view-specific arguments from the control file entry (styles, etc.).
      * state: optional saved state from a previous unmount() call.
      */
     mount(container: HTMLElement, data: WorkspaceData, state?: ViewState): void;
@@ -70,10 +69,11 @@ export function viewFactory(
     entry: ControlEntry,
     controller: AppController,
     tabStrip: HTMLElement,
+    sourceInput: HTMLTextAreaElement,
 ): WorkspaceView {
     switch (entry.view) {
         case "table":
-            return new TableViewAdapter(controller, tabStrip);
+            return new TableViewAdapter(controller, tabStrip, sourceInput);
         case "flow":
         case "spatial":
         case "relation":

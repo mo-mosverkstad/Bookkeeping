@@ -1619,3 +1619,147 @@ data schema could cover all of them.
 | Medium | Unify fallback and control-file tab paths in `main.ts` | Medium |
 | Low | `WorkspaceController` to replace `main.ts` tab logic | Large |
 | Future | `"biology"` view type for spatial membrane diagrams | Large |
+
+---
+
+## Phase 12 — Table Encapsulation Refactoring
+
+*Intermediate refactoring between Phase 12 (Control File & Map Views) and
+Phase 13 (File System Access). No new user-visible features. Addresses
+technical debt identified in the Phase 12 post-mortem.*
+
+---
+
+### Motivation
+
+The controller was doing table work that belongs in `Table`. Specifically:
+
+- `loadCSV` constructed `Column`, `Row`, and `Cell` objects directly —
+  the controller knew the internal structure of the model
+- `editCell`, `addRow`, `insertRow`, `moveRow`, `deleteRow`, `undo`, `redo`
+  all accessed `table.rows[i]`, `table.rows.splice(...)`, `table.rows.push(...)`,
+  and `cell.value =` directly — bypassing the `Table` class entirely
+- `KnowledgeBase.exportTableAsCSV` accessed `r.cells.map(c => c.value)` —
+  CSV serialisation logic lived outside the class that owns the data
+- The search engine accessed `row.cells[i].typeId` and `row.cells[i].value`
+  directly instead of going through `Table`
+
+The principle violated: **table logic should live in `Table`**. The controller
+should only orchestrate — it should not know how rows are stored, how cells
+are constructed, or how CSV is serialised.
+
+---
+
+### Changes — `src/model/Table.ts`
+
+**Added `static fromCSV(name, parsed): Table`**
+
+Factory method. Constructs `Column`, `Row`, and `Cell` objects from parsed
+CSV data. The controller no longer imports or instantiates these classes.
+
+**Added `createEmptyRow(): Row`**
+
+Creates a blank row matching the table's column schema. Used internally by
+`appendRow` and `insertRowAt`.
+
+**Added row mutation methods:**
+- `appendRow(): Row` — appends and returns a new empty row
+- `insertRowAt(idx): Row` — inserts and returns a new empty row at index
+- `removeRowAt(idx): Row` — removes and returns the row at index
+- `moveRowFromTo(fromIdx, toIdx): void` — moves a row
+- `restoreRowAt(idx, row): void` — restores a previously removed row (for undo)
+
+**Added cell access methods:**
+- `getCellValue(rowIdx, colIdx): string` — safe read, returns `""` if out of bounds
+- `setCellValue(rowIdx, colIdx, value): void` — safe write, no-op if out of bounds
+
+**Added `toCSV(): string`**
+
+Serialises the table to CSV text (header row, types row, data rows). Moved
+from `KnowledgeBase.exportTableAsCSV`. Uses `getCellValue` internally —
+no direct `cell.value` access.
+
+---
+
+### Changes — `src/controller/index.ts`
+
+- Removed `Column`, `Row`, `Cell` imports — no longer needed
+- `loadCSV` → `Table.fromCSV(name, parsed)` — one line
+- `editCell` → `table.getCellValue` + `table.setCellValue`
+- `addRow` → `table.appendRow()`
+- `insertRow` → `table.insertRowAt(atIdx)`
+- `moveRow` → `table.moveRowFromTo(fromIdx, toIdx)`
+- `deleteRow` → `table.removeRowAt(rowIdx)`
+- `undo` / `redo` → all use `Table` methods; no direct `rows`/`cells` access
+- `addRow` undo: finds the row by reference via `table.rows.lastIndexOf(action.row)`
+  rather than always popping the last row — correct for both `addRow` and `insertRow`
+
+---
+
+### Changes — `src/model/KnowledgeBase.ts`
+
+- `addTable`: uses `table.getCellValue(rowIdx, assocColIdx)` instead of
+  `r.getCellValue(assocColIdx)` — consistent with the new Table API
+- `exportTableAsCSV`: delegates to `table.toCSV()` — one line
+
+---
+
+### Changes — `src/search/index.ts`
+
+- `searchText`: iterates `table.columns` for `typeId` and calls
+  `table.getCellValue(rowIdx, colIdx)` instead of `row.cells[i].typeId`
+  and `row.cells[i].value`
+- `searchByIdentifier`: same pattern
+- Removed `Table` and `Row` type imports — no longer needed directly
+
+---
+
+### Changes — `src/view/table-view.ts`
+
+**Added public methods to fix `(x as any)` casts:**
+- `getController(): AppController | null` — replaces `(tableView as any).controller`
+- `getSortState(): { sortCol, sortAsc }` — replaces `(tableView as any).sortCol`
+- `setContainer(el: HTMLElement): void` — replaces `(tableView as any).container = el`
+- `renderTable(tableIdx: number): void` — renders only the table body without
+  touching the tab strip; replaces `(tableView as any).renderTableRows(...)`
+
+**Promoted `sortCol` and `sortAsc` to instance fields** (were closure-local
+variables inside `renderTableRows`, unreachable from outside).
+
+---
+
+### Changes — `src/view/table-view-adapter.ts`
+
+Rewritten to use only the public `TableView` API — no `(x as any)` casts:
+- `mount`: calls `tableView.setContainer(container)` instead of field mutation
+- `unmount`: calls `tableView.getSortState()` to save sort state
+- `update`: calls `tableView.getController()?.getKnowledgeBase()` to get tables
+
+---
+
+### Changes — `src/main.ts`
+
+- `renderControlTabs` table tab handler: calls `tableView.renderTable(tableIdx)`
+  instead of `(tableView as any).renderTableRows(table, table.rows, tableIdx)`
+
+---
+
+### Design decisions
+
+1. **`Table` owns all row/cell mutation** — the controller never touches
+   `table.rows[i]` or `cell.value` directly. All mutations go through named
+   methods with clear semantics.
+
+2. **`Table.fromCSV` is the single construction point** — `Column`, `Row`,
+   and `Cell` are no longer imported by the controller. The controller only
+   knows about `Table` and `KnowledgeBase`.
+
+3. **`toCSV` belongs on `Table`** — CSV serialisation is a function of the
+   table's data. It belongs with the data, not in a container class.
+
+4. **`getCellValue`/`setCellValue` are safe by design** — both return/no-op
+   gracefully on out-of-bounds access. The controller never needs to guard
+   against undefined cells.
+
+5. **No `(x as any)` casts remain** — all cross-class access uses the public
+   API. TypeScript enforces the interface at compile time.
