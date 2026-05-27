@@ -5106,3 +5106,81 @@ all three to perform inline editing. The single-click handler only needs
 
 The `_` prefix is the TypeScript/JavaScript convention for "this parameter
 is required by the interface but intentionally unused here".
+
+---
+
+### Bug fix — Drop hint class persists after file load
+
+**Symptom:** SVG diagrams appeared distorted — centred, constrained, with
+a dashed border — instead of filling the workspace container.
+
+**Root cause:** `#table-container` starts with `class="drop-hint"` in
+`index.html`. `WorkspaceController.activateTab` cleared `innerHTML` but
+never cleared `className`. The `drop-hint` class applies flex centering
+and a dashed border to all content mounted into the container.
+
+**Fix:** `this.container.className = ""` before mounting. `clear()` also
+restores the drop hint text and class so the workspace shows the correct
+empty state when no files are loaded.
+
+**Lesson:** When a container element has CSS classes that affect layout,
+clearing `innerHTML` is not enough — the class must also be reset. Any
+view that mounts into a shared container should treat the container as a
+blank slate, not assume its class state.
+
+---
+
+### Planned Phase 14 — Source Code Editor
+
+The source code editor is a document-level editor (an entire table or
+graph as text) complementing the existing cell-level formula bar.
+
+**Architecture constraint:** Every syntax supported by the editor must be
+implemented as a `PEGParser` grammar data structure. Manual parsers are
+forbidden. This is not a style preference — it is an architectural
+invariant:
+
+- The `PEGParser` engine is the single parsing infrastructure. All plugins
+  already use it. Adding a new syntax means adding a new grammar object,
+  not a new parser class.
+- Manual parsers scatter parsing logic, produce inconsistent error
+  messages, and cannot be composed with the existing plugin system.
+- A grammar data structure is inspectable, testable, and reusable. A
+  manual parser is none of these.
+
+The editor dispatches to the correct grammar based on a declared type
+header, exactly as the cell plugin registry dispatches based on `typeId`.
+
+---
+
+### Planned Phase 15 — Test Resource Rectification
+
+The `testresources/` directory contains ~60 CSV files that are the primary
+real-world knowledge data for the application. They currently do not load
+correctly because the types row (row 1) is missing from every file.
+
+**The types row convention:**
+```
+Row 0: column headers    (Name, Formula, Domain, ...)
+Row 1: column types      (text, math, text, ...)   ← MISSING in all test files
+Row 2+: data rows
+```
+
+Without the types row, the app treats the first data row as the types row.
+All cells are dispatched to the `text` plugin and rendered as plain text,
+even cells containing math syntax like `\\sqrt{x}` or `\\int{a,b,f(x)}`.
+
+**Fix strategy:**
+1. Audit each file — identify which columns contain math expressions
+2. Add the types row as the second row
+3. Create a `control.json` per domain folder
+4. Fix cells with non-standard syntax
+
+**Column type heuristic:**
+- `Group`, `Name`, category, description columns → `text`
+- Formula, expression, equation columns → `math`
+- Compound/reaction columns in chemistry files → `chemistry`
+- Code columns → `text` (no code plugin yet)
+
+This phase does not add new plugins. It only makes existing files work
+with the existing application.

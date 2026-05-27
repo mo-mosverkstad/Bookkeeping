@@ -2326,3 +2326,152 @@ other), so there is never ambiguity about what will be deleted.
 Added `getActiveId(): string | null` — returns the id of the currently
 active tab. Used by `navigateToTable` to check whether the target tab is
 already active before deciding whether to switch or just re-render.
+
+---
+
+## Bug fix — Drop hint persists after file load; graph content distorted
+
+**Symptom 1:** After loading files, the `#table-container` div retained its
+`drop-hint` CSS class. The drop-hint class applies `display: flex`,
+`align-items: center`, `justify-content: center`, and a dashed border.
+SVG diagrams mounted into this container were centred and constrained by
+the flex layout instead of filling the container, producing a distorted
+and incorrectly positioned diagram.
+
+**Symptom 2:** After reloading files (calling `workspace.clear()` then
+registering new tabs), the drop hint text was not restored — the container
+was left empty with no visual feedback.
+
+**Root cause:** `WorkspaceController.activateTab` called
+`this.container.innerHTML = ""` to clear content before mounting the new
+view, but never cleared `this.container.className`. The `drop-hint` class
+set in `index.html` persisted for the lifetime of the session.
+
+`WorkspaceController.clear()` set `this.container.innerHTML = ""` but did
+not restore the drop hint text or class, leaving the container blank.
+
+**Fix — `activateTab`:**
+```ts
+this.container.innerHTML = "";
+this.container.className = "";  // clear drop-hint and any other state classes
+```
+
+**Fix — `clear()`:**
+```ts
+this.container.innerHTML = "Drop .csv or .graph.json files here or use Open above";
+this.container.className = "drop-hint";
+this.container.parentElement?.classList.remove("workspace-diagram");
+```
+
+The `workspace-diagram` class (which suppresses scrollbars for diagram
+tabs) is also removed on clear, so the workspace returns to its default
+scrollable state when no files are loaded.
+
+---
+
+## Planned phases — Source Code Editor, Test Resources, and subsequent
+
+*Recorded as planning decisions. No implementation yet.*
+
+---
+
+### Phase 14 — Source Code Editor Panel
+
+**Problem:** The formula bar is a cell-level editor — it edits one cell at
+a time. There is no way to write or view the raw source of an entire table
+or graph in a structured text format, or to create new content by typing
+a domain-specific syntax directly.
+
+**Proposal:** A source code editor panel (collapsible, below the formula
+bar or as a side panel) where the user can type raw source text and see it
+parsed and rendered live. The editor supports multiple syntaxes dispatched
+by a declared type header.
+
+**Key constraint: always use `PEGParser` with a grammar data structure.**
+Never write a manual parser for the editor. The `PEGParser` engine is
+abstract and reusable — all existing plugins (math, chemistry, geometry,
+physics) already use it. The editor must follow the same pattern: define
+a grammar data structure, feed it to `PEGParser`, get an AST, render it.
+
+This means:
+- A "table source" syntax (if added) must be a PEG grammar, not a manual
+  CSV-like parser
+- A "graph source" syntax (if added) must be a PEG grammar
+- Any new domain syntax must be a PEG grammar
+
+The editor is not a replacement for the cell editor — it is a complement.
+It operates at the document level (an entire table or graph), not the cell
+level.
+
+**Concrete design:**
+- A `<textarea>` with syntax type selector (dropdown: math, chemistry,
+  geometry, physics, table, graph, ...)
+- Live parse-and-render on every keystroke (debounced)
+- Parse errors shown inline with line/column information
+- "Apply" button commits the parsed result to the model
+- The existing `PEGParser` engine and all existing plugin grammars are
+  reused without modification
+
+---
+
+### Phase 15 — Test Resource Rectification
+
+**Problem:** The `testresources/` directory contains ~60 CSV files across
+6 domains (Mathematics, Chemistry, Biology, Biochemistry, Hardware,
+Software). These files are the primary real-world knowledge data for the
+application. However, they currently do not load correctly because:
+
+1. **Missing types row.** The CSV convention requires row 1 to be a types
+   row declaring the plugin type for each column (`text`, `math`,
+   `chemistry`, etc.). All test resource files are missing this row. The
+   app treats the first data row as the types row, dispatching all cells
+   to wrong plugins and rendering everything as plain text.
+
+2. **Math syntax in content columns.** Many cells contain math syntax
+   expressions (`\\sqrt`, `\\int`, `\\S{...}`, `\\D`, etc.) that should
+   be rendered by the math plugin, but are currently rendered as raw text
+   because the types row is absent.
+
+3. **Chemistry syntax in chemistry files.** The organic chemistry file
+   contains compound names and reaction data that could be rendered by
+   the chemistry plugin.
+
+4. **No `control.json`.** Each domain folder is a standalone collection
+   of CSV files with no `control.json` to declare how they should be
+   loaded together or which columns have which types.
+
+**Proposed fix:**
+
+For each domain folder:
+1. Audit each CSV file — identify which columns contain math expressions,
+   which contain plain text, which contain chemistry syntax
+2. Add the types row as the second row of each file
+3. Create a `control.json` for each domain folder declaring all tables
+   and their display order
+4. Fix any cells that use incorrect or non-standard syntax so they parse
+   correctly with the existing plugins
+
+**Column type assignment heuristic:**
+- `Group`, `Name`, category columns → `text`
+- Formula, expression, equation columns → `math`
+- Compound, reaction columns in chemistry files → `chemistry`
+- Code columns in software files → `text` (code is not a plugin type yet)
+- All other columns → `text`
+
+**This phase does not add new plugins or new syntax.** It only rectifies
+the existing files to work with the existing application. New syntax
+support (e.g. a code plugin) is deferred to a later phase.
+
+---
+
+### Phase numbering shift
+
+The three new phases (14 = Source Code Editor, 15 = Test Resources) are
+inserted before the existing planned phases. The existing phases shift:
+
+| Old number | New number | Phase |
+|---|---|---|
+| 14 | 16 | File System Access & Save Strategy |
+| 15 | 17 | Semantic Layer |
+| 16 | 18 | Stable Entity Identity & Semantic Editing |
+| 17 | 19 | Native Format |

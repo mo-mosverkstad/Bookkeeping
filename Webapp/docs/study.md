@@ -3428,7 +3428,310 @@ Edit a node label in the graph tab — the change is undoable with Ctrl+Z.
 
 ---
 
-#### Phase 14 — File System Access & Save Strategy 📐 *planned*
+#### Phase 14 — Source Code Editor 📐 *planned*
+
+**Goal:** Add a document-level source code editor panel where the user can
+type raw source text in any supported syntax and see it parsed and rendered
+live. The editor complements the existing cell-level formula bar.
+
+---
+
+##### Architectural constraint: always use `PEGParser`
+
+Every syntax supported by the editor must be implemented as a `PEGParser`
+grammar data structure. Manual parsers are forbidden. This is an
+architectural invariant:
+
+- The `PEGParser` engine is the single parsing infrastructure. All existing
+  plugins (math, chemistry, geometry, physics) already use it. Adding a new
+  syntax means adding a new grammar object, not a new parser class.
+- Manual parsers scatter parsing logic, produce inconsistent error messages,
+  and cannot be composed with the existing plugin system.
+- A grammar data structure is inspectable, testable, and reusable. A manual
+  parser is none of these.
+
+The editor dispatches to the correct grammar based on a declared type
+header, exactly as the cell plugin registry dispatches based on `typeId`.
+
+---
+
+##### Design
+
+The editor is a collapsible panel (below the formula bar or as a side panel)
+containing:
+
+- A `<textarea>` for raw source input with **syntax highlighting**
+- A type selector dropdown (math, chemistry, geometry, physics, table, graph, ...)
+- A live preview pane showing the rendered output
+- An error display showing parse errors with line/column information
+- An "Apply" button that commits the parsed result to the model
+
+**Focus state:** When the editor textarea is focused, its border thickens
+and turns blue (`2px solid #3b82f6`). When unfocused, a thin black border
+(`1px solid #1e293b`). This is the standard focus indicator pattern used
+throughout the app.
+
+**Syntax highlighting:** Implemented as a lightweight overlay technique
+(transparent `<textarea>` over a `<pre>` with highlighted HTML). The
+highlighter is driven by the active grammar's token patterns — keywords,
+identifiers, operators, literals, and comments each get a distinct colour.
+The highlighter is a separate module per syntax type, not a general-purpose
+highlighter library.
+
+**Reactivity:** Parsing is triggered on every keystroke, debounced at 300ms.
+If parsing a particular syntax is computationally expensive and causes
+visible lag, a "Parse & Compile" button is provided as an alternative to
+reactive parsing. The reactive mode is the default; the button mode is a
+fallback. The choice is per-syntax-type, not global.
+
+**Local undo/redo:** The editor maintains its own undo/redo stack,
+independent of the global `EditHistory`. While the editor textarea is
+focused, Ctrl+Z/Y operate on the local stack (text-level undo/redo within
+the editor). When focus leaves the editor, the global undo/redo is restored.
+The local stack is cleared when the editor is closed or when "Apply" is
+clicked (the Apply action is recorded in the global stack as a single
+`replaceTable` or `replaceGraph` action).
+
+This separation is critical: the user should be able to freely edit source
+text and undo typing mistakes without polluting the global history with
+every keystroke.
+
+---
+
+##### Table source syntax
+
+A grammar for writing an entire table as structured text. Example:
+
+```
+@table theorems
+@columns Name:text, Statement:math, Domain:text
+
+Pythagorean theorem | a^2 + b^2 = c^2 | Geometry
+Euler's identity    | e^(\\p*\\i)+1=0   | Analysis
+```
+
+The grammar is a `PEGParser` grammar data structure. The parser produces
+a `Table` model object directly. The "Apply" button calls
+`controller.replaceTable(tableIdx, parsedTable)` which is recorded in the
+global `EditHistory` as a single undoable action.
+
+##### Graph source syntax
+
+A grammar for writing a graph as structured text. Example:
+
+```
+@graph glycolysis
+@view flow
+
+node Glucose compound
+node Hexokinase enzyme
+edge Glucose -> Hexokinase reaction "step 1"
+```
+
+The grammar is a `PEGParser` grammar data structure. The parser produces
+a `Graph` model object directly. The "Apply" button calls
+`controller.replaceGraph(graphIdx, parsedGraph)`.
+
+---
+
+##### Concrete tasks
+- [ ] Design table source grammar in `src/plugins/table-source/grammar.ts`
+- [ ] Design graph source grammar in `src/plugins/graph-source/grammar.ts`
+- [ ] Implement syntax highlighter module per syntax type
+- [ ] Implement `SourceEditorView` in `src/view/source-editor-view.ts`
+      with local undo/redo stack and focus-state border
+- [ ] Add `controller.replaceTable(tableIdx, table)` and
+      `controller.replaceGraph(graphIdx, graph)` with undo support
+- [ ] Wire `SourceEditorView` into the shell layout
+- [ ] Add tests for both grammars
+
+**Completion criteria:**
+- Typing valid table source and clicking Apply replaces the active table
+- Typing valid graph source and clicking Apply replaces the active graph
+- Parse errors show line/column information
+- Ctrl+Z inside the editor undoes text edits; Ctrl+Z outside undoes model edits
+- Syntax highlighting is visible for all supported types
+- Focus state shows blue border; unfocused shows thin black border
+- All existing Phase 1–13 tests pass without modification
+
+---
+
+#### Phase 15 — Test Resource Rectification 📐 *planned*
+
+**Goal:** Rectify all CSV files in `testresources/` so they load and render
+correctly in the application. These files are the primary real-world
+knowledge data for the system. They currently fail to load correctly for
+multiple reasons documented below.
+
+---
+
+##### Problems identified
+
+**1. Missing types row (all files)**
+
+The CSV convention requires row 1 to be a types row:
+```
+Row 0: column headers    (Group, Name, Formula, ...)
+Row 1: column types      (text, text, math, ...)   <- MISSING in all files
+Row 2+: data rows
+```
+Without it, the app treats the first data row as types. All cells render
+as plain text regardless of content.
+
+**2. Inconsistent or absent column structure**
+
+Some files have no headers at all (e.g. `Nervous system - Nervsystemet.csv`,
+`General.csv`). Others have headers but inconsistent column counts across
+rows. All files must have a consistent header row, types row, and data rows.
+
+**3. Missing bilingual terminology (biology, biochemistry, chemistry, mathematics)**
+
+Concept names and descriptions should have both English and Swedish variants.
+Currently:
+- Biology files: entirely Swedish, no English
+- Biochemistry files: mixed, inconsistent
+- Chemistry files: mixed, inconsistent
+- Mathematics files: mostly English, some Swedish terms
+
+**Rule:** For biology, biochemistry, chemistry, and mathematics files,
+every concept name and description must include both the English and Swedish
+term. If one is missing, it must be added by translation. Format:
+`English name / Svenskt namn` in the Name column, or separate
+`Name (EN)` and `Name (SV)` columns where appropriate.
+
+**Exception:** Hardware reference sheet and Software reference sheet folders
+are English-only. Computer engineering and computer science have no
+established Swedish terminology. English is sufficient.
+
+**4. Free-form human writing not conforming to any syntax**
+
+Many cells contain free-form prose, informal notation, or ad-hoc
+abbreviations that do not parse with any existing plugin. Examples:
+- `Metabolism.csv`: uses custom diagram notation `LINEAR(...)`, `RING(...)`,
+  `BRANCH(...)` that is not a recognised syntax
+- `Nervous system`: raw Swedish prose with no structure
+- `General.csv` (chemistry): laboratory equipment list with no column structure
+
+All such cells must be converted to standard syntax or restructured into
+proper columns.
+
+**5. Math expressions not using standard syntax**
+
+Some cells use informal notation (e.g. `d/(dx)` instead of the math plugin
+syntax, `lim{x->0, ...}` instead of `\\lim{...}`). These must be
+standardised to the math plugin syntax so they render correctly.
+
+---
+
+##### Fix strategy per domain
+
+**Mathematics reference sheet**
+- Add types row: `text, text, math, text` (Group, Name, Formula, Examples)
+- Standardise all math expressions to math plugin syntax
+- Add Swedish translations for concept names where missing
+- Create `control.json` listing all 21 tables
+
+**Chemistry reference sheet**
+- Restructure `General.csv` with proper headers and types row
+- Add types row to all files
+- Standardise chemical formulas to chemistry plugin syntax where applicable
+- Add English translations for Swedish-only content
+- Create `control.json` listing all 19 tables
+
+**Biology reference sheet**
+- Add headers and types row to all files (currently missing in several)
+- Translate all Swedish-only content to include English equivalents
+- Restructure free-form prose into structured columns
+- Create `control.json` listing all 10 tables
+
+**Biochemistry reference sheet**
+- Convert `Metabolism.csv` pathway notation (`LINEAR`, `RING`, `BRANCH`)
+  to `.graph.json` files, one per pathway; reference from `control.json`
+- Add types row to all files
+- Add bilingual terminology
+- Create `control.json` listing all 6 tables
+
+**Hardware reference sheet**
+- Add types row to all files (English-only, no translation needed)
+- Standardise any math expressions
+- Create `control.json` listing all 6 tables
+
+**Software reference sheet**
+- Add types row to all files (English-only, no translation needed)
+- Code cells remain `text` type (no code plugin yet)
+- Create `control.json` listing all 18 tables
+
+---
+
+##### Column type assignment
+
+| Column content | Type |
+|---|---|
+| Group, Name, category, description | `text` |
+| Mathematical formula, expression, equation | `math` |
+| Chemical compound, reaction equation | `chemistry` |
+| Code snippet | `text` (no code plugin yet) |
+| Diagram/pathway notation | `text` or new plugin (see below) |
+
+---
+
+##### Pathway diagram notation — use `.graph.json`
+
+The `Metabolism.csv` file uses a custom notation for metabolic pathways
+(`LINEAR`, `RING`, `BRANCH`). This notation describes directed graphs.
+A pathway is a graph, not a table row — it belongs in a `.graph.json` file.
+
+**Decision: convert all pathway data to `.graph.json` files.**
+
+Each metabolic pathway (glycolysis, Krebs cycle, beta-oxidation, etc.) becomes
+a standalone `.graph.json` file referenced from the domain's `control.json`.
+The pathway becomes a graph tab rendered by `FlowDiagramView` with the
+existing Tarjan SCC layout. No new plugin, no new syntax, no new infrastructure.
+
+This is the correct application of the reuse principle: extend only when
+existing infrastructure genuinely cannot cover the requirement. The existing
+graph model and diagram renderer already handle directed pathway graphs
+correctly. The `LINEAR`/`RING`/`BRANCH` notation is simply a human-readable
+encoding of the same node-edge structure that `.graph.json` expresses natively.
+
+---
+
+##### Scope
+
+This phase rectifies existing files to work with the existing application.
+No new plugins are required. All content is expressible with existing
+plugins and the existing graph infrastructure after rectification.
+
+The rectified files serve as the primary integration test for the entire
+application — loading them should exercise every plugin, the association
+graph, the tab strip, and the search engine.
+
+---
+
+##### Concrete tasks
+- [ ] Audit all 60 CSV files: document current structure, missing types row,
+      missing translations, non-standard syntax
+- [ ] Add types row to all files
+- [ ] Add bilingual terminology to biology, biochemistry, chemistry,
+      mathematics files
+- [ ] Restructure files with missing or inconsistent headers
+- [ ] Standardise math expressions to math plugin syntax
+- [ ] Standardise chemistry content to chemistry plugin syntax
+- [ ] Convert all pathway data in `Metabolism.csv` to `.graph.json` files
+- [ ] Create `control.json` for each of the 6 domain folders
+- [ ] Load each domain folder and verify all cells render correctly
+
+**Completion criteria:**
+- All 60 CSV files load without errors
+- Math cells render as formatted expressions
+- Chemistry cells render as reaction equations
+- All concept names include both English and Swedish (where applicable)
+- Metabolic pathway data is accessible as graph tabs (`.graph.json` files)
+- All existing Phase 1–13 tests pass without modification
+
+---
+
+#### Phase 16 — File System Access & Save Strategy 📐 *planned*
 
 **Goal:** Upgrade the file open/save lifecycle from download-only to
 direct filesystem access where the browser supports it, using a
@@ -3667,7 +3970,7 @@ location regardless of browser.
 
 ---
 
-#### Phase 15 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
+#### Phase 17 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
 
 ##### New model classes (additive — no existing classes modified)
 
@@ -3933,8 +4236,8 @@ panel is an additional view layer on top.
 
 - **Stable entity IDs** — `sourceEntityId` still uses the fragile
   first-cell string. Renaming a row in the CSV breaks the sidecar link.
-  Phase 14 introduces UUIDs and a stable ID registry.
-- **Semantic editing** — Phase 15 is read-only for the semantic layer.
+  Phase 16 introduces UUIDs and a stable ID registry.
+- **Semantic editing** — Phase 17 is read-only for the semantic layer.
   Creating/editing nodes and edges via the UI is Phase 16.
 - **Native format** — CSV remains the canonical storage. Phase 17
   replaces it with a format that natively encodes the semantic layer.
@@ -3969,7 +4272,7 @@ panel is an additional view layer on top.
 - The semantic panel renders a tree driven by the configured edge label
 - Clicking a node with a `sourceEntityId` highlights its row in the
   flat table
-- All existing Phase 1–14 tests pass without modification
+- All existing Phase 1–18 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. The semantic panel
 shows a tree built from `"child-of"` edges: `Differential Calculus >
@@ -3981,11 +4284,11 @@ completely different tree structure from the same generic model.
 
 ---
 
-#### Phase 16 — Stable Entity Identity & Semantic Editing 📐 *planned*
+#### Phase 18 — Stable Entity Identity & Semantic Editing 📐 *planned*
 
 ##### Background and motivation
 
-Phase 15 introduces the semantic layer but leaves one critical fragility
+Phase 17 introduces the semantic layer but leaves one critical fragility
 intact: `sourceEntityId` is still the mutable first-cell string value of
 a CSV row. If the user renames "Fundamental Theorem of Calculus" to
 "FTC" in the flat table, the sidecar link silently breaks — the
@@ -4047,7 +4350,7 @@ Ctrl+Z / Ctrl+Y undo/redo works across both flat and semantic edits.
 ##### Impact on `AssociationGraph`
 
 The existing `AssociationGraph` uses display-name strings as node
-identifiers. Phase 13 adds a UUID resolution pass at CSV load time:
+identifiers. Phase 16 adds a UUID resolution pass at CSV load time:
 
 1. CSV is parsed → rows loaded into flat model as before
 2. Registry is loaded from sidecar (or created fresh if absent)
@@ -4094,7 +4397,7 @@ the user saves a sidecar.
 - All semantic edits are undoable with Ctrl+Z
 - Exporting a sidecar and reloading it restores the full semantic layer
   including all UUIDs
-- All existing Phase 1–15 tests pass without modification
+- All existing Phase 1–17 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. Rename
 "Fundamental Theorem of Calculus" to "FTC" in the flat table — the
@@ -4106,7 +4409,7 @@ sidecar. Reload — the node, edge, and properties are all preserved.
 
 ---
 
-#### Phase 17 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
+#### Phase 19 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
 
 ##### Background and motivation
 
@@ -4120,10 +4423,10 @@ semantic layer grows:
 2. **No typed cells** — the type row convention (`text`, `math`) is a
    custom encoding on top of CSV, not part of the format.
 3. **No stable identity** — entity IDs are display-name strings. The
-   UUID registry (Phase 14) patches this but the patch lives outside
+   UUID registry (Phase 16) patches this but the patch lives outside
    the CSV.
 
-Phase 15 introduces a native JSON format (`.bk.json`) that natively
+Phase 17 introduces a native JSON format (`.bk.json`) that natively
 encodes everything: flat table data, cell types, the semantic graph,
 the entity registry, and the association vocabulary. CSV becomes an
 import/export adapter, not the canonical format.
@@ -4173,7 +4476,7 @@ Key design decisions:
 ##### CSV as import/export adapter
 
 The existing `parseCSV` function becomes a CSV importer: it produces
-a `KnowledgeBase` from CSV text, auto-assigning UUIDs (as in Phase 13).
+a `KnowledgeBase` from CSV text, auto-assigning UUIDs (as in Phase 16).
 A new `exportCSV(table)` function (already exists in `KnowledgeBase`)
 remains for exporting individual tables back to CSV for interoperability.
 
@@ -4211,7 +4514,7 @@ layer on top of them.
 - CSV files still load correctly via the existing path
 - The semantic layer (concepts, collections, items, families) survives
   the round-trip without any sidecar file
-- All existing Phase 1–16 tests pass without modification
+- All existing Phase 1–18 tests pass without modification
 
 **Demo:** Load `sample.bk.json` directly. The flat table, association
 graph, and collection browser all populate from a single file. Edit a

@@ -67,6 +67,7 @@ export class WorkspaceController {
 
         // Mount the new view with any saved state
         this.container.innerHTML = "";
+        this.container.className = "";  // clear drop-hint and any other state classes
         next.view.mount(this.container, next.data, this.savedStates.get(id));
         this.activeId = id;
         this.onStatus(id);
@@ -97,7 +98,9 @@ export class WorkspaceController {
         this.savedStates.clear();
         this.activeId = null;
         this.tabStrip.innerHTML = "";
-        this.container.innerHTML = "";
+        this.container.innerHTML = "Drop .csv or .graph.json files here or use Open above";
+        this.container.className = "drop-hint";
+        this.container.parentElement?.classList.remove("workspace-diagram");
     }
 
     /** Returns the active view if it is a TableView, otherwise null. */
