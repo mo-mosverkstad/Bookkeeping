@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AssociationGraph } from "../../src/data/graph.ts";
+import { AssociationGraph } from "../../src/model/index.ts";
 
 describe("AssociationGraph", () => {
     function makeGraph(): AssociationGraph {

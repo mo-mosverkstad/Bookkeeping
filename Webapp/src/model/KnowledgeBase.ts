@@ -1,11 +1,11 @@
 import type { Table } from "./Table.ts";
+import type { Graph } from "./Graph.ts";
 import { AssociationGraph } from "./AssociationGraph.ts";
-import type { ResolvedDiagram } from "../data/control.ts";
 
 export class KnowledgeBase {
     readonly tables: Table[] = [];
+    readonly graphs: Graph[] = [];
     readonly graph = new AssociationGraph();
-    readonly diagrams: ResolvedDiagram[] = [];
 
     addTable(table: Table): void {
         this.tables.push(table);
@@ -17,9 +17,13 @@ export class KnowledgeBase {
         }
     }
 
+    addGraph(graph: Graph): void {
+        this.graphs.push(graph);
+    }
+
     clear(): void {
         this.tables.length = 0;
-        this.diagrams.length = 0;
+        this.graphs.length = 0;
         this.graph.clear();
     }
 

@@ -1,16 +1,25 @@
 import { renderCell } from "../plugins/registry.ts";
 import type { Table, Row } from "../model/index.ts";
 import type { AppController } from "../controller/index.ts";
+import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
 
-export class TableView {
+interface TableState {
+    scrollTop: number;
+    scrollLeft: number;
+    sortCol: number;
+    sortAsc: boolean;
+}
+
+export class TableView implements WorkspaceView {
     private container: HTMLElement;
-    private tabStrip: HTMLElement;
     private sourceInput: HTMLTextAreaElement;
     private controller: AppController | null = null;
     private onEntityClick: ((entityId: string) => void) | null = null;
     private onStatus: ((msg: string) => void) | null = null;
     private activeTabIdx = 0;
     private currentTables: Table[] = [];
+    /** The real index of the mounted table in kb.tables[]. Used for all controller calls. */
+    private kbTableIdx = 0;
     private suppressBlur = false;
     private sortCol = -1;
     private sortAsc = true;
@@ -23,9 +32,8 @@ export class TableView {
         cancel: () => void;
     } | null = null;
 
-    constructor(container: HTMLElement, tabStrip: HTMLElement, sourceInput: HTMLTextAreaElement) {
+    constructor(container: HTMLElement, sourceInput: HTMLTextAreaElement) {
         this.container = container;
-        this.tabStrip = tabStrip;
         this.sourceInput = sourceInput;
 
         this.sourceInput.addEventListener("input", () => {
@@ -71,23 +79,76 @@ export class TableView {
     setController(controller: AppController): void { this.controller = controller; }
     setEntityClickHandler(handler: (entityId: string) => void): void { this.onEntityClick = handler; }
     setStatusCallback(cb: (msg: string) => void): void { this.onStatus = cb; }
-    getActiveTableIdx(): number { return this.activeTabIdx; }
+    getActiveTableIdx(): number { return this.kbTableIdx; }
     getController(): AppController | null { return this.controller; }
     getSortState(): { sortCol: number; sortAsc: boolean } { return { sortCol: this.sortCol, sortAsc: this.sortAsc }; }
     setContainer(el: HTMLElement): void { this.container = el; }
+
+    // ── WorkspaceView interface ───────────────────────────────────────────────
+
+    mount(container: HTMLElement, data: WorkspaceData, savedState?: ViewState): void {
+        this.container = container;
+        if (savedState) {
+            const s = savedState as TableState;
+            this.sortCol = s.sortCol;
+            this.sortAsc = s.sortAsc;
+        }
+        if (data.table) {
+            this.currentTables = [data.table];
+            this.activeTabIdx = 0;
+            // Resolve the real index in kb.tables[] for controller calls
+            const kb = this.controller?.getKnowledgeBase();
+            this.kbTableIdx = kb ? kb.tables.indexOf(data.table) : 0;
+        }
+        this.renderActiveTable();
+        if (savedState) {
+            const s = savedState as TableState;
+            container.scrollTop  = s.scrollTop;
+            container.scrollLeft = s.scrollLeft;
+        }
+    }
+
+    unmount(): ViewState {
+        this.cancelActive();
+        return {
+            scrollTop:  this.container.scrollTop,
+            scrollLeft: this.container.scrollLeft,
+            sortCol: this.sortCol,
+            sortAsc: this.sortAsc,
+        } satisfies TableState;
+    }
+
+    update(data: WorkspaceData): void {
+        if (data.table) {
+            this.currentTables = [data.table];
+            this.renderActiveTable();
+        }
+    }
+
+    getToolbarActions(): ToolbarAction[] {
+        return [
+            { id: "add-row", label: "+ Row", title: "Add row" },
+        ];
+    }
+
+    onToolbarAction(id: string): void {
+        if (id === "add-row" && this.controller) {
+            this.controller.addRow(this.kbTableIdx);
+        }
+    }
 
     /**
      * Render only the table body for a specific table index into the container,
      * without touching the tab strip. Used by main.ts when control.json drives
      * tab creation externally.
      */
-    renderTable(tableIdx: number): void {
+    renderTable(_tableIdx?: number): void {
         this.cancelActive();
         this.container.innerHTML = "";
-        const table = this.currentTables[tableIdx];
+        const table = this.currentTables[0];
         if (!table) return;
         this.container.className = "";
-        this.renderTableRows(table, table.rows, tableIdx);
+        this.renderTableRows(table, table.rows, this.kbTableIdx);
         this.onStatus?.(`${table.name}  —  ${table.rows.length} rows × ${table.columns.length} cols`);
     }
 
@@ -95,13 +156,11 @@ export class TableView {
         this.cancelActive();
         this.currentTables = tables;
         if (this.activeTabIdx >= tables.length) this.activeTabIdx = Math.max(0, tables.length - 1);
-        this.renderTabStrip(tables);
         this.renderActiveTable();
     }
 
     renderFiltered(tables: Table[], entityIds: Set<string>, label: string): void {
         this.cancelActive();
-        this.tabStrip.innerHTML = "";
         this.container.innerHTML = "";
         this.container.className = "";
         for (const table of tables) {
@@ -116,19 +175,6 @@ export class TableView {
             this.container.textContent = "No entities match this filter.";
     }
 
-    private renderTabStrip(tables: Table[]): void {
-        this.tabStrip.innerHTML = "";
-        tables.forEach((table, i) => {
-            const tab = document.createElement("button");
-            tab.className = "tab-btn" + (i === this.activeTabIdx ? " tab-active" : "");
-            tab.textContent = table.name;
-            tab.addEventListener("click", () => {
-                this.activeTabIdx = i;
-                this.renderAll(this.currentTables);
-            });
-            this.tabStrip.appendChild(tab);
-        });
-    }
 
     private renderActiveTable(): void {
         this.container.innerHTML = "";
@@ -139,7 +185,7 @@ export class TableView {
             return;
         }
         this.container.className = "";
-        this.renderTableRows(table, table.rows, this.activeTabIdx);
+        this.renderTableRows(table, table.rows, this.kbTableIdx);
         this.onStatus?.(`${table.name}  —  ${table.rows.length} rows × ${table.columns.length} cols`);
     }
 

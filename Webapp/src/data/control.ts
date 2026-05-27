@@ -103,7 +103,14 @@ export interface SequenceDecl {
     messages: MessageSource;
 }
 
-export type ControlEntry = TableDecl | FlowDecl | SequenceDecl;
+/** References a standalone .graph.json file — the native graph format. */
+export interface GraphFileDecl {
+    id: string;
+    view: "graph";
+    file: string;
+}
+
+export type ControlEntry = TableDecl | FlowDecl | SequenceDecl | GraphFileDecl;
 
 export interface ControlFile {
     version: string;
@@ -179,6 +186,10 @@ function parseEntry(raw: unknown): ControlEntry {
 
     if (view === "table") {
         return { id, view: "table", file: String(e["file"] ?? "") };
+    }
+
+    if (view === "graph") {
+        return { id, view: "graph", file: String(e["file"] ?? "") };
     }
 
     if (view === "sequence") {

@@ -1,10 +1,16 @@
 import type { Row } from "./Row.ts";
+import type { GraphNode } from "./GraphNode.ts";
+import type { GraphEdge } from "./GraphEdge.ts";
 
 export type EditAction =
     | { type: "cell"; tableIdx: number; rowIdx: number; colIdx: number; oldValue: string; newValue: string }
     | { type: "addRow"; tableIdx: number; row: Row }
     | { type: "deleteRow"; tableIdx: number; rowIdx: number; row: Row }
-    | { type: "moveRow"; tableIdx: number; fromIdx: number; toIdx: number };
+    | { type: "moveRow"; tableIdx: number; fromIdx: number; toIdx: number }
+    | { type: "addNode"; graphIdx: number; node: GraphNode }
+    | { type: "removeNode"; graphIdx: number; nodeId: string; node: GraphNode }
+    | { type: "addEdge"; graphIdx: number; edge: GraphEdge }
+    | { type: "removeEdge"; graphIdx: number; edgeId: string; edge: GraphEdge };
 
 export class EditHistory {
     private past: EditAction[] = [];

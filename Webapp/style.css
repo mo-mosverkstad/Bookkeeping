@@ -313,6 +313,8 @@ body {
   background: #fff;
   padding: 0;
 }
+/* Diagram views handle pan/zoom internally -- no scrollbars needed */
+#workspace.workspace-diagram { overflow: hidden; }
 
 /* Drop hint shown before any file is loaded */
 .drop-hint {

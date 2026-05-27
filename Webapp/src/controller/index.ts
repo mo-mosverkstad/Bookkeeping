@@ -1,28 +1,32 @@
-import { KnowledgeBase, Table, EditHistory } from "../model/index.ts";
+import { KnowledgeBase, Table, EditHistory, Graph, TypedValue } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
 import { parseControlFile, resolveNodes, resolveEdges, resolveActors, resolveMessages } from "../data/control.ts";
-import type { ControlFile, FlowDecl, SequenceDecl, NodeSource, ResolvedDiagram } from "../data/control.ts";
+import type { ControlFile, FlowDecl, SequenceDecl, NodeSource, GraphFileDecl } from "../data/control.ts";
 import { searchText, searchByIdentifier, getNeighbourhood, crossTableJoin } from "../search/index.ts";
 import type { SearchHit, NeighbourHit, JoinHit } from "../search/index.ts";
-import type { TableView } from "../view/table-view.ts";
+import type { WorkspaceController } from "../view/workspace-controller.ts";
 import type { GraphFilterView } from "../view/graph-filter-view.ts";
 
-/**
- * Controller — orchestrates model and view.
- * Handles user actions, updates the model, and tells the view to re-render.
- */
 export class AppController {
     private knowledgeBase = new KnowledgeBase();
-    private tableView: TableView | null = null;
+    private workspaceController: WorkspaceController | null = null;
     private graphFilterView: GraphFilterView | null = null;
+    private entityClickHandler: ((entityId: string) => void) | null = null;
     readonly history = new EditHistory();
 
-    setTableView(view: TableView): void { this.tableView = view; }
+    setWorkspaceController(wc: WorkspaceController): void { this.workspaceController = wc; }
     setGraphFilterView(view: GraphFilterView): void { this.graphFilterView = view; }
+    setEntityClickHandler(handler: (entityId: string) => void): void {
+        this.entityClickHandler = handler;
+    }
+    getEntityClickHandler(): ((entityId: string) => void) | null {
+        return this.entityClickHandler;
+    }
 
     getKnowledgeBase(): KnowledgeBase { return this.knowledgeBase; }
 
-    /** Load a CSV file into the knowledge base. */
+    // ── Table loading ─────────────────────────────────────────────────────────
+
     loadCSV(fileName: string, csvText: string): void {
         const parsed = parseCSV(csvText);
         const table = Table.fromCSV(fileName.replace(/\.csv$/, ""), parsed);
@@ -30,22 +34,36 @@ export class AppController {
         this.refreshViews();
     }
 
-    /** Filter tables by relation and target. */
+    // ── Graph loading ─────────────────────────────────────────────────────────
+
+    /** Load a .graph.json file directly into a Graph model object. */
+    loadGraph(fileName: string, jsonText: string): void {
+        const json = JSON.parse(jsonText) as unknown;
+        const name = fileName.replace(/\.graph\.json$/, "");
+        const graph = Graph.fromGraphJSON(name, json);
+        this.knowledgeBase.addGraph(graph);
+    }
+
+    getGraphs(): Graph[] {
+        return this.knowledgeBase.graphs;
+    }
+
+    // ── Table operations ──────────────────────────────────────────────────────
+
     filterByRelation(relation: string, target: string): void {
         const matchingIds = new Set(this.knowledgeBase.graph.filterByRelation(relation, target));
-        if (this.tableView) {
-            this.tableView.renderFiltered(this.knowledgeBase.tables, matchingIds, `${relation} → ${target}`);
-        }
+        const tv = this.workspaceController?.getActiveTableView();
+        if (tv) tv.renderFiltered(this.knowledgeBase.tables, matchingIds, relation + ' -> ' + target);
     }
 
-    /** Show all tables unfiltered. */
     showAll(): void {
-        if (this.tableView) {
-            this.tableView.renderAll(this.knowledgeBase.tables);
+        const tv = this.workspaceController?.getActiveTableView();
+        if (tv) {
+            // Re-render only the active table body — do NOT touch the tab strip
+            tv.renderTable(tv.getActiveTableIdx());
         }
     }
 
-    /** Get associations for an entity (for detail panel). */
     getAssociationsFor(entityId: string) {
         return this.knowledgeBase.graph.getAssociationsFor(entityId);
     }
@@ -54,7 +72,6 @@ export class AppController {
         return this.knowledgeBase.graph.getInverse(relation);
     }
 
-    /** Edit a single cell value. Records undo action. */
     editCell(tableIdx: number, rowIdx: number, colIdx: number, newValue: string): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
@@ -65,7 +82,6 @@ export class AppController {
         this.showAll();
     }
 
-    /** Append an empty row to a table. Records undo action. */
     addRow(tableIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
@@ -74,7 +90,6 @@ export class AppController {
         this.showAll();
     }
 
-    /** Insert an empty row at a specific index. Records undo action. */
     insertRow(tableIdx: number, atIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
@@ -83,7 +98,6 @@ export class AppController {
         this.showAll();
     }
 
-    /** Move a row from one index to another. Records undo action. */
     moveRow(tableIdx: number, fromIdx: number, toIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table || fromIdx === toIdx) return;
@@ -92,7 +106,6 @@ export class AppController {
         this.showAll();
     }
 
-    /** Delete a row by index. Records undo action. */
     deleteRow(tableIdx: number, rowIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
@@ -102,113 +115,202 @@ export class AppController {
         this.showAll();
     }
 
-    /** Undo the last edit action. */
+    // ── Graph node/edge mutations ─────────────────────────────────────────────
+
+    addNode(graphIdx: number, id: string, props: Record<string, string> = {}): void {
+        const graph = this.knowledgeBase.graphs[graphIdx];
+        if (!graph) return;
+        const node = graph.addNode(id, props);
+        this.history.push({ type: "addNode", graphIdx, node });
+    }
+
+    /** Rename a graph node's label in-place. */
+    editNodeLabel(graphIdx: number, nodeId: string, newLabel: string): void {
+        const graph = this.knowledgeBase.graphs[graphIdx];
+        if (!graph) return;
+        const node = graph.getNode(nodeId);
+        if (!node) return;
+        const tv = node.properties.get("label");
+        if (tv) {
+            if (tv.value === newLabel) return;
+            tv.value = newLabel;
+        } else {
+            node.properties.set("label", new TypedValue(newLabel, "text"));
+        }
+    }
+
+    removeNode(graphIdx: number, nodeId: string): void {
+        const graph = this.knowledgeBase.graphs[graphIdx];
+        if (!graph) return;
+        const node = graph.removeNode(nodeId);
+        if (!node) return;
+        this.history.push({ type: "removeNode", graphIdx, nodeId, node });
+    }
+
+    addEdge(graphIdx: number, from: string, to: string, props: Record<string, string> = {}): void {
+        const graph = this.knowledgeBase.graphs[graphIdx];
+        if (!graph) return;
+        const edge = graph.addEdge(from, to, props);
+        this.history.push({ type: "addEdge", graphIdx, edge });
+    }
+
+    removeEdge(graphIdx: number, edgeId: string): void {
+        const graph = this.knowledgeBase.graphs[graphIdx];
+        if (!graph) return;
+        const edge = graph.removeEdge(edgeId);
+        if (!edge) return;
+        this.history.push({ type: "removeEdge", graphIdx, edgeId, edge });
+    }
+
+    // ── Undo / Redo ───────────────────────────────────────────────────────────
+
     undo(): void {
         const action = this.history.undo();
         if (!action) return;
-        const table = this.knowledgeBase.tables[action.tableIdx];
-        if (!table) return;
-        if (action.type === "cell") {
-            table.setCellValue(action.rowIdx, action.colIdx, action.oldValue);
-        } else if (action.type === "addRow") {
-            // Remove the row that was added — it is always the last one
-            // (addRow appends, insertRow inserts at a specific index but
-            // the undo stack records the row object for redo restoration)
-            const idx = table.rows.lastIndexOf(action.row);
-            if (idx >= 0) table.removeRowAt(idx);
-        } else if (action.type === "deleteRow") {
-            table.restoreRowAt(action.rowIdx, action.row);
-        } else if (action.type === "moveRow") {
-            table.moveRowFromTo(action.toIdx, action.fromIdx);
+        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow") {
+            const table = this.knowledgeBase.tables[action.tableIdx];
+            if (!table) return;
+            if (action.type === "cell") {
+                table.setCellValue(action.rowIdx, action.colIdx, action.oldValue);
+            } else if (action.type === "addRow") {
+                const idx = table.rows.lastIndexOf(action.row);
+                if (idx >= 0) table.removeRowAt(idx);
+            } else if (action.type === "deleteRow") {
+                table.restoreRowAt(action.rowIdx, action.row);
+            } else if (action.type === "moveRow") {
+                table.moveRowFromTo(action.toIdx, action.fromIdx);
+            }
+            this.navigateToTable(action.tableIdx);
+        } else {
+            const graph = this.knowledgeBase.graphs[action.graphIdx];
+            if (!graph) return;
+            if (action.type === "addNode") {
+                graph.removeNode(action.node.id);
+            } else if (action.type === "removeNode") {
+                graph.nodes.push(action.node);
+            } else if (action.type === "addEdge") {
+                graph.removeEdge(action.edge.id);
+            } else if (action.type === "removeEdge") {
+                graph.edges.push(action.edge);
+            }
+            this.navigateToGraph(action.graphIdx);
         }
-        this.showAll();
     }
 
-    /** Redo the last undone action. */
     redo(): void {
         const action = this.history.redo();
         if (!action) return;
-        const table = this.knowledgeBase.tables[action.tableIdx];
-        if (!table) return;
-        if (action.type === "cell") {
-            table.setCellValue(action.rowIdx, action.colIdx, action.newValue);
-        } else if (action.type === "addRow") {
-            table.restoreRowAt(table.rows.length, action.row);
-        } else if (action.type === "deleteRow") {
-            table.removeRowAt(action.rowIdx);
-        } else if (action.type === "moveRow") {
-            table.moveRowFromTo(action.fromIdx, action.toIdx);
+        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow") {
+            const table = this.knowledgeBase.tables[action.tableIdx];
+            if (!table) return;
+            if (action.type === "cell") {
+                table.setCellValue(action.rowIdx, action.colIdx, action.newValue);
+            } else if (action.type === "addRow") {
+                table.restoreRowAt(table.rows.length, action.row);
+            } else if (action.type === "deleteRow") {
+                table.removeRowAt(action.rowIdx);
+            } else if (action.type === "moveRow") {
+                table.moveRowFromTo(action.fromIdx, action.toIdx);
+            }
+            this.navigateToTable(action.tableIdx);
+        } else {
+            const graph = this.knowledgeBase.graphs[action.graphIdx];
+            if (!graph) return;
+            if (action.type === "addNode") {
+                graph.nodes.push(action.node);
+            } else if (action.type === "removeNode") {
+                graph.removeNode(action.nodeId);
+            } else if (action.type === "addEdge") {
+                graph.edges.push(action.edge);
+            } else if (action.type === "removeEdge") {
+                graph.removeEdge(action.edgeId);
+            }
+            this.navigateToGraph(action.graphIdx);
         }
-        this.showAll();
     }
 
-    /** Export a table as CSV text. */
+    // ── Export ────────────────────────────────────────────────────────────────
+
     exportCSV(tableIdx: number): string {
         return this.knowledgeBase.exportTableAsCSV(tableIdx);
     }
 
-    /** Full-text search across all text cells. */
+    exportGraph(graphIdx: number): string {
+        return this.knowledgeBase.graphs[graphIdx]?.toGraphJSON() ?? "";
+    }
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
     searchText(query: string): SearchHit[] {
         return searchText(this.knowledgeBase, query);
     }
 
-    /** Structural search: find entities whose math cells contain a given identifier. */
     searchByIdentifier(name: string): SearchHit[] {
         return searchByIdentifier(this.knowledgeBase, name);
     }
 
-    /** Graph neighbourhood: all entities within maxHops of startEntityId. */
     getNeighbourhood(startEntityId: string, maxHops: number): NeighbourHit[] {
         return getNeighbourhood(this.knowledgeBase, startEntityId, maxHops);
     }
 
-    /** Cross-table join: entity pairs from two tables linked by a relation. */
     crossTableJoin(leftTableIdx: number, rightTableIdx: number, relation: string): JoinHit[] {
         return crossTableJoin(this.knowledgeBase, leftTableIdx, rightTableIdx, relation);
     }
 
-    /** Names of all currently loaded files (for session persistence). */
     getLoadedFileNames(): string[] {
         return this.knowledgeBase.tables.map(t => t.name);
     }
 
-    /**
-     * Load a control.json file. Parses it and stores the ControlFile on the
-     * knowledge base. Diagram entries are resolved once all CSV files are
-     * loaded — call resolveAllDiagrams() after all CSVs are loaded.
-     */
+    // ── Control file (legacy CSV-based diagram path) ──────────────────────────
+
     loadControlFile(jsonText: string): ControlFile {
         const parsed = JSON.parse(jsonText) as unknown;
         return parseControlFile(parsed);
     }
 
     /**
-     * Resolve all diagram declarations in a ControlFile against the loaded
-     * CSV tables. Stores resolved diagrams in knowledgeBase.diagrams.
-     *
-     * csvFiles: map of filename → { headers, rows } from parseCSV.
+     * Resolve all diagram declarations in a ControlFile against loaded CSV
+     * data, producing Graph objects stored in knowledgeBase.graphs.
      */
     resolveAllDiagrams(
         controlFile: ControlFile,
         csvFiles: Map<string, { headers: string[]; types: string[]; rows: string[][] }>,
+        graphFiles: Map<string, string> = new Map(),
     ): void {
-        this.knowledgeBase.diagrams.length = 0;
         for (const entry of controlFile.entries) {
             if (entry.view === "table") continue;
+
+            // Native .graph.json reference
+            if (entry.view === "graph") {
+                const decl = entry as GraphFileDecl;
+                const text = graphFiles.get(decl.file);
+                if (!text) continue;
+                const json = JSON.parse(text) as unknown;
+                const graph = Graph.fromGraphJSON(decl.id, json);
+                this.knowledgeBase.addGraph(graph);
+                continue;
+            }
 
             if (entry.view === "sequence") {
                 const seq = entry as SequenceDecl;
                 const actorFile = csvFiles.get(seq.actors.file);
                 const msgFile   = csvFiles.get(seq.messages.file);
                 if (!actorFile || !msgFile) continue;
-                const diagram: ResolvedDiagram = {
-                    entry,
-                    actors:   resolveActors(actorFile.headers, actorFile.rows, seq.actors.mapping),
-                    messages: resolveMessages(msgFile.headers, msgFile.rows, seq.messages.mapping),
-                    nodeStyles: {},
-                    edgeStyles: {},
-                };
-                this.knowledgeBase.diagrams.push(diagram);
+
+                const actors   = resolveActors(actorFile.headers, actorFile.rows, seq.actors.mapping);
+                const messages = resolveMessages(msgFile.headers, msgFile.rows, seq.messages.mapping);
+
+                // Build a Graph from sequence data
+                const graph = new Graph(entry.id, "sequence");
+                for (const a of actors) graph.addNode(a.id, { label: a.label });
+                for (const m of messages) {
+                    graph.addEdge(m.from, m.to, {
+                        label: m.label,
+                        type: m.type,
+                        time: String(m.time),
+                    });
+                }
+                this.knowledgeBase.addGraph(graph);
                 continue;
             }
 
@@ -224,45 +326,80 @@ export class AppController {
                 return resolveNodes(f.headers, f.rows, src.mapping);
             });
 
-            let allEdges = undefined;
+            let resolvedEdges: { from: string; to: string; type: string; label: string }[] | undefined;
             if (flow.edges) {
                 const ef = csvFiles.get(flow.edges.file);
-                if (ef) allEdges = resolveEdges(ef.headers, ef.rows, flow.edges.mapping);
+                if (ef) resolvedEdges = resolveEdges(ef.headers, ef.rows, flow.edges.mapping);
             }
 
-            // Fallback: _associations column from first node source
-            if (!allEdges && nodeSources.length > 0) {
+            // Fallback: _associations column
+            if (!resolvedEdges && nodeSources.length > 0) {
                 const firstFile = csvFiles.get(nodeSources[0].file);
                 if (firstFile) {
                     const assocIdx = firstFile.headers.indexOf("_associations");
                     if (assocIdx >= 0) {
-                        allEdges = [];
-                        firstFile.rows.forEach((row, i) => {
+                        resolvedEdges = [];
+                        firstFile.rows.forEach(row => {
                             const srcId = row[firstFile.headers.indexOf(nodeSources[0].mapping.id)] ?? "";
                             const assocVal = row[assocIdx] ?? "";
                             for (const part of assocVal.split(";")) {
                                 const [rel, tgt] = part.split(":");
-                                if (tgt) allEdges!.push({ from: srcId, to: tgt.trim(), type: rel?.trim() ?? "", label: "" });
+                                if (tgt) resolvedEdges!.push({ from: srcId, to: tgt.trim(), type: rel?.trim() ?? "", label: "" });
                             }
                         });
                     }
                 }
             }
 
-            const diagram: ResolvedDiagram = {
-                entry,
-                nodes: allNodes,
-                edges: allEdges ?? [],
-                nodeStyles: flow.nodeStyles ?? {},
-                edgeStyles: flow.edgeStyles ?? {},
-            };
-            this.knowledgeBase.diagrams.push(diagram);
+            const graph = new Graph(
+                entry.id,
+                entry.view as "flow" | "spatial" | "relation",
+                [],
+                [],
+                flow.nodeStyles ?? {},
+                flow.edgeStyles ?? {},
+            );
+
+            for (const n of allNodes) {
+                const props: Record<string, string> = { label: n.label, type: n.type, ...n.extra };
+                if (n.x !== undefined) props.x = String(n.x);
+                if (n.y !== undefined) props.y = String(n.y);
+                graph.addNode(n.id, props);
+            }
+            // Clear the auto-generated edge ids from addNode calls, then add edges
+            graph.edges = [];
+            for (const e of (resolvedEdges ?? [])) {
+                const props: Record<string, string> = {};
+                if (e.type)  props.type  = e.type;
+                if (e.label) props.label = e.label;
+                graph.addEdge(e.from, e.to, props);
+            }
+
+            this.knowledgeBase.addGraph(graph);
         }
     }
 
-    /** Get all resolved diagrams. */
-    getDiagrams(): ResolvedDiagram[] {
-        return this.knowledgeBase.diagrams;
+    private navigateToTable(tableIdx: number): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table || !this.workspaceController) return;
+        const tv = this.workspaceController.getActiveTableView();
+        if (tv) {
+            // Already on a table tab — check if it's the right one
+            const activeId = this.workspaceController.getActiveId();
+            if (activeId === table.name) {
+                // Same tab: just re-render the body
+                tv.renderTable(tableIdx);
+                return;
+            }
+        }
+        // Different tab: switch to it (mount re-renders automatically)
+        this.workspaceController.activateTab(table.name);
+    }
+
+    private navigateToGraph(graphIdx: number): void {
+        const graph = this.knowledgeBase.graphs[graphIdx];
+        if (!graph || !this.workspaceController) return;
+        this.workspaceController.activateTab(graph.name);
     }
 
     private refreshViews(): void {

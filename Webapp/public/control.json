@@ -13,23 +13,8 @@
     },
     {
       "id": "glycolysis-map",
-      "view": "flow",
-      "nodes": {
-        "file": "glycolysis-nodes.csv",
-        "mapping": { "id": "Formula", "label": "Name", "type": "Kind" }
-      },
-      "edges": {
-        "file": "glycolysis-edges.csv",
-        "mapping": { "from": "From", "to": "To", "type": "Type", "label": "Enzyme" }
-      },
-      "nodeStyles": {
-        "compound": { "shape": "ellipse", "color": "#e0f2fe" },
-        "enzyme":   { "shape": "rect",    "color": "#fef9c3" }
-      },
-      "edgeStyles": {
-        "reaction": { "arrow": "filled", "dash": false },
-        "inhibits": { "arrow": "flat",   "dash": true  }
-      }
+      "view": "graph",
+      "file": "glycolysis.graph.json"
     },
     {
       "id": "krebs-table",
@@ -38,47 +23,13 @@
     },
     {
       "id": "krebs-map",
-      "view": "flow",
-      "nodes": {
-        "file": "krebs-nodes.csv",
-        "mapping": { "id": "Formula", "label": "Name", "type": "Kind" }
-      },
-      "edges": {
-        "file": "krebs-edges.csv",
-        "mapping": { "from": "From", "to": "To", "type": "Type", "label": "Enzyme" }
-      },
-      "nodeStyles": {
-        "compound": { "shape": "ellipse", "color": "#dcfce7" },
-        "enzyme":   { "shape": "rect",    "color": "#fef9c3" }
-      },
-      "edgeStyles": {
-        "reaction": { "arrow": "filled", "dash": false }
-      }
+      "view": "graph",
+      "file": "krebs.graph.json"
     },
     {
       "id": "metabolism-map",
-      "view": "flow",
-      "nodes": [
-        {
-          "file": "glycolysis-nodes.csv",
-          "mapping": { "id": "Formula", "label": "Name", "type": "Kind" }
-        },
-        {
-          "file": "krebs-nodes.csv",
-          "mapping": { "id": "Formula", "label": "Name", "type": "Kind" }
-        }
-      ],
-      "edges": {
-        "file": "metabolism-edges.csv",
-        "mapping": { "from": "From", "to": "To", "type": "Type", "label": "Enzyme" }
-      },
-      "nodeStyles": {
-        "compound": { "shape": "ellipse", "color": "#e0f2fe" },
-        "enzyme":   { "shape": "rect",    "color": "#fef9c3" }
-      },
-      "edgeStyles": {
-        "reaction": { "arrow": "filled", "dash": false }
-      }
+      "view": "graph",
+      "file": "metabolism.graph.json"
     }
   ]
 }

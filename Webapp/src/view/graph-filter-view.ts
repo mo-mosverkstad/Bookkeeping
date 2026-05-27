@@ -57,6 +57,8 @@ export class GraphFilterView {
         });
     }
 
+    getDetailPanel(): HTMLElement { return this.detailPanel; }
+
     updateDropdowns(relationTypes: string[], entityIds: string[]): void {
         this.relSelect.innerHTML = "";
         for (const t of relationTypes) {

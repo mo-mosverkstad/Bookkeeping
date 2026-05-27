@@ -1,3 +1,4 @@
+export { TypedValue } from "./TypedValue.ts";
 export { Cell } from "./Cell.ts";
 export { Column } from "./Column.ts";
 export { Row } from "./Row.ts";
@@ -8,3 +9,7 @@ export { AssociationGraph } from "./AssociationGraph.ts";
 export { EditHistory } from "./EditHistory.ts";
 export type { EditAction } from "./EditHistory.ts";
 export { KnowledgeBase } from "./KnowledgeBase.ts";
+export { GraphNode } from "./GraphNode.ts";
+export { GraphEdge } from "./GraphEdge.ts";
+export { Graph } from "./Graph.ts";
+export type { GraphViewType } from "./Graph.ts";

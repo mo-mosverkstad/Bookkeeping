@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "name": "krebs-map",
+  "view": "flow",
+  "nodes": [
+    { "id": "Pyruvate",   "label": "Pyruvate",            "type": "compound" },
+    { "id": "AcCoA",      "label": "Acetyl-CoA",          "type": "compound" },
+    { "id": "OAA",        "label": "Oxaloacetate",        "type": "compound" },
+    { "id": "Citrate",    "label": "Citrate",             "type": "compound" },
+    { "id": "IsoCitrate", "label": "Isocitrate",          "type": "compound" },
+    { "id": "aKG",        "label": "α-Ketoglutarate",     "type": "compound" },
+    { "id": "SucCoA",     "label": "Succinyl-CoA",        "type": "compound" },
+    { "id": "Succinate",  "label": "Succinate",           "type": "compound" },
+    { "id": "Fumarate",   "label": "Fumarate",            "type": "compound" },
+    { "id": "Malate",     "label": "Malate",              "type": "compound" },
+    { "id": "PDH",        "label": "Pyruvate dehydrogenase", "type": "enzyme" },
+    { "id": "CS",         "label": "Citrate synthase",    "type": "enzyme" },
+    { "id": "Aconitase",  "label": "Aconitase",           "type": "enzyme" },
+    { "id": "IDH",        "label": "IDH",                 "type": "enzyme" },
+    { "id": "KGDH",       "label": "KGDH",                "type": "enzyme" },
+    { "id": "SCS",        "label": "SCS",                 "type": "enzyme" },
+    { "id": "SDH",        "label": "SDH",                 "type": "enzyme" },
+    { "id": "Fumarase",   "label": "Fumarase",            "type": "enzyme" },
+    { "id": "MDH",        "label": "MDH",                 "type": "enzyme" }
+  ],
+  "edges": [
+    { "id": "e0",  "from": "Pyruvate",   "to": "PDH",        "type": "reaction" },
+    { "id": "e1",  "from": "PDH",        "to": "AcCoA",      "type": "reaction", "label": "PDH" },
+    { "id": "e2",  "from": "AcCoA",      "to": "CS",         "type": "reaction" },
+    { "id": "e3",  "from": "OAA",        "to": "CS",         "type": "reaction" },
+    { "id": "e4",  "from": "CS",         "to": "Citrate",    "type": "reaction", "label": "CS" },
+    { "id": "e5",  "from": "Citrate",    "to": "Aconitase",  "type": "reaction" },
+    { "id": "e6",  "from": "Aconitase",  "to": "IsoCitrate", "type": "reaction", "label": "Aconitase" },
+    { "id": "e7",  "from": "IsoCitrate", "to": "IDH",        "type": "reaction" },
+    { "id": "e8",  "from": "IDH",        "to": "aKG",        "type": "reaction", "label": "IDH" },
+    { "id": "e9",  "from": "aKG",        "to": "KGDH",       "type": "reaction" },
+    { "id": "e10", "from": "KGDH",       "to": "SucCoA",     "type": "reaction", "label": "KGDH" },
+    { "id": "e11", "from": "SucCoA",     "to": "SCS",        "type": "reaction" },
+    { "id": "e12", "from": "SCS",        "to": "Succinate",  "type": "reaction", "label": "SCS" },
+    { "id": "e13", "from": "Succinate",  "to": "SDH",        "type": "reaction" },
+    { "id": "e14", "from": "SDH",        "to": "Fumarate",   "type": "reaction", "label": "SDH" },
+    { "id": "e15", "from": "Fumarate",   "to": "Fumarase",   "type": "reaction" },
+    { "id": "e16", "from": "Fumarase",   "to": "Malate",     "type": "reaction", "label": "Fumarase" },
+    { "id": "e17", "from": "Malate",     "to": "MDH",        "type": "reaction" },
+    { "id": "e18", "from": "MDH",        "to": "OAA",        "type": "reaction", "label": "MDH" }
+  ],
+  "nodeStyles": {
+    "compound": { "shape": "ellipse", "color": "#dcfce7" },
+    "enzyme":   { "shape": "rect",    "color": "#fef9c3" }
+  },
+  "edgeStyles": {
+    "reaction": { "arrow": "filled", "dash": false }
+  }
+}

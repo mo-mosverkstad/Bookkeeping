@@ -1,6 +1,6 @@
-# Codebase Analysis
+﻿# Codebase Analysis
 
-## Phase 1 — Math Syntax: Expression Parser & Renderer
+## Phase 1 â€” Math Syntax: Expression Parser & Renderer
 
 This document explains every concept and every piece of code in the project,
 written for readers who are new to parsers, ASTs, or this codebase.
@@ -13,7 +13,7 @@ written for readers who are new to parsers, ASTs, or this codebase.
 
 A parser reads a string of text and turns it into a structured data object
 that a program can work with. For example, the string `"2+3*x"` is just
-characters — a parser turns it into a tree that says:
+characters â€” a parser turns it into a tree that says:
 "this is an addition of 2 and (3 multiplied by x)".
 
 ### What is a PEG Grammar?
@@ -22,7 +22,7 @@ PEG stands for **Parsing Expression Grammar**. It is a way of describing the
 rules of a language. Each rule says: "to match this thing, try matching these
 sub-things in this order". Rules can refer to other rules, forming a hierarchy.
 
-A PEG grammar is **deterministic** — it never backtracks ambiguously. When a
+A PEG grammar is **deterministic** â€” it never backtracks ambiguously. When a
 choice fails, it moves on to the next option immediately.
 
 ### What is an AST?
@@ -42,14 +42,14 @@ NumberLiteral(2)    BinaryExpression (*)
            NumberLiteral(3)      Identifier(x)
 ```
 
-The tree structure encodes operator precedence — multiplication is deeper in
+The tree structure encodes operator precedence â€” multiplication is deeper in
 the tree than addition, which means it is evaluated first.
 
 ### What is Operator Precedence?
 
 In math, `2 + 3 * x` means `2 + (3 * x)`, not `(2 + 3) * x`. Multiplication
 has higher precedence than addition. In a grammar, this is encoded by making
-multiplication a "deeper" rule than addition — the parser must resolve
+multiplication a "deeper" rule than addition â€” the parser must resolve
 multiplication before it can resolve addition.
 
 The precedence hierarchy in BobaMath (lowest to highest):
@@ -68,7 +68,7 @@ Primary         (numbers, identifiers, parentheses)
 In math notation, writing two things next to each other often means multiply:
 `2x` means `2 * x`, `sin(x)y` means `sin(x) * y`. This is called implicit
 multiplication. It is trickier to parse than explicit `*` because there is no
-operator character to trigger it — the parser must recognise that two adjacent
+operator character to trigger it â€” the parser must recognise that two adjacent
 parseable things means multiply.
 
 ### What is Right-Associativity?
@@ -85,33 +85,33 @@ left in the `build` function.
 
 ### `src/parser/types.ts`
 
-This file defines all the TypeScript interfaces — the "shapes" of data used
+This file defines all the TypeScript interfaces â€” the "shapes" of data used
 throughout the project. It has two groups:
 
-**PEG engine types** — describe the grammar rules themselves:
+**PEG engine types** â€” describe the grammar rules themselves:
 
-- `PEGExpression` — a union type: any grammar node is one of six kinds
-- `LiteralExpression` — matches an exact string, e.g. `"+"`
-- `RegexExpression` — matches a regular expression pattern, e.g. a number
-- `SequenceExpression` — matches several things one after another
-- `ChoiceExpression` — tries each option in order, uses the first that succeeds
-- `RepeatExpression` — matches zero or more repetitions (like `*` in regex)
-- `RuleReferenceExpression` — refers to another named rule by name
-- `Grammar` — a dictionary mapping rule names to their PEG definition and
+- `PEGExpression` â€” a union type: any grammar node is one of six kinds
+- `LiteralExpression` â€” matches an exact string, e.g. `"+"`
+- `RegexExpression` â€” matches a regular expression pattern, e.g. a number
+- `SequenceExpression` â€” matches several things one after another
+- `ChoiceExpression` â€” tries each option in order, uses the first that succeeds
+- `RepeatExpression` â€” matches zero or more repetitions (like `*` in regex)
+- `RuleReferenceExpression` â€” refers to another named rule by name
+- `Grammar` â€” a dictionary mapping rule names to their PEG definition and
   optional `build` function
-- `MatchResult` — either a `MatchSuccess` (with position and node) or a
+- `MatchResult` â€” either a `MatchSuccess` (with position and node) or a
   `MatchFailure` (with position only)
 
-**AST node types** — describe the output of parsing:
+**AST node types** â€” describe the output of parsing:
 
-- `NumberLiteralNode` — a numeric constant, e.g. `3.14`
-- `IdentifierNode` — a variable or function name, e.g. `x` or `\int`
-- `BinaryExpressionNode` — two operands and an operator, e.g. `a + b`
-- `UnaryExpressionNode` — one operand and a prefix operator, e.g. `-x`
-- `CallExpressionNode` — a function call, e.g. `f(x, y)`
-- `ControlExpressionNode` — a control expression, e.g. `\int{a, b, f(x)}`
-- `SubscriptExpressionNode` — a subscript, e.g. `x_i`
-- `ASTNode` — a union of all the above; any node in the tree is one of these
+- `NumberLiteralNode` â€” a numeric constant, e.g. `3.14`
+- `IdentifierNode` â€” a variable or function name, e.g. `x` or `\int`
+- `BinaryExpressionNode` â€” two operands and an operator, e.g. `a + b`
+- `UnaryExpressionNode` â€” one operand and a prefix operator, e.g. `-x`
+- `CallExpressionNode` â€” a function call, e.g. `f(x, y)`
+- `ControlExpressionNode` â€” a control expression, e.g. `\int{a, b, f(x)}`
+- `SubscriptExpressionNode` â€” a subscript, e.g. `x_i`
+- `ASTNode` â€” a union of all the above; any node in the tree is one of these
 
 ---
 
@@ -155,7 +155,7 @@ the whole sequence fails immediately.
 
 **`matchChoice`**
 Tries each option in order. Returns the first success. If all fail, returns
-failure. Importantly, it does **not** backtrack — once an option starts
+failure. Importantly, it does **not** backtrack â€” once an option starts
 succeeding and then fails mid-way, the whole choice fails (this is the PEG
 "committed choice" behaviour).
 
@@ -165,7 +165,7 @@ Runs the inner expression repeatedly until it fails or makes no progress
 results.
 
 **Error reporting**
-The parser tracks the "best error" — the failure that got furthest into the
+The parser tracks the "best error" â€” the failure that got furthest into the
 input. This gives the most useful error message, because the furthest failure
 is usually closest to what the user intended.
 
@@ -177,29 +177,29 @@ This file defines the BobaMath grammar as a `Grammar` object and exports a
 ready-to-use `parser` instance.
 
 Each entry in the grammar object has:
-- `peg` — the PEG expression describing what to match
-- `build` — a function that transforms the raw match result into an AST node
+- `peg` â€” the PEG expression describing what to match
+- `build` â€” a function that transforms the raw match result into an AST node
 
 **Rule hierarchy (top to bottom = lowest to highest precedence):**
 
 ```
-Expression → Additive
-Additive → Multiplicative ((+|-) Multiplicative)*
-Multiplicative → Power ((*|/) Power | ImplicitPower)*
-ImplicitPower → Postfix (^ Unary)*
-Power → Unary (^ Unary)*
-Unary → (-|+) Unary | Postfix
-Postfix → Primary (CallSuffix | ControlSuffix | SubscriptSuffix)*
-Primary → Number | Identifier | ( Expression )
+Expression â†’ Additive
+Additive â†’ Multiplicative ((+|-) Multiplicative)*
+Multiplicative â†’ Power ((*|/) Power | ImplicitPower)*
+ImplicitPower â†’ Postfix (^ Unary)*
+Power â†’ Unary (^ Unary)*
+Unary â†’ (-|+) Unary | Postfix
+Postfix â†’ Primary (CallSuffix | ControlSuffix | SubscriptSuffix)*
+Primary â†’ Number | Identifier | ( Expression )
 ```
 
-**Key design decision — `ImplicitPower` vs `Power`**
+**Key design decision â€” `ImplicitPower` vs `Power`**
 
 The implicit multiplication branch in `Multiplicative` uses `ImplicitPower`
 instead of `Power`. The difference: `Power` starts from `Unary`, which can
 consume a leading `+` or `-`. If implicit multiplication used `Power`, then
-inside `(3+5)`, after parsing `3`, the implicit repeat would try `Power` →
-`Unary` → match `+` as a unary sign, stealing it from `Additive` and turning
+inside `(3+5)`, after parsing `3`, the implicit repeat would try `Power` â†’
+`Unary` â†’ match `+` as a unary sign, stealing it from `Additive` and turning
 `3+5` into `3*(+5)`. `ImplicitPower` starts from `Postfix` instead, which
 cannot consume a sign, so the `+` is left for `Additive` to handle correctly.
 
@@ -208,7 +208,7 @@ cannot consume a sign, so the `+` is left for `Additive` to handle correctly.
 The PEG match produces `[left, [[op, right], [op, right], ...]]`. The build
 function folds this left-to-right into a left-leaning binary tree:
 ```
-2 + 3 + 4  →  BinaryExpression(+, BinaryExpression(+, 2, 3), 4)
+2 + 3 + 4  â†’  BinaryExpression(+, BinaryExpression(+, 2, 3), 4)
 ```
 
 **`Power` build function**
@@ -216,14 +216,14 @@ function folds this left-to-right into a left-leaning binary tree:
 The PEG match produces `[left, [[^, a], [^, b], ...]]`. The build function
 folds right-to-left to produce right-associative trees:
 ```
-x^2^3  →  BinaryExpression(^, x, BinaryExpression(^, 2, 3))
+x^2^3  â†’  BinaryExpression(^, x, BinaryExpression(^, 2, 3))
 ```
 
 **`Postfix` build function**
 
 Accumulates suffixes (call, control, subscript) onto a base node left-to-right:
 ```
-f(x)(y)  →  CallExpression(CallExpression(f, [x]), [y])
+f(x)(y)  â†’  CallExpression(CallExpression(f, [x]), [y])
 ```
 
 **`ArgumentList` build function**
@@ -260,7 +260,7 @@ around the left or right child by comparing operator precedences:
   precedence than the child's operator (except `^`, which uses `>=` to force
   parens on a left-associative sub-expression like `(a+b)^c`)
 - Right child needs parens for `-` and `/` if the current operator has
-  precedence `>=` the child's (because `a - (b - c) ≠ a - b - c`)
+  precedence `>=` the child's (because `a - (b - c) â‰  a - b - c`)
 
 Division is rendered as a CSS fraction (stacked numerator/denominator).
 Power is rendered with `<sup>`. Multiplication renders the two sides adjacent
@@ -305,15 +305,15 @@ The page title and `#app` div identify the app as "BobaMath input renderer".
 ### `native-math.css`
 
 Provides all the visual math rendering styles:
-- `.fraction` — stacks numerator and denominator with a horizontal rule
-- `.opstack` — stacks top label, operator symbol, and bottom label (used for
+- `.fraction` â€” stacks numerator and denominator with a horizontal rule
+- `.opstack` â€” stacks top label, operator symbol, and bottom label (used for
   integrals, sums, products)
-- `.large-operator` — enlarges the operator symbol (∫, Σ, etc.)
-- `.sqrt` — draws the radical sign using a CSS `::before` pseudo-element and
+- `.large-operator` â€” enlarges the operator symbol (âˆ«, Î£, etc.)
+- `.sqrt` â€” draws the radical sign using a CSS `::before` pseudo-element and
   a top border
-- `.matrix` / `.matrix-row` / `.matrix-cell` — table-based matrix layout
+- `.matrix` / `.matrix-row` / `.matrix-cell` â€” table-based matrix layout
   (CSS prepared, not yet wired in Phase 1)
-- `.piecewise` — left-brace piecewise function layout (CSS prepared, not yet
+- `.piecewise` â€” left-brace piecewise function layout (CSS prepared, not yet
   wired in Phase 1)
 
 ---
@@ -335,8 +335,8 @@ different slant direction.
 | `a` | `PlainIdentifier` | `"plain"` | upright a |
 | `` `a `` | `LeftSkewIdentifier` | `"left-skew"` | italic a |
 | `` `1a `` | `RightSkewIdentifier` | `"right-skew"` | right-skewed a |
-| `\a` | `GreekIdentifier` | `"greek"` | α (upright) |
-| `\1a` | `RightSkewGreekIdentifier` | `"greek-right"` | α (right-skewed) |
+| `\a` | `GreekIdentifier` | `"greek"` | Î± (upright) |
+| `\1a` | `RightSkewGreekIdentifier` | `"greek-right"` | Î± (right-skewed) |
 
 The skew index number (`1` in `` `1a `` and `\1a`) is kept open for future
 extension. The grammar regex accepts any digit sequence: `` `2a ``, `\3b `,
@@ -345,30 +345,30 @@ etc., though only `1` is used in practice for now.
 #### Grammar rule ordering
 
 The `Identifier` rule tries options in this order:
-1. `RightSkewGreekIdentifier` — `\1a` (must come before `GreekIdentifier` to
+1. `RightSkewGreekIdentifier` â€” `\1a` (must come before `GreekIdentifier` to
    avoid `\` being consumed as a Greek prefix leaving `1a` unparsed)
-2. `GreekIdentifier` — `\a`
-3. `RightSkewIdentifier` — `` `1a `` (must come before `LeftSkewIdentifier`
+2. `GreekIdentifier` â€” `\a`
+3. `RightSkewIdentifier` â€” `` `1a `` (must come before `LeftSkewIdentifier`
    to avoid `` ` `` being consumed leaving `1a` unparsed)
-4. `LeftSkewIdentifier` — `` `a ``
-5. `PlainIdentifier` — `a`
+4. `LeftSkewIdentifier` â€” `` `a ``
+5. `PlainIdentifier` â€” `a`
 
 #### Greek letter mapping
 
 The `GREEK` table in `render.ts` maps single Latin letters to their Greek
 Unicode equivalents. The mapping uses phonetic/conventional assignments:
-`a`→α, `b`→β, `g`→γ, `d`→δ, `l`→λ, `p`→π, `w`→ω, etc. Multi-letter
-names (e.g. `\int`, `\sqrt`) do not map to Greek — they are used as control
+`a`â†’Î±, `b`â†’Î², `g`â†’Î³, `d`â†’Î´, `l`â†’Î», `p`â†’Ï€, `w`â†’Ï‰, etc. Multi-letter
+names (e.g. `\int`, `\sqrt`) do not map to Greek â€” they are used as control
 expression names and rendered by `renderControl`.
 
 #### CSS classes
 
 Each prefix maps to a CSS class in `native-math.css`:
-- `.ident-plain` — `font-style: normal`
-- `.ident-left-skew` — `font-style: italic`
-- `.ident-right-skew` — `font-style: italic; transform: skewX(15deg)`
-- `.ident-greek` — `font-style: normal`
-- `.ident-greek-right` — `font-style: italic; transform: skewX(15deg)`
+- `.ident-plain` â€” `font-style: normal`
+- `.ident-left-skew` â€” `font-style: italic`
+- `.ident-right-skew` â€” `font-style: italic; transform: skewX(15deg)`
+- `.ident-greek` â€” `font-style: normal`
+- `.ident-greek-right` â€” `font-style: italic; transform: skewX(15deg)`
 
 `transform: skewX` requires `display: inline-block` to take effect on
 inline elements, which is also set on those classes.
@@ -379,7 +379,7 @@ inline elements, which is also set on those classes.
 
 #### Symptom
 
-`\int{0, 1, x^2}` rendered `x²` stacked below the ∫ symbol instead of
+`\int{0, 1, x^2}` rendered `xÂ²` stacked below the âˆ« symbol instead of
 beside it to the right.
 
 #### Root cause
@@ -389,9 +389,9 @@ The original `renderIntegral` produced this DOM structure:
 ```html
 <span class="opstack">
   <span class="top">1</span>
-  <span class="op large-operator">∫</span>
+  <span class="op large-operator">âˆ«</span>
   <span class="bottom">0</span>
-  <span>x²</span>   ← body placed as 4th child inside opstack
+  <span>xÂ²</span>   â† body placed as 4th child inside opstack
 </span>
 ```
 
@@ -405,7 +405,7 @@ The `.opstack` CSS rule sets **all direct children** to `display: block`:
 }
 ```
 
-However, the body `<span>` is not `.top`, `.op`, or `.bottom` — it has no
+However, the body `<span>` is not `.top`, `.op`, or `.bottom` â€” it has no
 class. Despite this, being a direct child of a `display: inline-block`
 container, it still participates in the block formatting context and flows
 below the previous block children. The result: the body stacks below the
@@ -413,7 +413,7 @@ integral sign rather than sitting beside it.
 
 The underlying mental model error was treating `.opstack` as a container
 for the whole integral expression. In reality, `.opstack` is only meant to
-hold the **stacked symbol with its bounds** — the three vertically arranged
+hold the **stacked symbol with its bounds** â€” the three vertically arranged
 pieces (top bound, operator, bottom bound). The integrand body is a
 **sibling** of the opstack, not a child.
 
@@ -424,14 +424,14 @@ Introduced a new `.integral` wrapper using `display: inline-flex` with
 `.integral-body` (the integrand) are flex siblings:
 
 ```html
-<span class="integral">           ← flex row, items vertically centred
-  <span class="opstack">          ← stacked bounds + symbol
+<span class="integral">           â† flex row, items vertically centred
+  <span class="opstack">          â† stacked bounds + symbol
     <span class="top">1</span>
-    <span class="op large-operator">∫</span>
+    <span class="op large-operator">âˆ«</span>
     <span class="bottom">0</span>
   </span>
-  <span class="integral-body">    ← integrand, sits beside the sign
-    x²
+  <span class="integral-body">    â† integrand, sits beside the sign
+    xÂ²
   </span>
 </span>
 ```
@@ -455,8 +455,8 @@ inline with surrounding text.
 
 #### Lesson
 
-`.opstack` is a layout primitive for stacked operator notation (∫, Σ, Π,
-lim, etc.) — it only handles the vertical stack of: top label, operator
+`.opstack` is a layout primitive for stacked operator notation (âˆ«, Î£, Î ,
+lim, etc.) â€” it only handles the vertical stack of: top label, operator
 glyph, bottom label. Any content that should appear **beside** an opstack
 must be a sibling in an outer flex container, not a child of the opstack.
 This pattern applies to all future operators that use `.opstack`.
@@ -477,7 +477,7 @@ practice this was nearly invisible:
 - `skewX(15deg)` on top of italic added only a subtle extra tilt that
   was easy to miss at a glance
 
-The purpose of skew is to **unambiguously distinguish symbols** — e.g.
+The purpose of skew is to **unambiguously distinguish symbols** â€” e.g.
 `T` (period) vs `` `1T `` (temperature). If the visual difference is not
 immediately obvious to the naked eye, the notation fails its purpose.
 
@@ -496,7 +496,7 @@ upright glyphs:
 | `ident-greek-right` | `skewX(20deg)` | right-leaning Greek glyph |
 
 Using `skewX` directly on upright glyphs gives full control over the
-angle. At ±20° the difference between plain, left-skew, and right-skew
+angle. At Â±20Â° the difference between plain, left-skew, and right-skew
 is immediately visible without needing to look closely.
 
 #### Lesson
@@ -510,10 +510,10 @@ states are unambiguous even at small font sizes.
 
 ---
 
-## Phase 2 — Linear Algebra, Rollout Notation & Extended Operators
+## Phase 2 â€” Linear Algebra, Rollout Notation & Extended Operators
 
 This section explains all new concepts, code, and design decisions introduced
-in Phase 2. It builds on the Phase 1 foundation — read Phase 1 first.
+in Phase 2. It builds on the Phase 1 foundation â€” read Phase 1 first.
 
 ---
 
@@ -522,7 +522,7 @@ in Phase 2. It builds on the Phase 1 foundation — read Phase 1 first.
 ### What is a Relational Expression?
 
 A relational expression compares two values: `a = b`, `x < y`, `n != 0`.
-Relational operators can be **chained** left-to-right — `f(x) = x^n -> f'(x) = n*x^(n-1)`
+Relational operators can be **chained** left-to-right â€” `f(x) = x^n -> f'(x) = n*x^(n-1)`
 parses as `((f(x) = x^n) -> f'(x)) = n*x^(n-1)`. This allows expressing
 implications between equations.
 
@@ -543,15 +543,15 @@ to the right of the base character.
 ### What is a Vector Name Decorator?
 
 `[a]` means "the vector (or matrix) named a". It is NOT a container or array
-literal — it is a visual decorator that renders the identifier with an arrow
-over it (a⃗). The parser distinguishes this from array literals by checking
+literal â€” it is a visual decorator that renders the identifier with an arrow
+over it (aâƒ—). The parser distinguishes this from array literals by checking
 whether the bracket content is a single bare identifier.
 
 ### What is a Rollout Operator?
 
-`+{k=0, n, A[k]}` means "A[0] + A[1] + ... + A[n]" — it "rolls out" a
+`+{k=0, n, A[k]}` means "A[0] + A[1] + ... + A[n]" â€” it "rolls out" a
 summation. Similarly `*{k=0, n, A[k]}` rolls out a product. These are
-syntactic sugar for Σ (summation) and Π (product) with explicit index bounds.
+syntactic sugar for Î£ (summation) and Î  (product) with explicit index bounds.
 
 The key grammar challenge: `+` and `*` are already operators at the Additive
 and Multiplicative levels. The rollout form `+{` must be matched **atomically**
@@ -560,17 +560,17 @@ be consumed as an additive operator.
 
 ### What is the Glyph Lookup Architecture?
 
-The parser is **script-agnostic** — it does not know about Greek, Hebrew,
+The parser is **script-agnostic** â€” it does not know about Greek, Hebrew,
 Cyrillic, or any other script. All backslash identifiers (`\alpha`, `\ha`,
 `\sin`, `\pm`) are parsed identically as `IdentifierNode { name, prefix }`.
 
 The **renderer** is responsible for meaning. It has a flat `GLYPH_TABLE` that
 maps raw identifier names to Unicode glyphs. If a name has an entry, the glyph
 is used. If not, the name is rendered as-is (which naturally handles `\sin`,
-`\cos`, `\lim` — they have no entry and render as the text "sin", "cos", "lim").
+`\cos`, `\lim` â€” they have no entry and render as the text "sin", "cos", "lim").
 
 This architecture means adding a new symbol requires only one line in the
-lookup table — no grammar change ever needed.
+lookup table â€” no grammar change ever needed.
 
 ---
 
@@ -580,13 +580,13 @@ Phase 2 adds a new level at the top (lowest precedence) and new operators
 at the multiplicative level:
 
 ```
-Relational      (=, !=, <=, >=, ~=, :=, ~, <<, >>, ->, <, >)   ← NEW
+Relational      (=, !=, <=, >=, ~=, :=, ~, <<, >>, ->, <, >)   â† NEW
 Additive        (+, -)
-Multiplicative  (*, /, ., \mod, \div, implicit)                  ← EXTENDED
+Multiplicative  (*, /, ., \mod, \div, implicit)                  â† EXTENDED
 Power           (^)
 Unary           (-, +)
-Postfix         (f(), x{}, x_i, x!, x', A[k])                   ← EXTENDED
-Primary         (number, identifier, (expr), [expr], |expr|,     ← EXTENDED
+Postfix         (f(), x{}, x_i, x!, x', A[k])                   â† EXTENDED
+Primary         (number, identifier, (expr), [expr], |expr|,     â† EXTENDED
                  +{...}, *{...}, ...)
 ```
 
@@ -619,7 +619,7 @@ interface VectorNameNode {
 ```
 
 Produced by `BracketList` when the bracket content is a single identifier.
-`[a]` → `VectorName(Identifier(a))`. Renders with an arrow over the name.
+`[a]` â†’ `VectorName(Identifier(a))`. Renders with an arrow over the name.
 
 ### `MatrixNode`
 
@@ -631,9 +631,9 @@ interface MatrixNode {
 ```
 
 Produced by:
-- `[a, b, c]` → 1 row, 3 columns (row vector)
-- `[[a, b], [c, d]]` → 2 rows, 2 columns (matrix)
-- `(a, b, c)` → 3 rows, 1 column (column vector)
+- `[a, b, c]` â†’ 1 row, 3 columns (row vector)
+- `[[a, b], [c, d]]` â†’ 2 rows, 2 columns (matrix)
+- `(a, b, c)` â†’ 3 rows, 1 column (column vector)
 
 ### `IndexExpressionNode`
 
@@ -645,8 +645,8 @@ interface IndexExpressionNode {
 }
 ```
 
-Produced by `IndexSuffix` in `Postfix`. `A[k]` → `IndexExpression(A, k)`.
-Semantically distinct from `SubscriptExpression` (label) — this is array access.
+Produced by `IndexSuffix` in `Postfix`. `A[k]` â†’ `IndexExpression(A, k)`.
+Semantically distinct from `SubscriptExpression` (label) â€” this is array access.
 
 ### `AbsoluteValueNode`
 
@@ -658,7 +658,7 @@ interface AbsoluteValueNode {
 ```
 
 The renderer checks the inner node type: if it's `VectorName` or `Matrix`,
-renders as norm `‖x‖`; otherwise renders as absolute value `|x|`.
+renders as norm `â€–xâ€–`; otherwise renders as absolute value `|x|`.
 
 ### `FactorialExpressionNode`
 
@@ -693,7 +693,7 @@ interface EllipsisNode {
 }
 ```
 
-Produced by the `Ellipsis` rule matching the literal `...`. Renders as `…`.
+Produced by the `Ellipsis` rule matching the literal `...`. Renders as `â€¦`.
 
 ### `PiecewiseNode`
 
@@ -729,23 +729,23 @@ backslashes followed by a letter). Renders using `BLACKBOARD_TABLE`.
 ### Rule hierarchy (complete)
 
 ```
-Expression → Relational
-Relational → Additive (RelationalOp Additive)*
-Additive → Multiplicative ((+|-) Multiplicative)*
-Multiplicative → Power ((MultiplicativeOp Power) | ImplicitPower)*
-ImplicitPower → Postfix (^ Unary)*
-Power → Unary (^ Unary)*
-Unary → (-|+) Unary | Postfix
-Postfix → Primary (CallSuffix | ControlSuffix | SubscriptSuffix |
+Expression â†’ Relational
+Relational â†’ Additive (RelationalOp Additive)*
+Additive â†’ Multiplicative ((+|-) Multiplicative)*
+Multiplicative â†’ Power ((MultiplicativeOp Power) | ImplicitPower)*
+ImplicitPower â†’ Postfix (^ Unary)*
+Power â†’ Unary (^ Unary)*
+Unary â†’ (-|+) Unary | Postfix
+Postfix â†’ Primary (CallSuffix | ControlSuffix | SubscriptSuffix |
                     FactorialSuffix | DerivativeSuffix | IndexSuffix)*
-Primary → RolloutExpression | Ellipsis | AbsoluteValue |
+Primary â†’ RolloutExpression | Ellipsis | AbsoluteValue |
           BracketExpression | Number | Identifier | ParenExpression
 ```
 
 ### New rule: `Relational`
 
 ```
-Relational → Additive (RelationalOp Additive)*
+Relational â†’ Additive (RelationalOp Additive)*
 ```
 
 The `*` means zero or more relational operators can be chained. This allows
@@ -759,7 +759,7 @@ two equations. The build function folds left-to-right, same as `Additive`.
 parser would match `<` and leave `=` as trailing garbage. By trying `<=`
 first, the two-character operator is consumed whole.
 
-**Why `->` must come before `>`:** Same reason — `->` starts with `-` which
+**Why `->` must come before `>`:** Same reason â€” `->` starts with `-` which
 would be consumed by Additive as subtraction, but the Additive repeat fails
 (nothing valid after `>`), so the position stays before `->`. Then Relational
 tries `->` and matches. If `>` were tried first at the Relational level, it
@@ -768,7 +768,7 @@ would incorrectly match the `>` in `->`.
 ### New rule: `MultiplicativeOp`
 
 ```
-MultiplicativeOp → "*" | "/" | "." | /^\\(mod|div)\b/
+MultiplicativeOp â†’ "*" | "/" | "." | /^\\(mod|div)\b/
 ```
 
 The dot `.` is the dot product operator. `\mod` and `\div` are matched by
@@ -783,14 +783,14 @@ ensures operators take priority over implicit multiplication.
 
 **The `3.v` edge case:** The Number regex `/^([0-9]+(\.[0-9]*)?|\.[0-9]+)/`
 matches `3.` as the number `3.0` (zero fractional digits). So `3.v` parses
-as `3.0 * v` (implicit multiplication), not as `3 · v` (dot product). This
-is documented and acceptable — dot product of a bare literal with a vector
+as `3.0 * v` (implicit multiplication), not as `3 Â· v` (dot product). This
+is documented and acceptable â€” dot product of a bare literal with a vector
 is unusual.
 
 ### New rule: `FactorialSuffix`
 
 ```
-FactorialSuffix → /^!(?!=)/
+FactorialSuffix â†’ /^!(?!=)/
 ```
 
 The negative lookahead `(?!=)` ensures `!` is only matched when NOT followed
@@ -800,16 +800,16 @@ by `=`. This prevents `x!=y` from being parsed as `(x!) = y` instead of
 ### New rule: `DerivativeSuffix`
 
 ```
-DerivativeSuffix → /^'+/
+DerivativeSuffix â†’ /^'+/
 ```
 
 Matches one or more prime characters. The matched string's length gives the
-derivative order. `f'` → order 1, `f''` → order 2, `f'''` → order 3.
+derivative order. `f'` â†’ order 1, `f''` â†’ order 2, `f'''` â†’ order 3.
 
 ### New rule: `IndexSuffix`
 
 ```
-IndexSuffix → "[" Expression "]"
+IndexSuffix â†’ "[" Expression "]"
 ```
 
 Array indexing. `A[k]` produces `IndexExpression(A, k)`. This is a postfix
@@ -821,7 +821,7 @@ AFTER a base has been parsed in Postfix.
 ### New rule: `RolloutExpression`
 
 ```
-RolloutExpression → /^[+*]\{/ ArgumentList "}"
+RolloutExpression â†’ /^[+*]\{/ ArgumentList "}"
 ```
 
 The regex `/^[+*]\{/` matches `+{` or `*{` as a single atomic token with NO
@@ -831,34 +831,34 @@ Primary ever sees it.
 
 Because `RolloutExpression` is tried FIRST in the Primary choice list, it
 gets priority over Number and Identifier. The PEG choice tries each option
-at the same position — if `RolloutExpression` fails (because the input doesn't
+at the same position â€” if `RolloutExpression` fails (because the input doesn't
 start with `+{` or `*{`), the other Primary options are tried.
 
 **How `+{` avoids conflict with unary `+`:** The `Unary` rule tries
 `[sign, Unary]` first. If `+` matches but the recursive `Unary` fails
 (because `{` is not valid in any Primary), the sequence fails. The Unary
-choice then tries its second option: `Postfix` → `Primary` →
-`RolloutExpression` → matches `+{` atomically. PEG choice always tries
+choice then tries its second option: `Postfix` â†’ `Primary` â†’
+`RolloutExpression` â†’ matches `+{` atomically. PEG choice always tries
 options at the original position, so the `+` consumed by the failed first
 option is "given back".
 
 ### New rule: `AbsoluteValue`
 
 ```
-AbsoluteValue → "|" Expression "|"
+AbsoluteValue â†’ "|" Expression "|"
 ```
 
 Matches a `|`-delimited expression. The renderer decides whether to display
-as absolute value (`|x|`) or norm (`‖x‖`) based on the inner node type.
+as absolute value (`|x|`) or norm (`â€–xâ€–`) based on the inner node type.
 
 ### New rule: `BracketExpression`
 
 ```
-BracketExpression → "[" BracketContent "]"
-BracketContent → MatrixRows | BracketList
-MatrixRows → MatrixRow ("," MatrixRow)*
-MatrixRow → "[" ArgumentList "]"
-BracketList → Expression ("," Expression)*
+BracketExpression â†’ "[" BracketContent "]"
+BracketContent â†’ MatrixRows | BracketList
+MatrixRows â†’ MatrixRow ("," MatrixRow)*
+MatrixRow â†’ "[" ArgumentList "]"
+BracketList â†’ Expression ("," Expression)*
 ```
 
 The `BracketContent` choice tries `MatrixRows` first. `MatrixRows` expects
@@ -867,29 +867,29 @@ with anything else (like an identifier), `MatrixRows` fails immediately and
 `BracketList` is tried.
 
 **`BracketList` build logic:**
-- If the content is a single identifier with no commas → `VectorNameNode`
-- Otherwise → `MatrixNode` with one row (row vector)
+- If the content is a single identifier with no commas â†’ `VectorNameNode`
+- Otherwise â†’ `MatrixNode` with one row (row vector)
 
 This means:
-- `[a]` → VectorName (single identifier, no commas)
-- `[a+b]` → Matrix with 1 row, 1 element (expression, not bare identifier)
-- `[a, b]` → Matrix with 1 row, 2 elements (has commas)
-- `[[a, b], [c, d]]` → Matrix with 2 rows, 2 elements each
+- `[a]` â†’ VectorName (single identifier, no commas)
+- `[a+b]` â†’ Matrix with 1 row, 1 element (expression, not bare identifier)
+- `[a, b]` â†’ Matrix with 1 row, 2 elements (has commas)
+- `[[a, b], [c, d]]` â†’ Matrix with 2 rows, 2 elements each
 
 ### New rule: `ParenExpression`
 
 ```
-ParenExpression → "(" Expression (("," Expression)* ")") 
+ParenExpression â†’ "(" Expression (("," Expression)* ")") 
 ```
 
 Replaces the old inline parenthesis handling in Primary. Now handles both:
-- `(expr)` — grouping (no commas) → unwraps to inner expression
-- `(a, b, c)` — column vector (has commas) → `MatrixNode` with N rows of 1
+- `(expr)` â€” grouping (no commas) â†’ unwraps to inner expression
+- `(a, b, c)` â€” column vector (has commas) â†’ `MatrixNode` with N rows of 1
 
 ### New rule: `BlackboardBoldIdentifier`
 
 ```
-BlackboardBoldIdentifier → /^\\\\[A-Za-z]/
+BlackboardBoldIdentifier â†’ /^\\\\[A-Za-z]/
 ```
 
 Matches two literal backslashes followed by one letter. In the source code,
@@ -923,14 +923,14 @@ build([left, rest]) {
 
 **Note:** `(x_i)^2` also produces `SubSuperscriptExpression` because
 parentheses unwrap the inner expression to a bare `SubscriptExpression`
-before `Power` sees it. This is mathematically correct — both `x_i^2` and
+before `Power` sees it. This is mathematically correct â€” both `x_i^2` and
 `(x_i)^2` mean "x-sub-i squared".
 
 ---
 
 ## Updated Renderer (Phase 2)
 
-### `GLYPH_TABLE` — the universal symbol lookup
+### `GLYPH_TABLE` â€” the universal symbol lookup
 
 A flat `Record<string, string>` mapping raw identifier names to Unicode glyphs.
 This is the **single source of truth** for all symbol rendering. The table
@@ -938,42 +938,42 @@ contains:
 
 | Category | Examples |
 |----------|----------|
-| Greek single-letter | `a`→α, `b`→β, `g`→γ, `d`→δ, `p`→π, `w`→ω |
-| Greek uppercase | `A`→Α, `G`→Γ, `D`→Δ, `S`→Σ, `W`→Ω |
-| Hebrew | `ha`→ℵ, `hb`→ℶ, `hg`→ℷ, `hd`→ℸ |
-| Set operators | `union`→∪, `inter`→∩, `empty`→∅, `sub`→⊂ |
-| Logic operators | `and`→∧, `or`→∨, `not`→¬, `imp`→⟹ |
-| Calculus | `inf`→∞, `nabla`→∇, `partial`→∂ |
-| Geometry | `angle`→∠, `parallel`→∥, `perp`→⊥ |
-| Misc operators | `pm`→±, `mp`→∓, `circ`→∘, `mapsto`→↦ |
+| Greek single-letter | `a`â†’Î±, `b`â†’Î², `g`â†’Î³, `d`â†’Î´, `p`â†’Ï€, `w`â†’Ï‰ |
+| Greek uppercase | `A`â†’Î‘, `G`â†’Î“, `D`â†’Î”, `S`â†’Î£, `W`â†’Î© |
+| Hebrew | `ha`â†’â„µ, `hb`â†’â„¶, `hg`â†’â„·, `hd`â†’â„¸ |
+| Set operators | `union`â†’âˆª, `inter`â†’âˆ©, `empty`â†’âˆ…, `sub`â†’âŠ‚ |
+| Logic operators | `and`â†’âˆ§, `or`â†’âˆ¨, `not`â†’Â¬, `imp`â†’âŸ¹ |
+| Calculus | `inf`â†’âˆž, `nabla`â†’âˆ‡, `partial`â†’âˆ‚ |
+| Geometry | `angle`â†’âˆ , `parallel`â†’âˆ¥, `perp`â†’âŠ¥ |
+| Misc operators | `pm`â†’Â±, `mp`â†’âˆ“, `circ`â†’âˆ˜, `mapsto`â†’â†¦ |
 
 **How it works with the parser:** The parser produces `Identifier { name: "ha", prefix: "greek" }`.
-The renderer calls `resolveGlyph("ha")` → looks up `GLYPH_TABLE["ha"]` → returns `"ℵ"`.
-If no entry exists (e.g. `GLYPH_TABLE["sin"]` → undefined), the name is used as-is → renders "sin".
+The renderer calls `resolveGlyph("ha")` â†’ looks up `GLYPH_TABLE["ha"]` â†’ returns `"â„µ"`.
+If no entry exists (e.g. `GLYPH_TABLE["sin"]` â†’ undefined), the name is used as-is â†’ renders "sin".
 
-### `BLACKBOARD_TABLE` — number set symbols
+### `BLACKBOARD_TABLE` â€” number set symbols
 
 A separate table for blackboard bold identifiers (`\\N`, `\\R`, etc.):
 
 | Input | Glyph | Meaning |
 |-------|-------|---------|
-| `\\N` | ℕ | Natural numbers |
-| `\\Z` | ℤ | Integers |
-| `\\Q` | ℚ | Rationals |
-| `\\R` | ℝ | Reals |
-| `\\C` | ℂ | Complex numbers |
-| `\\H` | ℍ | Quaternions |
-| `\\P` | ℙ | Primes |
-| `\\U` | 𝕌 | Universal set |
-| `\\d` | ∂ | Partial derivative |
+| `\\N` | â„• | Natural numbers |
+| `\\Z` | â„¤ | Integers |
+| `\\Q` | â„š | Rationals |
+| `\\R` | â„ | Reals |
+| `\\C` | â„‚ | Complex numbers |
+| `\\H` | â„ | Quaternions |
+| `\\P` | â„™ | Primes |
+| `\\U` | ð•Œ | Universal set |
+| `\\d` | âˆ‚ | Partial derivative |
 
-### `RELATIONAL_SYMBOL` — operator display mapping
+### `RELATIONAL_SYMBOL` â€” operator display mapping
 
 Maps relational operator strings to their Unicode display symbols:
-`"!="→"≠"`, `"<="→"≤"`, `">="→"≥"`, `"~="→"≈"`, `":="→"≡"`,
-`"~"→"∝"`, `"<<"→"≪"`, `">>"→"≫"`, `"->"→"→"`, etc.
+`"!="â†’"â‰ "`, `"<="â†’"â‰¤"`, `">="â†’"â‰¥"`, `"~="â†’"â‰ˆ"`, `":="â†’"â‰¡"`,
+`"~"â†’"âˆ"`, `"<<"â†’"â‰ª"`, `">>"â†’"â‰«"`, `"->"â†’"â†’"`, etc.
 
-### `OPERATOR_PRECEDENCE` — extended
+### `OPERATOR_PRECEDENCE` â€” extended
 
 Now includes relational operators at precedence -2 (below additive at 0),
 and dot product / mod / div at precedence 1 (same as `*` and `/`).
@@ -998,7 +998,7 @@ Produces:
 ```html
 <span class="vector-name">
   [identifier]
-  <span class="vector-arrow">⃗</span>
+  <span class="vector-arrow">âƒ—</span>
 </span>
 ```
 The combining arrow character is positioned above the identifier via CSS.
@@ -1023,31 +1023,31 @@ and indexing (`A[k]`).
 
 **`renderAbsoluteValue(node)`**
 Checks the inner expression type:
-- `VectorName` or `Matrix` → renders `‖expr‖` (double bars = norm)
-- Anything else → renders `|expr|` (single bars = absolute value)
+- `VectorName` or `Matrix` â†’ renders `â€–exprâ€–` (double bars = norm)
+- Anything else â†’ renders `|expr|` (single bars = absolute value)
 
 **`renderFactorial(node)`**
 Simply appends `!` after the rendered base.
 
 **`renderDerivative(node)`**
-Appends `order` copies of the prime character `′` (U+2032) after the base.
+Appends `order` copies of the prime character `â€²` (U+2032) after the base.
 
 **`renderBigOperator(node, symbol)`**
 Reuses the integral layout (`.integral` flex container with `.opstack` and
-`.integral-body`) but with a different symbol (Σ for `\S`, Π for `\P`).
+`.integral-body`) but with a different symbol (Î£ for `\S`, Î  for `\P`).
 
 **`renderLim(node)`**
 Similar to big operator but uses plain text "lim" instead of a large symbol,
 and only has a bottom label (the approach expression), no top label.
 
 **`renderRollout(node)`**
-Maps `+` to Σ and `*` to Π, then uses the big operator layout.
+Maps `+` to Î£ and `*` to Î , then uses the big operator layout.
 
 **`renderBinom(node)`**
 Renders as a fraction wrapped in parentheses: `(n choose r)`.
 
 **`renderEval(node)`**
-Renders as `expr|_{bound}` — the expression followed by a vertical bar and
+Renders as `expr|_{bound}` â€” the expression followed by a vertical bar and
 a subscripted bound specification.
 
 **`renderPiecewiseControl(node)`**
@@ -1070,22 +1070,22 @@ Produces a table with a left border (acting as the brace):
 
 | Name | Renderer | Visual |
 |------|----------|--------|
-| `sqrt` | `renderSqrt` | √ with overline |
-| `int` | `renderIntegral` with ∫ | integral |
-| `oint` | `renderIntegral` with ∮ | contour integral |
-| `iint` | `renderIntegral` with ∬ | double integral |
-| `iiint` | `renderIntegral` with ∭ | triple integral |
-| `S` | `renderBigOperator` with Σ | summation |
-| `P` | `renderBigOperator` with Π | product |
+| `sqrt` | `renderSqrt` | âˆš with overline |
+| `int` | `renderIntegral` with âˆ« | integral |
+| `oint` | `renderIntegral` with âˆ® | contour integral |
+| `iint` | `renderIntegral` with âˆ¬ | double integral |
+| `iiint` | `renderIntegral` with âˆ­ | triple integral |
+| `S` | `renderBigOperator` with Î£ | summation |
+| `P` | `renderBigOperator` with Î  | product |
 | `lim` | `renderLim` | limit |
-| `floor` | inline | ⌊x⌋ |
-| `ceil` | inline | ⌈x⌉ |
-| `bar` | CSS class | x̄ (overline) |
-| `hat` | CSS class | x̂ (hat) |
-| `tilde` | CSS class | x̃ (tilde) |
-| `ul` | CSS class | x̲ (underline) |
-| `cancel` | CSS class | x̶ (strikethrough) |
-| `inner` | inline | ⟨x, y⟩ |
+| `floor` | inline | âŒŠxâŒ‹ |
+| `ceil` | inline | âŒˆxâŒ‰ |
+| `bar` | CSS class | xÌ„ (overline) |
+| `hat` | CSS class | xÌ‚ (hat) |
+| `tilde` | CSS class | xÌƒ (tilde) |
+| `ul` | CSS class | xÌ² (underline) |
+| `cancel` | CSS class | xÌ¶ (strikethrough) |
+| `inner` | inline | âŸ¨x, yâŸ© |
 | `binom` | `renderBinom` | (n choose r) |
 | `eval` | `renderEval` | expr|_{bound} |
 | `ubrace` | `renderUnderbrace` | underbrace with label |
@@ -1129,7 +1129,7 @@ within the relatively-positioned container.
 | `.tilde` | `::before { content: '~' }` | tilde above |
 | `.underline` | `border-bottom: 1px solid` | line below |
 | `.cancel` | `text-decoration: line-through` | strikethrough |
-| `.arc` | `::before { content: '⌢' }` | arc above |
+| `.arc` | `::before { content: 'âŒ¢' }` | arc above |
 
 ### `.ident-blackboard`
 
@@ -1150,8 +1150,8 @@ grammar-level relational operators. But in the PEG grammar, these tokens
 would be consumed by `GreekIdentifier` (via implicit multiplication) before
 the `Relational` level ever gets a chance to match them.
 
-**Root cause:** The grammar hierarchy is `Relational` → `Additive` →
-`Multiplicative` → ... → `Primary` → `Identifier`. When parsing the left
+**Root cause:** The grammar hierarchy is `Relational` â†’ `Additive` â†’
+`Multiplicative` â†’ ... â†’ `Primary` â†’ `Identifier`. When parsing the left
 operand of a relational expression, the parser descends all the way to
 `Identifier`. If `\in` appears after the left operand, the `Multiplicative`
 repeat tries implicit multiplication, which matches `\in` as a
@@ -1161,7 +1161,7 @@ already been consumed.
 **Resolution:** Only ASCII operators (`=`, `!=`, `<=`, `>=`, `~=`, `:=`, `~`,
 `<<`, `>>`, `->`, `<`, `>`) are grammar-level relational operators. Backslash
 operators (`\sub`, `\in`, etc.) are regular identifiers that render correctly
-via `GLYPH_TABLE`. The visual output is identical (`x∈ℝ`); only the AST
+via `GLYPH_TABLE`. The visual output is identical (`xâˆˆâ„`); only the AST
 differs (implicit multiplication vs relational binary expression).
 
 ### Piecewise uses commas instead of semicolons
@@ -1180,12 +1180,12 @@ the grammar simple and context-free.
 **Problem:** The study.md says `(x_i)^2` should produce
 `BinaryExpression(^, SubscriptExpression, 2)` while `x_i^2` produces
 `SubSuperscriptExpression`. But parentheses in this grammar simply unwrap
-their content — `(x_i)` evaluates to the bare `SubscriptExpression` node.
+their content â€” `(x_i)` evaluates to the bare `SubscriptExpression` node.
 The `Power` build function then sees a `SubscriptExpression` as its left
 operand and produces `SubSuperscriptExpression`.
 
 **Resolution:** Accept that both forms produce the same AST. This is
-mathematically correct — `(x_i)^2` and `x_i^2` both mean "x-sub-i squared".
+mathematically correct â€” `(x_i)^2` and `x_i^2` both mean "x-sub-i squared".
 If a future use case requires distinguishing them, a "grouped" wrapper node
 could be introduced, but this adds complexity with no current benefit.
 
@@ -1193,11 +1193,11 @@ could be introduced, but this adds complexity with no current benefit.
 
 **How `x -> y` parses correctly:** The Additive repeat tries `-` as a
 subtraction operator. It matches `-`, then tries to parse `> y` as a
-Multiplicative — which fails (nothing valid starts with `>`). The sequence
+Multiplicative â€” which fails (nothing valid starts with `>`). The sequence
 `[-, Multiplicative]` fails. The repeat stops. Additive returns just `x`.
 Then Relational tries `->` at the original position (after `x`) and matches.
 
-This works because PEG sequences do not commit — if a sequence fails partway
+This works because PEG sequences do not commit â€” if a sequence fails partway
 through, the position reverts to before the sequence started. The repeat only
 advances `current` on successful iterations.
 
@@ -1206,18 +1206,18 @@ advances `current` on successful iterations.
 
 ## Bug Fixes During Phase 2 Implementation
 
-### Issue 4 — `(x_i)^2` incorrectly produced `BinaryExpression` after first fix attempt
+### Issue 4 â€” `(x_i)^2` incorrectly produced `BinaryExpression` after first fix attempt
 
 #### Symptom
 
 After the initial Phase 2 implementation, the test `x_i^2 produces
-SubSuperscriptExpression` failed — it produced `BinaryExpression` instead.
+SubSuperscriptExpression` failed â€” it produced `BinaryExpression` instead.
 
-#### Root cause — first fix attempt (wrong)
+#### Root cause â€” first fix attempt (wrong)
 
 The `SubSuperscriptExpression` logic was initially placed in BOTH the `Power`
 and `ImplicitPower` build functions. The test for `(x_i)^2` expected it to
-produce `BinaryExpression(^, SubscriptExpression, 2)` — i.e., parentheses
+produce `BinaryExpression(^, SubscriptExpression, 2)` â€” i.e., parentheses
 should "protect" the subscript from being merged into a SubSuperscript.
 
 However, `x_i^2` (without parens) is parsed through the `Power` rule (not
@@ -1225,9 +1225,9 @@ However, `x_i^2` (without parens) is parsed through the `Power` rule (not
 via `Power`. The path is:
 
 ```
-Multiplicative → Power → Unary → Postfix → Primary → "x"
-                                  Postfix suffix: SubscriptSuffix → "x_i"
-                 Power repeat: "^" → Unary → "2"
+Multiplicative â†’ Power â†’ Unary â†’ Postfix â†’ Primary â†’ "x"
+                                  Postfix suffix: SubscriptSuffix â†’ "x_i"
+                 Power repeat: "^" â†’ Unary â†’ "2"
                  Power build: left = SubscriptExpression(x, i), rest = [[^, 2]]
 ```
 
@@ -1236,15 +1236,15 @@ So `SubSuperscriptExpression` logic MUST be in `Power` for `x_i^2` to work.
 The first fix attempt removed the logic from `Power` (keeping it only in
 `ImplicitPower`), which fixed `(x_i)^2` but broke `x_i^2`.
 
-#### Root cause — the real issue
+#### Root cause â€” the real issue
 
 The test expectation for `(x_i)^2` was wrong. Parentheses in this grammar
-simply unwrap their content — `(x_i)` evaluates to the bare
+simply unwrap their content â€” `(x_i)` evaluates to the bare
 `SubscriptExpression(x, i)` node. When `Power` sees this as its left operand,
 it cannot distinguish it from the un-parenthesised `x_i`. Both produce
 `SubscriptExpression` as the left operand of `Power`.
 
-There is no "parenthesised" marker in the AST — parentheses are purely
+There is no "parenthesised" marker in the AST â€” parentheses are purely
 syntactic grouping that is discarded after parsing. This is standard behaviour
 in expression parsers (parentheses affect tree structure, not node types).
 
@@ -1252,18 +1252,18 @@ in expression parsers (parentheses affect tree structure, not node types).
 
 1. Restored `SubSuperscriptExpression` logic in the `Power` build function
 2. Updated the test: `(x_i)^2` now correctly expects `SubSuperscriptExpression`
-   (same as `x_i^2`), because both are mathematically equivalent — "x-sub-i
+   (same as `x_i^2`), because both are mathematically equivalent â€” "x-sub-i
    squared"
 
 #### Files changed
 
-- `src/parser/grammar.ts` — `Power` build function: added `SubSuperscriptExpression`
+- `src/parser/grammar.ts` â€” `Power` build function: added `SubSuperscriptExpression`
   check (removed then re-added during the fix iteration)
-- `test/parser/grammar.test.ts` — changed test expectation for `(x_i)^2`
+- `test/parser/grammar.test.ts` â€” changed test expectation for `(x_i)^2`
 
 #### Lesson
 
-Parentheses in an expression parser are **transparent** — they affect the
+Parentheses in an expression parser are **transparent** â€” they affect the
 tree structure (by overriding precedence) but leave no trace in the AST.
 Once the parser has built the inner node, the parentheses are gone. Any
 logic that inspects node types after parsing cannot distinguish "was this
@@ -1276,7 +1276,7 @@ benefit, so it was not implemented.
 
 ---
 
-### Issue 5 — First test run had `(x_i)^2` producing `SubSuperscriptExpression` unexpectedly
+### Issue 5 â€” First test run had `(x_i)^2` producing `SubSuperscriptExpression` unexpectedly
 
 #### Symptom
 
@@ -1301,10 +1301,10 @@ only in `ImplicitPower`. This fixed `(x_i)^2` but broke `x_i^2` because
 
 The path for `x_i^2`:
 ```
-Multiplicative → Power (first operand)
-  Power → Unary → Postfix → parses "x_i" as SubscriptExpression
-  Power repeat → "^2"
-  Power build → left is SubscriptExpression → should produce SubSuperscriptExpression
+Multiplicative â†’ Power (first operand)
+  Power â†’ Unary â†’ Postfix â†’ parses "x_i" as SubscriptExpression
+  Power repeat â†’ "^2"
+  Power build â†’ left is SubscriptExpression â†’ should produce SubSuperscriptExpression
 ```
 
 The path does NOT go through `ImplicitPower` because `x_i^2` is the FIRST
@@ -1315,95 +1315,95 @@ repeat's implicit multiplication branch).
 
 Accepted that both `x_i^2` and `(x_i)^2` produce `SubSuperscriptExpression`.
 Updated the test expectation. This is the correct mathematical interpretation
-— both notations mean the same thing.
+â€” both notations mean the same thing.
 
 #### Sequence of changes
 
-1. Initial implementation: `Power` build has SubSuperscript logic → `(x_i)^2` test fails
-2. First fix: removed logic from `Power` → `x_i^2` test fails (and 2 render tests)
-3. Final fix: restored logic in `Power`, updated `(x_i)^2` test expectation → all 167 pass
+1. Initial implementation: `Power` build has SubSuperscript logic â†’ `(x_i)^2` test fails
+2. First fix: removed logic from `Power` â†’ `x_i^2` test fails (and 2 render tests)
+3. Final fix: restored logic in `Power`, updated `(x_i)^2` test expectation â†’ all 167 pass
 
 
 ---
 
-### Issue 6 — Explicit multiplication `2*3` rendered without visible operator
+### Issue 6 â€” Explicit multiplication `2*3` rendered without visible operator
 
 #### Symptom
 
-Typing `2*3` in the input showed `23` on screen — no multiplication sign
+Typing `2*3` in the input showed `23` on screen â€” no multiplication sign
 visible. The user could not distinguish explicit multiplication from implicit.
 
 #### Root cause
 
 The original `renderBinary` for `operator === "*"` always rendered the two
 operands adjacent with no visible symbol (juxtaposition). This was correct
-for implicit multiplication (`2x` → `2x`) but wrong for explicit
-multiplication (`2*3` → should show a sign).
+for implicit multiplication (`2x` â†’ `2x`) but wrong for explicit
+multiplication (`2*3` â†’ should show a sign).
 
 The AST uses `operator: "*"` for BOTH explicit (`2*3`) and implicit (`2x`)
-multiplication. The parser does not distinguish them — both produce
+multiplication. The parser does not distinguish them â€” both produce
 `BinaryExpression("*", left, right)`. This is correct: the AST represents
 structure, not visual presentation.
 
-#### Design decision — renderer determines visibility
+#### Design decision â€” renderer determines visibility
 
-The responsibility for deciding whether to show `×` belongs to the **renderer**,
+The responsibility for deciding whether to show `Ã—` belongs to the **renderer**,
 not the parser or AST. The AST records that two things are multiplied; the
 renderer decides how to display that multiplication based on what the operands
 look like when rendered.
 
-#### The algorithm — digit adjacency check
+#### The algorithm â€” digit adjacency check
 
 The rule is simple:
 
-> Show `×` if and only if the left operand's rendered form **ends with a digit**
+> Show `Ã—` if and only if the left operand's rendered form **ends with a digit**
 > AND the right operand's rendered form **starts with a digit**.
 
-This is the only case where juxtaposition is ambiguous — `23` looks like the
-number twenty-three, not `2 × 3`. In all other cases, juxtaposition is
+This is the only case where juxtaposition is ambiguous â€” `23` looks like the
+number twenty-three, not `2 Ã— 3`. In all other cases, juxtaposition is
 unambiguous:
 
 | Left ends with | Right starts with | Ambiguous? | Example |
 |---------------|-------------------|-----------|---------|
-| digit | digit | YES → show × | `2*3` → `2 × 3` |
-| digit | letter | no | `2*x` → `2x` |
-| digit | `(` | no | `2*(a+b)` → `2(a+b)` |
-| letter | digit | no | `x*2` → `x2` |
-| letter | letter | no | `x*y` → `xy` |
-| `)` | digit | no | `(a+b)*3` → `(a+b)3` |
-| `)` | letter | no | `(a+b)*x` → `(a+b)x` |
-| `)` | `(` | no | `(a+b)*(c+d)` → `(a+b)(c+d)` |
+| digit | digit | YES â†’ show Ã— | `2*3` â†’ `2 Ã— 3` |
+| digit | letter | no | `2*x` â†’ `2x` |
+| digit | `(` | no | `2*(a+b)` â†’ `2(a+b)` |
+| letter | digit | no | `x*2` â†’ `x2` |
+| letter | letter | no | `x*y` â†’ `xy` |
+| `)` | digit | no | `(a+b)*3` â†’ `(a+b)3` |
+| `)` | letter | no | `(a+b)*x` â†’ `(a+b)x` |
+| `)` | `(` | no | `(a+b)*(c+d)` â†’ `(a+b)(c+d)` |
 
-#### Implementation — recursive AST inspection
+#### Implementation â€” recursive AST inspection
 
 Two helper functions determine what the rendered edges look like:
 
-**`startsWithDigit(node, parenthesised)`** — returns true if the node's
+**`startsWithDigit(node, parenthesised)`** â€” returns true if the node's
 rendered output begins with a digit character:
-- `NumberLiteral` → true
-- `Identifier` → false (starts with a letter or glyph)
-- `UnaryExpression` → false (starts with `-` or `+`)
-- `BinaryExpression` → recurses into left child (accounting for whether
+- `NumberLiteral` â†’ true
+- `Identifier` â†’ false (starts with a letter or glyph)
+- `UnaryExpression` â†’ false (starts with `-` or `+`)
+- `BinaryExpression` â†’ recurses into left child (accounting for whether
   that child would be parenthesised by the binary node)
-- Parenthesised anything → false (starts with `(`)
+- Parenthesised anything â†’ false (starts with `(`)
 
-**`endsWithDigit(node, parenthesised)`** — returns true if the node's
+**`endsWithDigit(node, parenthesised)`** â€” returns true if the node's
 rendered output ends with a digit character:
-- `NumberLiteral` → true
-- `Identifier` → false
-- `UnaryExpression` → recurses into operand
-- `BinaryExpression` with `^` → false (ends with `</sup>`)
-- `BinaryExpression` with `/` → false (ends with fraction bottom)
-- `BinaryExpression` other → recurses into right child (accounting for
+- `NumberLiteral` â†’ true
+- `Identifier` â†’ false
+- `UnaryExpression` â†’ recurses into operand
+- `BinaryExpression` with `^` â†’ false (ends with `</sup>`)
+- `BinaryExpression` with `/` â†’ false (ends with fraction bottom)
+- `BinaryExpression` other â†’ recurses into right child (accounting for
   whether that child would be parenthesised)
-- `CallExpression` → false (ends with `)`)
-- `FactorialExpression` → false (ends with `!`)
-- Parenthesised anything → false (ends with `)`)
+- `CallExpression` â†’ false (ends with `)`)
+- `FactorialExpression` â†’ false (ends with `!`)
+- Parenthesised anything â†’ false (ends with `)`)
 
-#### The subtlety — child parenthesisation within subtrees
+#### The subtlety â€” child parenthesisation within subtrees
 
 The initial implementation had a bug: for `-2*(3+5)*4e^x^2`, the node
-`((-2)*(3+5)) * 4` incorrectly showed `×` because `endsWithDigit` recursed
+`((-2)*(3+5)) * 4` incorrectly showed `Ã—` because `endsWithDigit` recursed
 into the right child of the left subtree (`BinaryExpression(+, 3, 5)`) without
 considering that this child WOULD be parenthesised when rendered (because `*`
 has higher precedence than `+`).
@@ -1416,16 +1416,16 @@ whether that child would be wrapped in parentheses, and if so, return false
 
 #### Files changed
 
-- `src/render/render.ts` — added `needsExplicitMultiplySign`,
+- `src/render/render.ts` â€” added `needsExplicitMultiplySign`,
   `startsWithDigit`, `endsWithDigit`, `wouldParenLeft`, `wouldParenRight`;
-  updated `renderBinary` for `operator === "*"` to conditionally show `×`
-- `test/render/render.test.ts` — added 11 test cases covering all
+  updated `renderBinary` for `operator === "*"` to conditionally show `Ã—`
+- `test/render/render.test.ts` â€” added 11 test cases covering all
   multiplication sign visibility scenarios
 
 #### Lesson
 
 Visual presentation decisions belong in the renderer, not the AST. The AST
-is a structural representation — it should use consistent, simple operators
+is a structural representation â€” it should use consistent, simple operators
 (`"*"` for all multiplication) without encoding display concerns. The renderer
 has access to the full subtree context needed to make intelligent display
 decisions.
@@ -1433,7 +1433,7 @@ decisions.
 
 ---
 
-## Phase 3 — Plugin System & CSV Table Display
+## Phase 3 â€” Plugin System & CSV Table Display
 
 This section explains all new code introduced in Phase 3: the plugin
 architecture, CSV reader, table component, and how they connect.
@@ -1445,46 +1445,46 @@ architecture, CSV reader, table component, and how they connect.
 Phase 3 introduces a layered architecture that separates concerns:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Browser                              │
-│                                                             │
-│  ┌──────────────┐     ┌──────────────────────────────────┐  │
-│  │  File I/O    │────▶│         CSV Reader               │  │
-│  │ (file picker │     │  (structural — splits into       │  │
-│  │  or drag&drop)     │   headers, types, rows)          │  │
-│  └──────────────┘     └────────────┬─────────────────────┘  │
-│                                    │                         │
-│                                    ▼                         │
-│                      ┌──────────────────────────────┐       │
-│                      │      Plugin Registry         │       │
-│                      │  (dispatches cell content     │       │
-│                      │   to the correct plugin)      │       │
-│                      └──────┬───────────┬───────────┘       │
-│                             │           │                    │
-│                    ┌────────▼──┐   ┌────▼────────┐          │
-│                    │ Math      │   │ Plain Text  │          │
-│                    │ Plugin    │   │ Plugin      │          │
-│                    │ parse()   │   │ parse()     │          │
-│                    │ render()  │   │ render()    │          │
-│                    └───────────┘   └─────────────┘          │
-│                             │           │                    │
-│                             ▼           ▼                    │
-│                      ┌──────────────────────────────┐       │
-│                      │      Table Component         │       │
-│                      │  (renders rows, columns,      │       │
-│                      │   sortable headers)           │       │
-│                      └──────────────────────────────┘       │
-└─────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                        Browser                              â”‚
+â”‚                                                             â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”‚
+â”‚  â”‚  File I/O    â”‚â”€â”€â”€â”€â–¶â”‚         CSV Reader               â”‚  â”‚
+â”‚  â”‚ (file picker â”‚     â”‚  (structural â€” splits into       â”‚  â”‚
+â”‚  â”‚  or drag&drop)     â”‚   headers, types, rows)          â”‚  â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚
+â”‚                                    â”‚                         â”‚
+â”‚                                    â–¼                         â”‚
+â”‚                      â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”‚
+â”‚                      â”‚      Plugin Registry         â”‚       â”‚
+â”‚                      â”‚  (dispatches cell content     â”‚       â”‚
+â”‚                      â”‚   to the correct plugin)      â”‚       â”‚
+â”‚                      â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â”‚
+â”‚                             â”‚           â”‚                    â”‚
+â”‚                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”   â”Œâ”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”          â”‚
+â”‚                    â”‚ Math      â”‚   â”‚ Plain Text  â”‚          â”‚
+â”‚                    â”‚ Plugin    â”‚   â”‚ Plugin      â”‚          â”‚
+â”‚                    â”‚ parse()   â”‚   â”‚ parse()     â”‚          â”‚
+â”‚                    â”‚ render()  â”‚   â”‚ render()    â”‚          â”‚
+â”‚                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜          â”‚
+â”‚                             â”‚           â”‚                    â”‚
+â”‚                             â–¼           â–¼                    â”‚
+â”‚                      â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”       â”‚
+â”‚                      â”‚      Table Component         â”‚       â”‚
+â”‚                      â”‚  (renders rows, columns,      â”‚       â”‚
+â”‚                      â”‚   sortable headers)           â”‚       â”‚
+â”‚                      â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜       â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
-**Key design principle:** The CSV reader is purely structural — it splits
+**Key design principle:** The CSV reader is purely structural â€” it splits
 text into rows and cells without interpreting cell content. It knows nothing
 about math syntax, plain text, or any other payload format. The plugin
 system handles all payload interpretation.
 
 ---
 
-### `src/plugin/interface.ts` — Plugin Interface
+### `src/plugin/interface.ts` â€” Plugin Interface
 
 Defines the contract that every data type renderer must implement:
 
@@ -1492,14 +1492,14 @@ Defines the contract that every data type renderer must implement:
 interface Plugin {
     type_id: string;        // unique identifier (e.g. "math", "text")
     version: string;        // semantic version
-    parse(text: string): ASTNode;      // text → structured data
-    render(ast: ASTNode): HTMLElement;  // structured data → visual output
+    parse(text: string): ASTNode;      // text â†’ structured data
+    render(ast: ASTNode): HTMLElement;  // structured data â†’ visual output
 }
 ```
 
 Every plugin provides two functions:
-- `parse` — transforms raw cell text into an AST (or equivalent structure)
-- `render` — transforms the AST into an HTML element for display
+- `parse` â€” transforms raw cell text into an AST (or equivalent structure)
+- `render` â€” transforms the AST into an HTML element for display
 
 This interface is intentionally minimal. A plugin does not need to know about
 tables, CSV, files, or other plugins. It only knows how to handle its own
@@ -1507,7 +1507,7 @@ data type.
 
 ---
 
-### `src/plugin/math.ts` — Math Syntax Plugin
+### `src/plugin/math.ts` â€” Math Syntax Plugin
 
 Wraps the existing parser and renderer (from Phases 1-2) into a conforming
 plugin:
@@ -1521,14 +1521,14 @@ export const mathPlugin: Plugin = {
 };
 ```
 
-No new code — just adapts the existing `parser` and `renderMath` to the
+No new code â€” just adapts the existing `parser` and `renderMath` to the
 plugin interface.
 
 ---
 
-### `src/plugin/plaintext.ts` — Plain Text Plugin
+### `src/plugin/plaintext.ts` â€” Plain Text Plugin
 
-The identity plugin — renders text as-is with no parsing or formatting:
+The identity plugin â€” renders text as-is with no parsing or formatting:
 
 ```ts
 export const plainTextPlugin: Plugin = {
@@ -1544,14 +1544,14 @@ export const plainTextPlugin: Plugin = {
 ```
 
 Uses `as unknown as ASTNode` because `PlainTextNode` is not in the AST union
-type — it's a plugin-internal type. This is acceptable because the plugin
+type â€” it's a plugin-internal type. This is acceptable because the plugin
 interface is generic; each plugin defines its own internal representation.
 
 Also serves as the **fallback** for unknown plugin types.
 
 ---
 
-### `src/plugin/registry.ts` — Plugin Registry
+### `src/plugin/registry.ts` â€” Plugin Registry
 
 Central dispatch point that routes cell content to the correct plugin:
 
@@ -1579,21 +1579,21 @@ function renderCell(typeId: string, text: string): HTMLElement {
 
 **Error handling:** If a math cell contains invalid syntax, `renderCell`
 catches the parse error and renders it as a red inline error message. The
-table continues to render — one bad cell does not crash the entire table.
+table continues to render â€” one bad cell does not crash the entire table.
 
 **`escapeHTML` helper:** Converts special characters to HTML entities and
 preserves formatting:
-- `&` → `&amp;` (must be first to avoid double-escaping)
-- `<` → `&lt;`, `>` → `&gt;` (prevent HTML injection)
-- `\n` → `<br>` (preserve line breaks in error messages)
-- ` ` → `&nbsp;` (preserve whitespace alignment in error carets)
+- `&` â†’ `&amp;` (must be first to avoid double-escaping)
+- `<` â†’ `&lt;`, `>` â†’ `&gt;` (prevent HTML injection)
+- `\n` â†’ `<br>` (preserve line breaks in error messages)
+- ` ` â†’ `&nbsp;` (preserve whitespace alignment in error carets)
 
 The order of replacements matters: `&nbsp;` must come AFTER `&` escaping,
 otherwise the `&` in `&nbsp;` would be escaped to `&amp;nbsp;`.
 
 ---
 
-### `src/csv/reader.ts` — CSV File Reader
+### `src/csv/reader.ts` â€” CSV File Reader
 
 Parses CSV text into a structured `CSVData` object.
 
@@ -1623,18 +1623,18 @@ interface CSVData {
 **Parsing algorithm:**
 - Iterates character by character
 - Handles quoted fields (double quotes) with comma and newline support inside
-- Handles escaped quotes (`""` → literal `"`)
+- Handles escaped quotes (`""` â†’ literal `"`)
 - Handles both LF and CRLF line endings
 - Throws if fewer than 2 rows (need at least headers + types)
 
 **Design note:** The CSV reader is purely structural. It does not interpret
-the `types` row — it just stores it as strings. The table component later
+the `types` row â€” it just stores it as strings. The table component later
 passes each type string to the plugin registry for dispatch. This means the
 CSV reader can be used independently of the plugin system.
 
 ---
 
-### `src/table/table.ts` — Table Component
+### `src/table/table.ts` â€” Table Component
 
 Renders a `CSVData` object as an interactive HTML table:
 
@@ -1644,11 +1644,11 @@ function createTable(data: CSVData): HTMLElement
 
 **Features:**
 - Renders column headers from `data.headers`
-- Renders each cell using `renderCell(typeId, cellValue)` — dispatching to
+- Renders each cell using `renderCell(typeId, cellValue)` â€” dispatching to
   the correct plugin based on the column's type
 - **Sortable columns:** clicking a header sorts all rows by that column
   (ascending on first click, descending on second click)
-- Sort indicator (▲/▼) shown in the active header
+- Sort indicator (â–²/â–¼) shown in the active header
 
 **Implementation:**
 - Uses a closure over `sortCol`, `sortAsc`, and `rows` state
@@ -1658,7 +1658,7 @@ function createTable(data: CSVData): HTMLElement
 
 ---
 
-### `src/main.ts` — Updated Application Entry Point
+### `src/main.ts` â€” Updated Application Entry Point
 
 Phase 3 adds CSV file loading alongside the existing expression renderer:
 
@@ -1673,7 +1673,7 @@ Visual feedback (border color change) on dragover.
 
 ---
 
-### `index.html` — Updated HTML
+### `index.html` â€” Updated HTML
 
 Added:
 - `<h2>` section headers for "Expression Renderer" and "Knowledge Table"
@@ -1683,18 +1683,18 @@ Added:
 
 ---
 
-### `style.css` — Updated Styles
+### `style.css` â€” Updated Styles
 
 Added:
-- `.knowledge-table` — border-collapse table with hover-able headers
-- `.knowledge-table th` — clickable, grey background, cursor pointer
-- `.knowledge-table td .cell-error` — red italic for parse errors
-- `.table-drop-zone` — dashed border, centered text, min-height
-- `.table-drop-zone.drag-over` — blue highlight on drag
+- `.knowledge-table` â€” border-collapse table with hover-able headers
+- `.knowledge-table th` â€” clickable, grey background, cursor pointer
+- `.knowledge-table td .cell-error` â€” red italic for parse errors
+- `.table-drop-zone` â€” dashed border, centered text, min-height
+- `.table-drop-zone.drag-over` â€” blue highlight on drag
 
 ---
 
-### `public/sample.csv` — Sample Knowledge File
+### `public/sample.csv` â€” Sample Knowledge File
 
 A demonstration CSV with 8 mathematical concepts:
 
@@ -1711,7 +1711,7 @@ A demonstration CSV with 8 mathematical concepts:
 
 ---
 
-### Bug fix — Cell error newlines not visible
+### Bug fix â€” Cell error newlines not visible
 
 **Symptom:** Parse errors in table cells showed as a single line with no
 line breaks, making the caret-style error messages unreadable.
@@ -1722,14 +1722,14 @@ collapses all whitespace including newlines.
 
 **Fix:** Used `span.innerHTML` with an `escapeHTML` helper that converts
 `\n` to `<br>` and spaces to `&nbsp;`. The escaping order is critical:
-1. `&` → `&amp;` (first, to avoid double-escaping later entities)
-2. `<`, `>`, `"`, `'` → HTML entities (prevent injection)
-3. `\n` → `<br>` (line breaks)
-4. ` ` → `&nbsp;` (preserve whitespace alignment)
+1. `&` â†’ `&amp;` (first, to avoid double-escaping later entities)
+2. `<`, `>`, `"`, `'` â†’ HTML entities (prevent injection)
+3. `\n` â†’ `<br>` (line breaks)
+4. ` ` â†’ `&nbsp;` (preserve whitespace alignment)
 
 ---
 
-## Codebase Restructuring — New Architecture
+## Codebase Restructuring â€” New Architecture
 
 ### Motivation
 
@@ -1746,100 +1746,100 @@ The Phase 3 codebase had grown organically and had several structural problems:
 
 ```
 src/
-├── engine/              # General-purpose PEG engine — no domain knowledge
-│   ├── PEGParser.ts     # The parsing engine (unchanged logic)
-│   └── types.ts         # PEG expression types only (engine-level)
-│
-├── plugins/             # All syntax plugins — each self-contained
-│   ├── interface.ts     # Plugin contract: { type_id, version, parse, render }
-│   ├── registry.ts      # Plugin dispatch + renderCell + escapeHTML
-│   ├── math/            # Math syntax plugin (owns grammar, types, renderer)
-│   │   ├── types.ts     # MathNode union type (replaces ASTNode)
-│   │   ├── grammar.ts   # BobaMath PEG grammar
-│   │   ├── render.ts    # Math renderer
-│   │   ├── el.ts        # DOM helper
-│   │   └── index.ts     # Plugin entry point (conforms to Plugin interface)
-│   └── text/            # Plain text plugin
-│       └── index.ts
-│
-├── data/                # Data layer — format-agnostic, plugin-agnostic
-│   ├── types.ts         # TableData interface
-│   └── csv.ts           # CSV grammar using PEGParser engine
-│
-├── ui/                  # UI components — presentation only, no parsing
-│   ├── table.ts         # Table renderer with sorting
-│   ├── file-loader.ts   # File picker + drag-and-drop
-│   └── expression-input.ts  # Single-expression input + render
-│
-└── main.ts              # App entry — wires UI components together (thin)
+â”œâ”€â”€ engine/              # General-purpose PEG engine â€” no domain knowledge
+â”‚   â”œâ”€â”€ PEGParser.ts     # The parsing engine (unchanged logic)
+â”‚   â””â”€â”€ types.ts         # PEG expression types only (engine-level)
+â”‚
+â”œâ”€â”€ plugins/             # All syntax plugins â€” each self-contained
+â”‚   â”œâ”€â”€ interface.ts     # Plugin contract: { type_id, version, parse, render }
+â”‚   â”œâ”€â”€ registry.ts      # Plugin dispatch + renderCell + escapeHTML
+â”‚   â”œâ”€â”€ math/            # Math syntax plugin (owns grammar, types, renderer)
+â”‚   â”‚   â”œâ”€â”€ types.ts     # MathNode union type (replaces ASTNode)
+â”‚   â”‚   â”œâ”€â”€ grammar.ts   # BobaMath PEG grammar
+â”‚   â”‚   â”œâ”€â”€ render.ts    # Math renderer
+â”‚   â”‚   â”œâ”€â”€ el.ts        # DOM helper
+â”‚   â”‚   â””â”€â”€ index.ts     # Plugin entry point (conforms to Plugin interface)
+â”‚   â””â”€â”€ text/            # Plain text plugin
+â”‚       â””â”€â”€ index.ts
+â”‚
+â”œâ”€â”€ data/                # Data layer â€” format-agnostic, plugin-agnostic
+â”‚   â”œâ”€â”€ types.ts         # TableData interface
+â”‚   â””â”€â”€ csv.ts           # CSV grammar using PEGParser engine
+â”‚
+â”œâ”€â”€ ui/                  # UI components â€” presentation only, no parsing
+â”‚   â”œâ”€â”€ table.ts         # Table renderer with sorting
+â”‚   â”œâ”€â”€ file-loader.ts   # File picker + drag-and-drop
+â”‚   â””â”€â”€ expression-input.ts  # Single-expression input + render
+â”‚
+â””â”€â”€ main.ts              # App entry â€” wires UI components together (thin)
 ```
 
 ### Test Structure (mirrors src)
 
 ```
 test/
-├── engine/
-│   └── PEGParser.test.ts
-├── plugins/
-│   └── math/
-│       ├── grammar.test.ts
-│       └── render.test.ts
-├── data/
-│   └── csv.test.ts
-└── ui/
-    └── table.test.ts
+â”œâ”€â”€ engine/
+â”‚   â””â”€â”€ PEGParser.test.ts
+â”œâ”€â”€ plugins/
+â”‚   â””â”€â”€ math/
+â”‚       â”œâ”€â”€ grammar.test.ts
+â”‚       â””â”€â”€ render.test.ts
+â”œâ”€â”€ data/
+â”‚   â””â”€â”€ csv.test.ts
+â””â”€â”€ ui/
+    â””â”€â”€ table.test.ts
 ```
 
 ### Key Changes Per File
 
-**`src/engine/types.ts`** — now contains ONLY PEG engine types (`PEGExpression`,
+**`src/engine/types.ts`** â€” now contains ONLY PEG engine types (`PEGExpression`,
 `Grammar`, `MatchResult`, etc.). All AST node types moved to `src/plugins/math/types.ts`.
 
-**`src/plugins/math/types.ts`** — new file. Contains all math AST node types
+**`src/plugins/math/types.ts`** â€” new file. Contains all math AST node types
 under the name `MathNode` (replacing the old `ASTNode` union). The math plugin
-owns its own type definitions — no other module needs to know about them.
+owns its own type definitions â€” no other module needs to know about them.
 
-**`src/plugins/interface.ts`** — `Plugin.parse()` and `Plugin.render()` now use
+**`src/plugins/interface.ts`** â€” `Plugin.parse()` and `Plugin.render()` now use
 `unknown` instead of `ASTNode`. Each plugin defines its own internal representation.
-The interface is truly generic — it knows nothing about math, text, or any other domain.
+The interface is truly generic â€” it knows nothing about math, text, or any other domain.
 
-**`src/plugins/math/index.ts`** — thin entry point. Calls `parser.parse()` and
+**`src/plugins/math/index.ts`** â€” thin entry point. Calls `parser.parse()` and
 `renderMath()` from the math submodules. Conforms to `Plugin` interface.
 
-**`src/plugins/text/index.ts`** — simplified. `parse()` returns the raw string
+**`src/plugins/text/index.ts`** â€” simplified. `parse()` returns the raw string
 as `unknown`. `render()` creates a span with `textContent`. No `as unknown as ASTNode`
 cast needed since the interface uses `unknown`.
 
-**`src/data/csv.ts`** — moved from `src/csv/reader.ts`. Imports `PEGParser` from
+**`src/data/csv.ts`** â€” moved from `src/csv/reader.ts`. Imports `PEGParser` from
 `../engine/PEGParser.ts`. Produces `TableData` (from `src/data/types.ts`), not
 `CSVData`. The CSV parser knows nothing about plugins.
 
-**`src/ui/table.ts`** — moved from `src/table/table.ts`. Imports `renderCell`
+**`src/ui/table.ts`** â€” moved from `src/table/table.ts`. Imports `renderCell`
 from `../plugins/registry.ts` and `TableData` from `../data/types.ts`.
 
-**`src/ui/file-loader.ts`** — new file. Extracted from `main.ts`. Handles file
+**`src/ui/file-loader.ts`** â€” new file. Extracted from `main.ts`. Handles file
 picker and drag-and-drop. Calls `parseCSV` and `createTable`. Takes DOM element
-references as parameters — no global DOM access.
+references as parameters â€” no global DOM access.
 
-**`src/ui/expression-input.ts`** — new file. Extracted from `main.ts`. Handles
+**`src/ui/expression-input.ts`** â€” new file. Extracted from `main.ts`. Handles
 the expression input + render button. Takes DOM element references as parameters.
 
-**`src/main.ts`** — reduced to ~12 lines of logic. Gets DOM elements, calls
+**`src/main.ts`** â€” reduced to ~12 lines of logic. Gets DOM elements, calls
 `initExpressionInput` and `initFileLoader`, sets up demo test cases.
 
 ### Design Principles Enforced
 
-1. **Engine is generic** — `src/engine/` has zero imports from any domain module
-2. **Plugins are self-contained** — `src/plugins/math/` imports only from `engine/`
-3. **Data layer is payload-agnostic** — `src/data/csv.ts` imports only from `engine/`
-4. **UI is presentation-only** — `src/ui/` imports from `plugins/` and `data/` but
+1. **Engine is generic** â€” `src/engine/` has zero imports from any domain module
+2. **Plugins are self-contained** â€” `src/plugins/math/` imports only from `engine/`
+3. **Data layer is payload-agnostic** â€” `src/data/csv.ts` imports only from `engine/`
+4. **UI is presentation-only** â€” `src/ui/` imports from `plugins/` and `data/` but
    contains no parsing logic
-5. **main.ts is thin** — only wires components, no business logic
+5. **main.ts is thin** â€” only wires components, no business logic
 
 
 ---
 
-## Phase 4 — Association Graph & Filtered Table View
+## Phase 4 â€” Association Graph & Filtered Table View
 
 ---
 
@@ -1849,33 +1849,33 @@ Phase 4 adds a graph layer on top of the table system:
 
 ```
 CSV files (with _associations column)
-    │
-    ▼
-┌──────────────────────────────────┐
-│         CSV Reader               │
-│  (structural — splits rows)      │
-└──────────────┬───────────────────┘
-               │
-    ┌──────────┴──────────┐
-    ▼                     ▼
-┌────────────┐    ┌───────────────────┐
-│ TableData  │    │ AssociationGraph   │
-│ (rows/cols)│    │ (edges: src→tgt)   │
-└─────┬──────┘    └────────┬──────────┘
-      │                    │
-      ▼                    ▼
-┌──────────────────────────────────────┐
-│          Graph Filter UI             │
-│  - Relation dropdown                 │
-│  - Target dropdown                   │
-│  - Filter button → filtered table    │
-│  - Entity click → association detail │
-└──────────────────────────────────────┘
+    â”‚
+    â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚         CSV Reader               â”‚
+â”‚  (structural â€” splits rows)      â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+               â”‚
+    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+    â–¼                     â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ TableData  â”‚    â”‚ AssociationGraph   â”‚
+â”‚ (rows/cols)â”‚    â”‚ (edges: srcâ†’tgt)   â”‚
+â””â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+      â”‚                    â”‚
+      â–¼                    â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚          Graph Filter UI             â”‚
+â”‚  - Relation dropdown                 â”‚
+â”‚  - Target dropdown                   â”‚
+â”‚  - Filter button â†’ filtered table    â”‚
+â”‚  - Entity click â†’ association detail â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
 
-### `src/data/graph.ts` — AssociationGraph
+### `src/data/graph.ts` â€” AssociationGraph
 
 The core data structure for the graph layer. Stores typed, directed edges
 between entities.
@@ -1898,8 +1898,8 @@ refers to the row where column 0 = "derivative" in any loaded table).
 |--------|---------|
 | `setVocabulary(vocab)` | Load relation type definitions (name, inverse, symmetric) |
 | `addAssociations(ids, column)` | Parse `_associations` column and store edges |
-| `filterByRelation(rel, target)` | Find all sources that have `rel` → `target` |
-| `filterBySource(rel, source)` | Find all targets that `source` → via `rel` |
+| `filterByRelation(rel, target)` | Find all sources that have `rel` â†’ `target` |
+| `filterBySource(rel, source)` | Find all targets that `source` â†’ via `rel` |
 | `getAssociationsFor(entityId)` | Get all outgoing and incoming edges for an entity |
 | `getInverse(relation)` | Look up the inverse relation name from vocabulary |
 | `getRelationTypes()` | All unique relation types in the graph |
@@ -1917,24 +1917,24 @@ refers to the row where column 0 = "derivative" in any loaded table).
 
 ---
 
-### `src/ui/graph-filter.ts` — Graph Filter UI
+### `src/ui/graph-filter.ts` â€” Graph Filter UI
 
 Renders the filter controls and handles user interaction:
 
 **Components:**
-- **Relation dropdown** — populated from `graph.getRelationTypes()`
-- **Target dropdown** — populated from `graph.getAllEntityIds()`
-- **Filter button** — calls `graph.filterByRelation(rel, target)`, then
+- **Relation dropdown** â€” populated from `graph.getRelationTypes()`
+- **Target dropdown** â€” populated from `graph.getAllEntityIds()`
+- **Filter button** â€” calls `graph.filterByRelation(rel, target)`, then
   renders only matching rows from all loaded tables
-- **Show All button** — resets to showing all tables unfiltered
-- **Association detail panel** — shows outgoing and incoming associations
+- **Show All button** â€” resets to showing all tables unfiltered
+- **Association detail panel** â€” shows outgoing and incoming associations
   for a clicked entity, with clickable links to navigate to related entities
 
 **Entity click interaction:**
 - First column cells are clickable (underlined, cursor pointer)
 - Clicking shows the association detail panel with:
-  - Outgoing: `relation → target` (with clickable target links)
-  - Incoming: `inverse-relation ← source` (with clickable source links)
+  - Outgoing: `relation â†’ target` (with clickable target links)
+  - Incoming: `inverse-relation â† source` (with clickable source links)
 - Clicking a link in the detail panel navigates to that entity's associations
 
 **Filtering logic:**
@@ -1945,7 +1945,7 @@ Renders the filter controls and handles user interaction:
 
 ---
 
-### `src/ui/file-loader.ts` — Updated for Multiple Files
+### `src/ui/file-loader.ts` â€” Updated for Multiple Files
 
 Now supports loading multiple CSV files simultaneously:
 - File input has `multiple` attribute
@@ -1967,20 +1967,20 @@ if (assocColIdx !== -1) {
 
 ### Sample Data Files
 
-**`public/theorems.csv`** — 6 theorems with associations:
-- Fundamental Theorem of Calculus → uses: derivative, integral
-- Integration by Parts → uses: integral, product-rule
-- Chain Rule → uses: derivative, composition
-- Pythagorean Theorem → uses: right-triangle
-- Binomial Theorem → uses: binomial-coefficient, factorial
-- Euler's Formula → uses: exponential, complex-numbers
+**`public/theorems.csv`** â€” 6 theorems with associations:
+- Fundamental Theorem of Calculus â†’ uses: derivative, integral
+- Integration by Parts â†’ uses: integral, product-rule
+- Chain Rule â†’ uses: derivative, composition
+- Pythagorean Theorem â†’ uses: right-triangle
+- Binomial Theorem â†’ uses: binomial-coefficient, factorial
+- Euler's Formula â†’ uses: exponential, complex-numbers
 
-**`public/definitions.csv`** — 9 definitions with inverse associations:
-- derivative → is-used-by: FTC, Chain Rule
-- integral → is-used-by: FTC, Integration by Parts
+**`public/definitions.csv`** â€” 9 definitions with inverse associations:
+- derivative â†’ is-used-by: FTC, Chain Rule
+- integral â†’ is-used-by: FTC, Integration by Parts
 - (etc.)
 
-**`public/vocabulary.json`** — 5 relation types:
+**`public/vocabulary.json`** â€” 5 relation types:
 - uses / is-used-by
 - proves / is-proved-by
 - generalizes / is-special-case-of
@@ -2005,41 +2005,41 @@ such fields.
 
 The previous architecture mixed data storage with HTML rendering. The
 `createTable` function both held the row data AND rendered it to DOM.
-There was no "business model" — the data existed only as raw string arrays
+There was no "business model" â€” the data existed only as raw string arrays
 or as HTML elements. This makes it impossible to manipulate data without
 re-parsing, and couples all logic to the browser DOM.
 
 ### Layered MVC Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  VIEW (presentation)                                    │
-│  src/view/table-view.ts      — renders Table → HTML     │
-│  src/view/graph-filter-view.ts — filter UI + detail     │
-├─────────────────────────────────────────────────────────┤
-│  CONTROLLER (orchestration)                             │
-│  src/controller/index.ts     — handles user actions,    │
-│                                updates model, tells     │
-│                                view to re-render        │
-├─────────────────────────────────────────────────────────┤
-│  MODEL (business data)                                  │
-│  src/model/index.ts          — KnowledgeBase, Table,    │
-│                                Row, Cell, Column,       │
-│                                AssociationGraph         │
-├─────────────────────────────────────────────────────────┤
-│  INTEGRATION (plugins)                                  │
-│  src/plugins/                — syntax parsing/rendering │
-├─────────────────────────────────────────────────────────┤
-│  DATA (persistence)                                     │
-│  src/data/csv.ts             — file format parsing      │
-│  src/data/graph.ts           — re-exports from model    │
-├─────────────────────────────────────────────────────────┤
-│  ENGINE (infrastructure)                                │
-│  src/engine/                 — PEG parser engine        │
-└─────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  VIEW (presentation)                                    â”‚
+â”‚  src/view/table-view.ts      â€” renders Table â†’ HTML     â”‚
+â”‚  src/view/graph-filter-view.ts â€” filter UI + detail     â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  CONTROLLER (orchestration)                             â”‚
+â”‚  src/controller/index.ts     â€” handles user actions,    â”‚
+â”‚                                updates model, tells     â”‚
+â”‚                                view to re-render        â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  MODEL (business data)                                  â”‚
+â”‚  src/model/index.ts          â€” KnowledgeBase, Table,    â”‚
+â”‚                                Row, Cell, Column,       â”‚
+â”‚                                AssociationGraph         â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  INTEGRATION (plugins)                                  â”‚
+â”‚  src/plugins/                â€” syntax parsing/rendering â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  DATA (persistence)                                     â”‚
+â”‚  src/data/csv.ts             â€” file format parsing      â”‚
+â”‚  src/data/graph.ts           â€” re-exports from model    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  ENGINE (infrastructure)                                â”‚
+â”‚  src/engine/                 â€” PEG parser engine        â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
-### Model Layer — `src/model/index.ts`
+### Model Layer â€” `src/model/index.ts`
 
 Pure business objects with no DOM dependency:
 
@@ -2049,20 +2049,20 @@ Pure business objects with no DOM dependency:
 | `Column` | Holds column name and type_id |
 | `Row` | Holds an array of Cells, provides `entityId` and `getCellValue(i)` |
 | `Table` | Holds name, columns, rows. Provides `filterByEntityIds`, `sortedRows`, `getColumnIndex` |
-| `Association` | A single directed edge: source → relation → target |
+| `Association` | A single directed edge: source â†’ relation â†’ target |
 | `RelationType` | Defines a relation: name, inverse, symmetric flag |
 | `AssociationGraph` | Stores all edges. Provides filter, inverse lookup, entity inspection |
 | `KnowledgeBase` | Top-level container: holds all Tables + one shared Graph. Auto-extracts associations on `addTable` |
 
-### Controller Layer — `src/controller/index.ts`
+### Controller Layer â€” `src/controller/index.ts`
 
 The `AppController` class:
 - Holds a `KnowledgeBase` (model)
 - References `TableView` and `GraphFilterView` (views)
 - Methods: `loadCSV(name, text)`, `filterByRelation(rel, target)`, `showAll()`, `getAssociationsFor(id)`
-- On `loadCSV`: parses CSV → creates Table model → adds to KnowledgeBase → refreshes views
+- On `loadCSV`: parses CSV â†’ creates Table model â†’ adds to KnowledgeBase â†’ refreshes views
 
-### View Layer — `src/view/`
+### View Layer â€” `src/view/`
 
 | Class | Responsibility |
 |-------|---------------|
@@ -2074,22 +2074,22 @@ modify the model directly.
 
 ### OO Design Principles Applied
 
-1. **Single Responsibility** — each class has one job (Cell stores a value, Table stores rows, View renders)
-2. **Encapsulation** — model objects expose methods, not raw data manipulation
-3. **Dependency Inversion** — controller depends on view interfaces (type imports), not concrete DOM
-4. **Open/Closed** — new plugins can be added without modifying existing model/view code
-5. **Separation of Concerns** — model has no DOM imports, view has no file I/O, controller has no rendering logic
+1. **Single Responsibility** â€” each class has one job (Cell stores a value, Table stores rows, View renders)
+2. **Encapsulation** â€” model objects expose methods, not raw data manipulation
+3. **Dependency Inversion** â€” controller depends on view interfaces (type imports), not concrete DOM
+4. **Open/Closed** â€” new plugins can be added without modifying existing model/view code
+5. **Separation of Concerns** â€” model has no DOM imports, view has no file I/O, controller has no rendering logic
 
 ### Backward Compatibility
 
-- `src/ui/table.ts` — kept with `createTable(TableData)` function for existing tests
-- `src/data/graph.ts` — re-exports `AssociationGraph` from model for existing tests
-- `AssociationGraph.addAssociations()` — alias for `addFromColumn()` for test compat
-- `AssociationGraph.setVocabulary()` — accepts both `RelationType[]` and `{ relations: [...] }`
+- `src/ui/table.ts` â€” kept with `createTable(TableData)` function for existing tests
+- `src/data/graph.ts` â€” re-exports `AssociationGraph` from model for existing tests
+- `AssociationGraph.addAssociations()` â€” alias for `addFromColumn()` for test compat
+- `AssociationGraph.setVocabulary()` â€” accepts both `RelationType[]` and `{ relations: [...] }`
 
 ---
 
-## Phase 5 — Inline Editor
+## Phase 5 â€” Inline Editor
 
 ---
 
@@ -2124,24 +2124,24 @@ An undo/redo stack records every edit action as a reversible operation.
 Each action stores enough information to both apply and reverse itself:
 
 - `cell` action: stores `tableIdx`, `rowIdx`, `colIdx`, `oldValue`, `newValue`
-  — undo sets the cell back to `oldValue`, redo sets it to `newValue`
+  â€” undo sets the cell back to `oldValue`, redo sets it to `newValue`
 - `addRow` action: stores `tableIdx` and the `Row` object
-  — undo removes the last row, redo pushes it back
+  â€” undo removes the last row, redo pushes it back
 - `deleteRow` action: stores `tableIdx`, `rowIdx`, and the `Row` object
-  — undo splices the row back at `rowIdx`, redo splices it out again
+  â€” undo splices the row back at `rowIdx`, redo splices it out again
 
 The stack has two arrays: `past` (actions that can be undone) and `future`
 (actions that can be redone). Pushing a new action clears the `future` array
-— once you make a new edit after undoing, the undone actions are gone.
+â€” once you make a new edit after undoing, the undone actions are gone.
 
 ---
 
-### Model Changes — `src/model/index.ts`
+### Model Changes â€” `src/model/index.ts`
 
 #### Mutability
 
 In Phase 4, `Cell.value`, `Row.cells`, and `Table.rows` were `readonly`. This
-prevented in-place mutation — editing a cell would require reconstructing the
+prevented in-place mutation â€” editing a cell would require reconstructing the
 entire model. Phase 5 removes `readonly` from these fields so the controller
 can mutate them directly.
 
@@ -2219,12 +2219,12 @@ const escape = (v: string) =>
         : v;
 ```
 
-Double quotes inside a field are escaped by doubling them (`"` → `""`),
+Double quotes inside a field are escaped by doubling them (`"` â†’ `""`),
 which is the standard CSV quoting convention.
 
 ---
 
-### Controller Changes — `src/controller/index.ts`
+### Controller Changes â€” `src/controller/index.ts`
 
 #### `editCell(tableIdx, rowIdx, colIdx, newValue)`
 
@@ -2258,7 +2258,7 @@ Apply the inverse (or forward) mutation directly to the model, then call
 
 ---
 
-### View Changes — `src/view/table-view.ts`
+### View Changes â€” `src/view/table-view.ts`
 
 #### One Active Cell at a Time
 
@@ -2271,23 +2271,23 @@ at any time.
 
 ```
 User clicks cell
-    ↓
-cancelActive() — closes any currently open cell
-    ↓
+    â†“
+cancelActive() â€” closes any currently open cell
+    â†“
 activateCell(td, originalValue, typeId, onCommit)
-    ↓
+    â†“
 td.contentEditable = "true"
 td.textContent = originalValue
 td.focus()
-    ↓
+    â†“
 if syntax cell: showPreview(originalValue, typeId)
-                td.addEventListener("input", → showPreview(td.textContent, typeId))
-    ↓
+                td.addEventListener("input", â†’ showPreview(td.textContent, typeId))
+    â†“
 User types in cell
-    ↓
-Enter → commit(td.textContent)  → onCommit(value) → controller.editCell(...)
-Escape → cancel() → restore original rendered view
-Blur → commit(td.textContent)  → same as Enter
+    â†“
+Enter â†’ commit(td.textContent)  â†’ onCommit(value) â†’ controller.editCell(...)
+Escape â†’ cancel() â†’ restore original rendered view
+Blur â†’ commit(td.textContent)  â†’ same as Enter
 ```
 
 #### Preview Bar (Syntax Cells Only)
@@ -2301,7 +2301,7 @@ syntax cell is activated:
    keystroke, updating the preview in real time
 4. On commit or cancel, `hidePreview()` clears the preview and hides the bar
 
-The bar has no input field — it is purely a display element. The user always
+The bar has no input field â€” it is purely a display element. The user always
 types in the cell, not in the bar.
 
 #### Event Listener Cleanup
@@ -2313,20 +2313,20 @@ returns to rendered view.
 
 The `input` listener for the preview is stored on the element as
 `td.__onInput` and removed in the commit/cancel path. This is a pragmatic
-choice — storing the function reference on the element avoids needing a
+choice â€” storing the function reference on the element avoids needing a
 closure variable that would require restructuring the activation flow.
 
 #### Add Row and Export CSV
 
 Below each editable table, a toolbar is rendered with two buttons:
-- **+ Add Row** — calls `controller.addRow(tableIdx)`
-- **⬇ Export CSV** — calls `controller.exportCSV(tableIdx)`, creates a
+- **+ Add Row** â€” calls `controller.addRow(tableIdx)`
+- **â¬‡ Export CSV** â€” calls `controller.exportCSV(tableIdx)`, creates a
   `Blob`, generates an object URL, triggers a download via a temporary
   `<a>` element, then revokes the URL
 
 #### Delete Row
 
-Each row has an extra `<td>` at the right end containing a ✕ button.
+Each row has an extra `<td>` at the right end containing a âœ• button.
 Clicking it shows a `confirm()` dialog. On confirmation, calls
 `controller.deleteRow(tableIdx, rowIdx)`.
 
@@ -2336,7 +2336,7 @@ because the table re-renders after every mutation.
 
 ---
 
-### HTML Changes — `index.html`
+### HTML Changes â€” `index.html`
 
 Added the `#cell-edit-bar` element above the table container:
 
@@ -2352,7 +2352,7 @@ syntax cell is active and restores it on commit/cancel.
 
 ---
 
-### CSS Changes — `style.css`
+### CSS Changes â€” `style.css`
 
 | Selector | Purpose |
 |----------|---------|
@@ -2382,7 +2382,7 @@ syntax cell is active and restores it on commit/cancel.
 
 #### Why `contenteditable` instead of `<input>`?
 
-An `<input>` element inside a `<td>` disrupts the table layout — it has its
+An `<input>` element inside a `<td>` disrupts the table layout â€” it has its
 own sizing, border, and padding that fight with the cell's CSS. Positioning
 an absolutely-placed input overlay requires tracking cell coordinates.
 `contenteditable` on the `<td>` itself avoids all of this: the cell keeps
@@ -2392,7 +2392,7 @@ its exact position and size, and the browser handles all text editing natively.
 
 The source and the rendered output are two different representations of the
 same data. Allowing the user to edit the rendered output would require a
-reverse-renderer (rendered HTML → source text), which is complex and fragile.
+reverse-renderer (rendered HTML â†’ source text), which is complex and fragile.
 The clean separation is: **source in the cell, rendered output in the bar**.
 The user always edits source; the bar is purely informational.
 
@@ -2405,7 +2405,7 @@ This matches the behaviour of spreadsheet applications.
 
 ---
 
-## Phase 7 — Search, Indexing & Tooling
+## Phase 7 â€” Search, Indexing & Tooling
 
 This section explains all new code introduced in Phase 7: the search engine,
 search view, and session persistence module.
@@ -2417,14 +2417,14 @@ search view, and session persistence module.
 Phase 7 adds the ability to actively query the loaded knowledge base. Four
 operations are provided:
 
-1. **Full-text search** — find all text cells whose value contains a query string
-2. **Structural search** — find all math cells whose AST contains a given identifier
-3. **Graph neighbourhood** — find all entities within N hops of a starting entity
-4. **Cross-table join** — find entity pairs from two tables linked by a relation
+1. **Full-text search** â€” find all text cells whose value contains a query string
+2. **Structural search** â€” find all math cells whose AST contains a given identifier
+3. **Graph neighbourhood** â€” find all entities within N hops of a starting entity
+4. **Cross-table join** â€” find entity pairs from two tables linked by a relation
 
 All four are implemented as pure functions in `src/search/index.ts` that
 operate on the in-memory `KnowledgeBase` model. They do not index, cache, or
-modify any state — they scan on every call. For the current scale (hundreds
+modify any state â€” they scan on every call. For the current scale (hundreds
 of entities) this is instantaneous.
 
 A `SearchView` class in `src/view/search-view.ts` wires the search functions
@@ -2433,13 +2433,13 @@ files to `localStorage` so the user can be reminded to reload them on next open.
 
 ---
 
-### `src/search/index.ts` — Search Engine
+### `src/search/index.ts` â€” Search Engine
 
 #### Result types
 
 Three result interfaces are defined:
 
-**`SearchHit`** — returned by `searchText` and `searchByIdentifier`:
+**`SearchHit`** â€” returned by `searchText` and `searchByIdentifier`:
 ```ts
 interface SearchHit {
     tableIdx: number;    // index into kb.tables
@@ -2454,7 +2454,7 @@ interface SearchHit {
 }
 ```
 
-**`NeighbourHit`** — returned by `getNeighbourhood`:
+**`NeighbourHit`** â€” returned by `getNeighbourhood`:
 ```ts
 interface NeighbourHit {
     entityId: string;
@@ -2465,7 +2465,7 @@ interface NeighbourHit {
 }
 ```
 
-**`JoinHit`** — returned by `crossTableJoin`:
+**`JoinHit`** â€” returned by `crossTableJoin`:
 ```ts
 interface JoinHit {
     leftEntityId: string;
@@ -2479,7 +2479,7 @@ interface JoinHit {
 #### `searchText(kb, query)`
 
 Scans every cell in every table. Only cells whose `typeId` is `"text"`,
-`"plain"`, or `"plaintext"` are searched — math cells are excluded because
+`"plain"`, or `"plaintext"` are searched â€” math cells are excluded because
 their raw source text is not meaningful to a plain-text query.
 
 The comparison is case-insensitive: both the query and the cell value are
@@ -2517,12 +2517,12 @@ from `startEntityId`. Both outgoing and incoming edges are traversed.
 
 A `visited` set prevents revisiting entities. The BFS queue holds
 `{ entityId, hops }` pairs. When an entity is dequeued, if `hops >= maxHops`
-the loop continues without expanding further — this enforces the hop limit.
+the loop continues without expanding further â€” this enforces the hop limit.
 
 For each unvisited neighbour:
-- **Outgoing edge** (`source → target`): the neighbour is `edge.target`,
+- **Outgoing edge** (`source â†’ target`): the neighbour is `edge.target`,
   direction is `"outgoing"`, relation name is `edge.relation`
-- **Incoming edge** (`source → target` where target = current entity):
+- **Incoming edge** (`source â†’ target` where target = current entity):
   the neighbour is `edge.source`, direction is `"incoming"`, relation name
   is the inverse looked up via `kb.graph.getInverse(edge.relation)` (falls
   back to the forward name if no inverse is defined)
@@ -2552,7 +2552,7 @@ Returns an empty array if either table index is out of bounds.
 
 ---
 
-### `src/view/search-view.ts` — Search View
+### `src/view/search-view.ts` â€” Search View
 
 `SearchView` is a class that builds and manages the search UI. It is
 constructed with a container element and the `AppController` reference.
@@ -2561,59 +2561,59 @@ constructed with a container element and the `AppController` reference.
 
 ```
 container
-├── div.search-bar
-│   ├── input#search-input          (text search)
-│   ├── button "Search"
-│   ├── input#search-ident-input    (identifier search)
-│   ├── button "Find Symbol"
-│   └── button "Clear"
-├── div.search-results              (hidden initially)
-└── div.neighbourhood-panel         (hidden initially)
+â”œâ”€â”€ div.search-bar
+â”‚   â”œâ”€â”€ input#search-input          (text search)
+â”‚   â”œâ”€â”€ button "Search"
+â”‚   â”œâ”€â”€ input#search-ident-input    (identifier search)
+â”‚   â”œâ”€â”€ button "Find Symbol"
+â”‚   â””â”€â”€ button "Clear"
+â”œâ”€â”€ div.search-results              (hidden initially)
+â””â”€â”€ div.neighbourhood-panel         (hidden initially)
 ```
 
-**`showTextResults(hits)`** — renders a `SearchHit[]` into the results panel.
+**`showTextResults(hits)`** â€” renders a `SearchHit[]` into the results panel.
 For each hit, it builds a `<li>` with:
-- A location line: `tableName › entityId › colName`
+- A location line: `tableName â€º entityId â€º colName`
 - The cell value with the matched substring wrapped in `<mark>` for
   yellow highlighting
 
 Clicking any result item calls `showNeighbourhood(hit.entityId)`.
 
-**`showNeighbourhood(entityId)`** — calls `controller.getNeighbourhood(entityId, 2)`
+**`showNeighbourhood(entityId)`** â€” calls `controller.getNeighbourhood(entityId, 2)`
 and renders the results into the neighbourhood panel. Each entry shows the
-hop count, relation name, direction arrow (`→` or `←`), entity ID, and
+hop count, relation name, direction arrow (`â†’` or `â†`), entity ID, and
 table name. Clicking any entry navigates to that entity's neighbourhood
 (recursive call to `showNeighbourhood`).
 
-**`escapeHtml(s)`** — a module-private helper that escapes `&`, `<`, `>`,
+**`escapeHtml(s)`** â€” a module-private helper that escapes `&`, `<`, `>`,
 and `"` to prevent HTML injection when inserting user-controlled strings
 via `innerHTML`.
 
 ---
 
-### `src/view/session.ts` — Session Persistence
+### `src/view/session.ts` â€” Session Persistence
 
 Saves and restores the list of loaded file names using `localStorage`.
 
-**`saveSession(fileNames)`** — serialises `{ fileNames, savedAt }` to JSON
+**`saveSession(fileNames)`** â€” serialises `{ fileNames, savedAt }` to JSON
 and stores it under the key `"bookkeeping_session_v1"`. Called after every
 successful file load. Errors (private browsing, storage full) are silently
 ignored.
 
-**`loadSession()`** — reads and parses the stored JSON. Returns `null` if
+**`loadSession()`** â€” reads and parses the stored JSON. Returns `null` if
 nothing is stored or if parsing fails.
 
-**`clearSession()`** — removes the key from `localStorage`.
+**`clearSession()`** â€” removes the key from `localStorage`.
 
 **Why only file names are stored:** The browser's security model prevents
 a web page from reading arbitrary files from the filesystem. Only the user
 can open files via a file picker or drag-and-drop. The session therefore
 stores only the names of previously loaded files and shows a banner asking
-the user to reload them — it cannot reload them automatically.
+the user to reload them â€” it cannot reload them automatically.
 
 ---
 
-### Controller additions — `src/controller/index.ts`
+### Controller additions â€” `src/controller/index.ts`
 
 Five thin delegator methods were added to `AppController`:
 
@@ -2625,7 +2625,7 @@ Five thin delegator methods were added to `AppController`:
 | `crossTableJoin(left, right, rel)` | `crossTableJoin(this.knowledgeBase, left, right, rel)` |
 | `getLoadedFileNames()` | `this.knowledgeBase.tables.map(t => t.name)` |
 
-These methods keep the view layer decoupled from the search module — the
+These methods keep the view layer decoupled from the search module â€” the
 view calls the controller, the controller calls the search engine.
 
 ---
@@ -2635,7 +2635,7 @@ view calls the controller, the controller calls the search engine.
 - Imports `SearchView` and `saveSession`/`loadSession` from their modules
 - Constructs `SearchView` with `#search-container` and the controller
 - Wires the entity click handler on `TableView` to also call
-  `searchView.showNeighbourhood(entityId)` — clicking an entity in the
+  `searchView.showNeighbourhood(entityId)` â€” clicking an entity in the
   table now shows both the association detail panel (Phase 4) and the
   neighbourhood panel (Phase 7) simultaneously
 - Calls `saveSession(controller.getLoadedFileNames())` after each
@@ -2647,9 +2647,9 @@ view calls the controller, the controller calls the search engine.
 
 ### `index.html` additions
 
-- `<div id="session-banner" hidden>` — amber banner shown when a previous
+- `<div id="session-banner" hidden>` â€” amber banner shown when a previous
   session is detected; hidden by default
-- `<div id="search-container">` — mount point for `SearchView`, placed
+- `<div id="search-container">` â€” mount point for `SearchView`, placed
   above the edit bar
 
 ---
@@ -2681,7 +2681,7 @@ view calls the controller, the controller calls the search engine.
 
 ### Design Decisions
 
-**1. No indexing — scan on every call.**
+**1. No indexing â€” scan on every call.**
 All search functions iterate the in-memory model on every invocation. For
 the current scale (hundreds of entities, millisecond parse times) this is
 instantaneous. A persistent index would be premature optimisation and would
@@ -2690,7 +2690,7 @@ require cache invalidation logic whenever cells are edited.
 **2. Structural search parses on demand.**
 `searchByIdentifier` re-parses each math cell's source text during the
 search. This is correct because the source text is the canonical form of
-the data. The parsed AST is not cached between calls — caching would
+the data. The parsed AST is not cached between calls â€” caching would
 require invalidating entries on every `editCell` call, adding complexity
 with no measurable benefit at current scale.
 
@@ -2713,7 +2713,7 @@ and `TableView`.
 
 ---
 
-## Phase 8 — Spreadsheet Shell Layout & Refactoring
+## Phase 8 â€” Spreadsheet Shell Layout & Refactoring
 
 ---
 
@@ -2721,19 +2721,19 @@ and `TableView`.
 
 Phase 8 has two goals:
 
-1. **Structural refactoring** — enforce the 1-class-per-file rule in the model
+1. **Structural refactoring** â€” enforce the 1-class-per-file rule in the model
    layer, and add two new controller actions (`insertRow`, `moveRow`) with
    full undo/redo support.
 
-2. **UI redesign** — replace the scrolling document layout with a fixed
+2. **UI redesign** â€” replace the scrolling document layout with a fixed
    spreadsheet shell where only the table workspace scrolls.
 
 ---
 
-### Model Refactoring — 1 class per file
+### Model Refactoring â€” 1 class per file
 
 `src/model/index.ts` previously contained 9 classes in a single file. Each
-class is now in its own file. `index.ts` is a pure barrel re-export — it
+class is now in its own file. `index.ts` is a pure barrel re-export â€” it
 only contains `export { ... } from "./FileName.ts"` lines. All existing
 imports from `"../model/index.ts"` continue to work without change.
 
@@ -2754,7 +2754,7 @@ the history class is the only consumer of that type's full definition.
 Inserts an empty row at a specific index rather than always appending to the
 end. Uses `Array.splice(atIdx, 0, row)` to insert at position. Records an
 `addRow` undo action (undo removes the row; redo re-inserts it at the same
-position via `push` — note: undo of `addRow` always pops the last row, so
+position via `push` â€” note: undo of `addRow` always pops the last row, so
 `insertRow` undo is correct only if no other rows were added after it, which
 is the normal case for a single-action undo).
 
@@ -2801,7 +2801,7 @@ body {
 ```
 
 All chrome elements (`#menu-bar`, `#formula-bar`, `#toolbar`, `#tab-bar`,
-`#status-bar`) have `flex-shrink: 0` — they take their natural height and
+`#status-bar`) have `flex-shrink: 0` â€” they take their natural height and
 do not shrink. `#workspace` gets all remaining height via `flex: 1 1 0`.
 
 #### Sticky table headers
@@ -2816,14 +2816,14 @@ do not shrink. `#workspace` gets all remaining height via `flex: 1 1 0`.
 
 Because `#workspace` is the scroll container (not `body`), `position: sticky`
 on `thead th` sticks relative to `#workspace`'s scroll position. Column
-headers remain visible as the user scrolls through a long table — standard
+headers remain visible as the user scrolls through a long table â€” standard
 spreadsheet behaviour.
 
 #### Floating overlay panels
 
 The association detail panel, search results, and neighbourhood panel use
 `position: fixed` to float over the workspace. This is necessary because
-`#workspace` has `overflow: auto`, which creates a new stacking context —
+`#workspace` has `overflow: auto`, which creates a new stacking context â€”
 any `position: absolute` child would be clipped at the workspace boundary.
 `position: fixed` escapes the stacking context and positions relative to
 the viewport instead.
@@ -2842,7 +2842,7 @@ it must be passed in from outside:
 constructor(container: HTMLElement, tabStrip: HTMLElement, editBar: HTMLElement, editPreview: HTMLElement)
 ```
 
-The constructor no longer creates any DOM structure — it only stores
+The constructor no longer creates any DOM structure â€” it only stores
 references. All DOM is created lazily in `renderAll`.
 
 #### `getActiveTableIdx()`
@@ -2862,20 +2862,20 @@ tableView.setStatusCallback((msg) => { statusText.textContent = msg; });
 
 #### Drag-to-reorder
 
-Each editable row gets a drag handle cell (`<td class="row-drag-handle">⠿</td>`)
+Each editable row gets a drag handle cell (`<td class="row-drag-handle">â ¿</td>`)
 and `tr.draggable = true`. Four drag event listeners are attached per row:
 
-- `dragstart` — records `this.dragSrcIdx = Number(tr.dataset.rowIdx)`
-- `dragend` — removes the `.row-dragging` opacity class
-- `dragover` — prevents default (required to allow drop), adds `.row-drag-over`
-- `drop` — calls `controller.moveRow(tableIdx, dragSrcIdx, toIdx)`
+- `dragstart` â€” records `this.dragSrcIdx = Number(tr.dataset.rowIdx)`
+- `dragend` â€” removes the `.row-dragging` opacity class
+- `dragover` â€” prevents default (required to allow drop), adds `.row-drag-over`
+- `drop` â€” calls `controller.moveRow(tableIdx, dragSrcIdx, toIdx)`
 
 The `.row-drag-over` class adds a blue top border to the target row, giving
 clear visual feedback about where the row will land.
 
 #### Insert row button
 
-Each row's action cell now has two buttons: `+` (insert below) and `✕`
+Each row's action cell now has two buttons: `+` (insert below) and `âœ•`
 (delete). The insert button calls `controller.insertRow(tableIdx, rowIdx + 1)`.
 
 #### Removed internal toolbar
@@ -2909,7 +2909,7 @@ The key wiring changes:
 
 - `tabStrip` is retrieved by ID and passed to `TableView` constructor
 - `graphFilterContainer` and `searchContainer` are separate divs inside
-  `#toolbar` — `GraphFilterView` and `SearchView` mount there
+  `#toolbar` â€” `GraphFilterView` and `SearchView` mount there
 - Toolbar buttons call `tableView.getActiveTableIdx()` to know which table
   to act on
 - Drag-and-drop is on `#workspace` instead of `#table-container`
@@ -2946,7 +2946,7 @@ of frozen column headers without any JavaScript scroll event handling.
 
 ---
 
-## Phase 9 — Geometry Syntax Plugin
+## Phase 9 â€” Geometry Syntax Plugin
 
 ---
 
@@ -2958,32 +2958,32 @@ The plugin follows the same five-file structure as the math plugin:
 
 ```
 src/plugins/geometry/
-├── types.ts     — AST node interfaces
-├── grammar.ts   — PEG grammar + exported parser + parseGeometry()
-├── el.ts        — svgEl() and svgText() helpers
-├── render.ts    — renderGeometry() SVG renderer
-└── index.ts     — Plugin entry point
+â”œâ”€â”€ types.ts     â€” AST node interfaces
+â”œâ”€â”€ grammar.ts   â€” PEG grammar + exported parser + parseGeometry()
+â”œâ”€â”€ el.ts        â€” svgEl() and svgText() helpers
+â”œâ”€â”€ render.ts    â€” renderGeometry() SVG renderer
+â””â”€â”€ index.ts     â€” Plugin entry point
 ```
 
 ---
 
-### `types.ts` — AST node interfaces
+### `types.ts` â€” AST node interfaces
 
 Every geometry construct has its own interface. All numeric/algebraic values are typed as `MathNode` (from the math plugin), not as raw strings. This means the geometry AST carries fully parsed math sub-trees, not unparsed text.
 
 Key types:
 
-- `GeometryProgram` — root node, holds `statements: GeoStatement[]`
-- `GeoExpr` — union of `SegmentExpr | LineExpr | RayExpr | AngleExpr` — used as arguments inside relation nodes
-- `GeoStatement` — union of all 25 statement node types
+- `GeometryProgram` â€” root node, holds `statements: GeoStatement[]`
+- `GeoExpr` â€” union of `SegmentExpr | LineExpr | RayExpr | AngleExpr` â€” used as arguments inside relation nodes
+- `GeoStatement` â€” union of all 25 statement node types
 
 ---
 
-### `grammar.ts` — PEG grammar
+### `grammar.ts` â€” PEG grammar
 
 #### Why a separate skip pattern
 
-The math parser uses `skip: /^[ \t\r\n]+/` — it skips all whitespace including newlines, because a math expression is a single line. The geometry parser uses `skip: /^[ \t]+/` — spaces and tabs only. Newlines are the statement separator in the `Program` rule and must not be consumed by the skip pattern.
+The math parser uses `skip: /^[ \t\r\n]+/` â€” it skips all whitespace including newlines, because a math expression is a single line. The geometry parser uses `skip: /^[ \t]+/` â€” spaces and tabs only. Newlines are the statement separator in the `Program` rule and must not be consumed by the skip pattern.
 
 #### Grammar structure
 
@@ -3001,21 +3001,21 @@ RhsValue     = CallExpr | RhsRaw
 RhsRaw       = /^[^\n\r]+/
 ```
 
-#### `CallExpr` — the central rule
+#### `CallExpr` â€” the central rule
 
-`CallExpr` is a PEG sequence: `Name "(" ArgList ")"`. It produces a `ParsedCall { name: string, args: ParsedArg[] }`. By the time `build()` is called, the name and all arguments are already parsed — `build()` only does `switch(name)` and assembles the AST node.
+`CallExpr` is a PEG sequence: `Name "(" ArgList ")"`. It produces a `ParsedCall { name: string, args: ParsedArg[] }`. By the time `build()` is called, the name and all arguments are already parsed â€” `build()` only does `switch(name)` and assembles the AST node.
 
 This is the key architectural difference from the first (incorrect) implementation, which captured the entire `"Point(A,B,C)"` as a single regex string and re-parsed it inside `build()`.
 
-#### `Arg` — three cases
+#### `Arg` â€” three cases
 
 The `Arg` rule handles three kinds of argument, tried in order:
 
-1. **`PointGroup`** — `"(" Label ("," Label)* ")"` — for `Circle((A,B,C),O)` where the first argument is a group of point labels in parens. Tried first to prevent `(A,B,C)` from being consumed as a math expression.
+1. **`PointGroup`** â€” `"(" Label ("," Label)* ")"` â€” for `Circle((A,B,C),O)` where the first argument is a group of point labels in parens. Tried first to prevent `(A,B,C)` from being consumed as a math expression.
 
-2. **`CallExpr`** — recursive — for nested calls like `Parallel(Line(A,B),Line(C,D))`. The `Line(A,B)` inside `Parallel(...)` is itself a `CallExpr`.
+2. **`CallExpr`** â€” recursive â€” for nested calls like `Parallel(Line(A,B),Line(C,D))`. The `Line(A,B)` inside `Parallel(...)` is itself a `CallExpr`.
 
-3. **`MathArg`** — regex `/^[^,)\n\r]+/` — everything up to the next comma, closing paren, or newline. Captures point labels (`A`), numbers (`5`), and math expressions (`2*x+1`).
+3. **`MathArg`** â€” regex `/^[^,)\n\r]+/` â€” everything up to the next comma, closing paren, or newline. Captures point labels (`A`), numbers (`5`), and math expressions (`2*x+1`).
 
 #### Math delegation
 
@@ -3023,11 +3023,11 @@ The `Arg` rule handles three kinds of argument, tried in order:
 
 #### `BlankOrComment`
 
-Matches whitespace-only lines (`[ \t]+`) and comment lines (`#...` or `//...`). Uses `+` not `*` — must match at least one character so it never matches empty string and steals real statement lines. Tried last in the `Statement` choice so real statements are always tried first.
+Matches whitespace-only lines (`[ \t]+`) and comment lines (`#...` or `//...`). Uses `+` not `*` â€” must match at least one character so it never matches empty string and steals real statement lines. Tried last in the `Statement` choice so real statements are always tried first.
 
 ---
 
-### `el.ts` — SVG element helpers
+### `el.ts` â€” SVG element helpers
 
 ```ts
 svgEl(tag, attrs)   // createElementNS(SVG_NS, tag) + setAttribute for each attr
@@ -3038,12 +3038,12 @@ Mirrors `math/el.ts`. Keeps `render.ts` free of element creation boilerplate.
 
 ---
 
-### `render.ts` — SVG renderer
+### `render.ts` â€” SVG renderer
 
 #### Point layout
 
 Two-pass layout:
-1. `PointDecl` statements with explicit coordinates are collected and scaled to fit the 400×300 viewport (with 30px padding). Y-axis is flipped (SVG Y increases downward; math Y increases upward).
+1. `PointDecl` statements with explicit coordinates are collected and scaled to fit the 400Ã—300 viewport (with 30px padding). Y-axis is flipped (SVG Y increases downward; math Y increases upward).
 2. All remaining point labels (collected from all statement types) are auto-laid-out in a circle centred in the viewport.
 
 #### Drawing dispatch
@@ -3058,8 +3058,8 @@ Two-pass layout:
 | `Arrow` | `drawArrow` | `<line>` with `marker-end: url(#arrowhead)` |
 | `Angle` | `drawAngle` | SVG arc path + optional math label |
 | `Triangle/Quadrilateral/Polygon` | `drawPolygon` | Closed `<path>` |
-| `Circle` | `drawCircle` | `<circle>` — radius from explicit value or circumpoint distance |
-| `Ellipse` | `drawEllipse` | `<ellipse>` — rx/ry from explicit axes or defaults |
+| `Circle` | `drawCircle` | `<circle>` â€” radius from explicit value or circumpoint distance |
+| `Ellipse` | `drawEllipse` | `<ellipse>` â€” rx/ry from explicit axes or defaults |
 | `Arc` | `drawArc` | SVG arc path |
 | `Parallel` | `drawParallelMarks` | Tick marks on both lines |
 | `Perpendicular` | `drawPerpMark` | Small square at intersection |
@@ -3083,7 +3083,7 @@ Previously: clicking a cell made it `contenteditable` and showed a rendered prev
 
 Now: cells always show rendered output. The formula bar is the source editor. Clicking a cell highlights it and puts its raw source into the formula bar textarea. The cell re-renders live as the user types. Enter commits; Escape cancels; blur commits.
 
-This is the correct spreadsheet model — the cell shows the value, the bar shows the formula.
+This is the correct spreadsheet model â€” the cell shows the value, the bar shows the formula.
 
 #### Formula bar is a `<textarea>` not `<input>`
 
@@ -3093,11 +3093,11 @@ This is the correct spreadsheet model — the cell shows the value, the bar show
 
 #### Formula result div removed
 
-The old `#result` div rendered the formula bar content as a math expression on Enter. This caused geometry cells to be re-interpreted as algebraic syntax. Removed entirely — the formula bar has no automatic rendering of its own content.
+The old `#result` div rendered the formula bar content as a math expression on Enter. This caused geometry cells to be re-interpreted as algebraic syntax. Removed entirely â€” the formula bar has no automatic rendering of its own content.
 
 ---
 
-## Phase 10 — Physics Free-Body Syntax Plugin
+## Phase 10 â€” Physics Free-Body Syntax Plugin
 
 ---
 
@@ -3109,36 +3109,36 @@ The plugin follows the same four-file structure as geometry:
 
 ```
 src/plugins/physics/
-├── types.ts     — AST node interfaces
-├── grammar.ts   — PEG grammar + exported parser + parsePhysics()
-├── render.ts    — renderPhysics() SVG renderer
-└── index.ts     — Plugin entry point
+â”œâ”€â”€ types.ts     â€” AST node interfaces
+â”œâ”€â”€ grammar.ts   â€” PEG grammar + exported parser + parsePhysics()
+â”œâ”€â”€ render.ts    â€” renderPhysics() SVG renderer
+â””â”€â”€ index.ts     â€” Plugin entry point
 ```
 
 Note: physics has no `el.ts` because it reuses `geometry/el.ts` directly.
 
 ---
 
-### `types.ts` — AST node interfaces
+### `types.ts` â€” AST node interfaces
 
 ```
-PhysicsProgram        — root: { geoStatements, physStatements }
-BodyDeclNode          — Body(name) with optional mass/moment MathNodes
-ForceNode             — name, point, direction (string), optional magnitude MathNode
-VelocityNode          — type "Velocity"|"Acceleration", name, point, direction, optional value
-AngularNode           — type "AngularVelocity"|"AngularAcceleration", name, body, optional value
-TorqueNode            — name, body, pivot, optional value MathNode
-ConstraintNode        — type Fixed|Roller|Contact|String|Spring|Damper, a, optional b/direction/value
-FrameDeclNode         — name, origin, axes[]
-InertialDeclNode      — frame name
-EOMNode               — equation MathNode
+PhysicsProgram        â€” root: { geoStatements, physStatements }
+BodyDeclNode          â€” Body(name) with optional mass/moment MathNodes
+ForceNode             â€” name, point, direction (string), optional magnitude MathNode
+VelocityNode          â€” type "Velocity"|"Acceleration", name, point, direction, optional value
+AngularNode           â€” type "AngularVelocity"|"AngularAcceleration", name, body, optional value
+TorqueNode            â€” name, body, pivot, optional value MathNode
+ConstraintNode        â€” type Fixed|Roller|Contact|String|Spring|Damper, a, optional b/direction/value
+FrameDeclNode         â€” name, origin, axes[]
+InertialDeclNode      â€” frame name
+EOMNode               â€” equation MathNode
 ```
 
 `PhysicsProgram` holds two separate arrays: `geoStatements: GeoStatement[]` (from the geometry plugin) and `physStatements: PhysicsStatement[]`. This separation keeps the geometry base layer independent from the physics overlay.
 
 ---
 
-### `grammar.ts` — line partitioning + PEG grammar
+### `grammar.ts` â€” line partitioning + PEG grammar
 
 #### Line partitioning
 
@@ -3172,7 +3172,7 @@ Arg          = /^[^,)\n\r]+/
 RhsRaw       = /^[^\n\r]+/
 ```
 
-`build()` receives `{ name, args[] }` and assembles AST nodes — no re-parsing.
+`build()` receives `{ name, args[] }` and assembles AST nodes â€” no re-parsing.
 
 #### Direction strings
 
@@ -3192,7 +3192,7 @@ This avoids the complexity of parsing backslash identifiers as math nodes just t
 
 ---
 
-### `render.ts` — SVG renderer
+### `render.ts` â€” SVG renderer
 
 `renderPhysics()` calls `renderGeometry()` first to draw the geometric base layer, then appends physics elements to the same SVG. This reuses the geometry point layout and coordinate scaling without duplication.
 
@@ -3214,7 +3214,7 @@ SVG `<defs>` adds three arrowhead markers: `force-arrow`, `vel-arrow`, `accel-ar
 
 ---
 
-### Bug fix — `loadCSV` crash on mismatched field count
+### Bug fix â€” `loadCSV` crash on mismatched field count
 
 **Problem:** `loadCSV` in `controller/index.ts` mapped CSV rows as:
 ```ts
@@ -3230,14 +3230,14 @@ The model always produces exactly one cell per column. Extra CSV fields are igno
 
 ---
 
-## Phase 11 — Chemistry Reaction Syntax Plugin
+## Phase 11 â€” Chemistry Reaction Syntax Plugin
 
 ---
 
 ### Overview
 
 Phase 11 adds a chemistry syntax plugin. A cell with `typeId: "chemistry"`
-contains one or more chemistry statements — reaction equations, thermodynamic
+contains one or more chemistry statements â€” reaction equations, thermodynamic
 quantities, or structural formula declarations. The plugin parses them into a
 `ChemistryProgram` AST and renders them as HTML.
 
@@ -3245,52 +3245,52 @@ The plugin follows the same four-file structure as physics:
 
 ```
 src/plugins/chemistry/
-├── types.ts     — AST node interfaces
-├── grammar.ts   — PEG grammar + exported parser + parseChemistry()
-├── render.ts    — renderChemistry() HTML renderer
-└── index.ts     — Plugin entry point
+â”œâ”€â”€ types.ts     â€” AST node interfaces
+â”œâ”€â”€ grammar.ts   â€” PEG grammar + exported parser + parseChemistry()
+â”œâ”€â”€ render.ts    â€” renderChemistry() HTML renderer
+â””â”€â”€ index.ts     â€” Plugin entry point
 ```
 
 ---
 
-### `types.ts` — AST node interfaces
+### `types.ts` â€” AST node interfaces
 
 The chemistry AST has three layers:
 
 **Compound structure:**
-- `IsotopeNode` — mass number + optional atomic number (from `^14_6C`)
-- `ElementGroup` — isotope? + symbol + count (e.g. `H2`, `^14C`)
-- `ParenGroup` — inner groups + count (e.g. `(OH)2`)
-- `BracketGroup` — inner groups + count (e.g. `[Fe(CN)6]`)
-- `GroupNode` — union of the three group types
-- `CompoundNode` — groups + optional state symbol
-- `ChargedSpeciesNode` — compound + charge + optional state
-- `ParticleNode` — one of `n|p|e-|e+|alpha|beta-|beta+|gamma`
-- `SpeciesNode` — union of compound, charged species, particle
-- `ChargeNode` — magnitude (default 1) + sign (`+` or `-`)
+- `IsotopeNode` â€” mass number + optional atomic number (from `^14_6C`)
+- `ElementGroup` â€” isotope? + symbol + count (e.g. `H2`, `^14C`)
+- `ParenGroup` â€” inner groups + count (e.g. `(OH)2`)
+- `BracketGroup` â€” inner groups + count (e.g. `[Fe(CN)6]`)
+- `GroupNode` â€” union of the three group types
+- `CompoundNode` â€” groups + optional state symbol
+- `ChargedSpeciesNode` â€” compound + charge + optional state
+- `ParticleNode` â€” one of `n|p|e-|e+|alpha|beta-|beta+|gamma`
+- `SpeciesNode` â€” union of compound, charged species, particle
+- `ChargeNode` â€” magnitude (default 1) + sign (`+` or `-`)
 
 **Reaction:**
-- `ReactionTerm` — coefficient (default 1) + species
-- `CondItemNode` — key + optional math value (absent = bare flag)
-- `ConditionNode` — list of condition items
-- `ReactionNode` — lhs terms, arrow type, rhs terms, optional conditions
+- `ReactionTerm` â€” coefficient (default 1) + species
+- `CondItemNode` â€” key + optional math value (absent = bare flag)
+- `ConditionNode` â€” list of condition items
+- `ReactionNode` â€” lhs terms, arrow type, rhs terms, optional conditions
 
 **Other statements:**
-- `ThermoNode` — key (`DeltaH`, `Ka`, etc.) + math value
-- `AtomDeclNode`, `BondDeclNode`, `GroupDeclNode` — structural formula
+- `ThermoNode` â€” key (`DeltaH`, `Ka`, etc.) + math value
+- `AtomDeclNode`, `BondDeclNode`, `GroupDeclNode` â€” structural formula
 
 **Root:**
-- `ChemistryProgram` — list of `ChemStatement` (union of all statement types)
+- `ChemistryProgram` â€” list of `ChemStatement` (union of all statement types)
 
 ---
 
-### `grammar.ts` — PEG grammar
+### `grammar.ts` â€” PEG grammar
 
 #### Why PEGParser, not a hand-written parser
 
 All structural rules are expressed as PEG grammar entries fed into `PEGParser`.
 `build()` functions only assemble AST nodes from already-parsed data. This
-follows the same architecture as geometry and physics — the PEG engine handles
+follows the same architecture as geometry and physics â€” the PEG engine handles
 all structure; `build()` only does `switch`/assembly.
 
 #### The no-whitespace problem
@@ -3301,7 +3301,7 @@ would be ambiguous. The `skip` pattern fires before every `literal` and
 `regex` match, so a naive grammar would allow `H 2 O`.
 
 **Solution: atomic regexes.** `ElementGroup` is a single regex that captures
-the entire token — isotope prefix, element symbol, and count — in one match:
+the entire token â€” isotope prefix, element symbol, and count â€” in one match:
 
 ```
 /^(\^[0-9]+(_[0-9]+)?)?[A-Z][a-z]*[0-9]*/
@@ -3330,7 +3330,7 @@ keeping the initial definition readable.
 
 `ParenGroup` requires at least one `Group` inside. `Group` requires starting
 with `[A-Z]`, `[`, or `^`. State symbols `(s)`, `(l)`, `(g)`, `(aq)` contain
-only lowercase letters — `Group` fails on them, `ParenGroup` fails, and the
+only lowercase letters â€” `Group` fails on them, `ParenGroup` fails, and the
 optional `State` choice matches. No explicit lookahead needed.
 
 #### `Conditions` syntax
@@ -3346,7 +3346,7 @@ span)` to produce `MathNode` values. Same composition pattern as geometry.
 
 ---
 
-### `render.ts` — HTML renderer
+### `render.ts` â€” HTML renderer
 
 `renderChemistry()` iterates `program.statements` and dispatches each:
 
@@ -3358,10 +3358,10 @@ span)` to produce `MathNode` values. Same composition pattern as geometry.
 - Charges as `<sup>` with magnitude+sign (e.g. `2+`, `-`)
 - Isotopes as stacked leading `<sup>`/`<sub>` (`.chem-isotope-scripts`)
 - State symbols as italic postfix (`.chem-state`)
-- Particles mapped to Unicode symbols (`n`, `p`, `e⁻`, `e⁺`, `α`, `β⁻`, `β⁺`, `γ`)
+- Particles mapped to Unicode symbols (`n`, `p`, `eâ»`, `eâº`, `Î±`, `Î²â»`, `Î²âº`, `Î³`)
 
 **Thermodynamic quantities** (`renderThermo`):
-- `ΔH = value` — key mapped to Unicode symbol, value rendered by `renderMath()`
+- `Î”H = value` â€” key mapped to Unicode symbol, value rendered by `renderMath()`
 
 **Structural formulas** (`renderStructural`):
 - Text rows listing atom/bond/group declarations
@@ -3379,7 +3379,7 @@ span)` to produce `MathNode` values. Same composition pattern as geometry.
 | `.chem-coeff` | Stoichiometric coefficient |
 | `.chem-species` | Compound/ion/particle |
 | `.chem-arrow-wrap` | Flex column: conditions above arrow |
-| `.chem-arrow` | Arrow symbol (→, ⇌, ⟶) |
+| `.chem-arrow` | Arrow symbol (â†’, â‡Œ, âŸ¶) |
 | `.chem-conditions` | Small text above arrow |
 | `.chem-state` | Italic state symbol postfix |
 | `.chem-isotope-scripts` | Stacked mass/atomic number |
@@ -3390,29 +3390,29 @@ span)` to produce `MathNode` values. Same composition pattern as geometry.
 
 ### Design decisions
 
-1. **PEGParser for all structural rules** — the first implementation used a
+1. **PEGParser for all structural rules** â€” the first implementation used a
    hand-written cursor-based parser. This was replaced to follow the project
    architecture: all grammars use `PEGParser`; `build()` only assembles AST.
 
-2. **Atomic regexes for no-whitespace rules** — the only way to prevent the
+2. **Atomic regexes for no-whitespace rules** â€” the only way to prevent the
    `skip` pattern from firing between an element symbol and its count is to
    capture both in a single regex token.
 
-3. **`cond(...)` not `[...]`** — conditions use `cond(key=value, ...)` as
+3. **`cond(...)` not `[...]`** â€” conditions use `cond(key=value, ...)` as
    specified in study.md. The `[...]` bracket syntax was an error in the
    initial implementation.
 
-4. **Charge as `{compound, charge}` wrapper** — charges are never postfix
+4. **Charge as `{compound, charge}` wrapper** â€” charges are never postfix
    suffixes. The `{...}` wrapper makes the charge explicit and unambiguous,
    avoiding the `Ca2+` vs `Fe2` integer-lookahead problem entirely.
 
-5. **State symbols as lowercase closed set** — `(s)`, `(l)`, `(g)`, `(aq)`
+5. **State symbols as lowercase closed set** â€” `(s)`, `(l)`, `(g)`, `(aq)`
    are distinguished from group `(OH)2` by the fact that element symbols
    always start uppercase. No explicit lookahead needed.
 
 ---
 
-## Phase 12 — Control File & Map Views
+## Phase 12 â€” Control File & Map Views
 
 ---
 
@@ -3420,25 +3420,25 @@ span)` to produce `MathNode` values. Same composition pattern as geometry.
 
 Phase 12 introduces two things:
 
-1. **`control.json`** — a file that declares how a folder of CSVs should be
+1. **`control.json`** â€” a file that declares how a folder of CSVs should be
    loaded and rendered. Standard tables continue to work as before. Diagram
    entries bind CSV files to a diagram renderer instead of a spreadsheet.
 
-2. **`FlowDiagramView`** — an SVG diagram renderer that handles four view
+2. **`FlowDiagramView`** â€” an SVG diagram renderer that handles four view
    types: `flow`, `spatial`, `relation`, and `sequence`. The renderer
    automatically detects cycles in the graph and chooses the correct layout
    algorithm for each part of the diagram.
 
 ---
 
-### `src/data/control.ts` — Control File Parser
+### `src/data/control.ts` â€” Control File Parser
 
 This file defines all the TypeScript interfaces for the control file format
 and the functions that parse and resolve them.
 
 #### Interfaces
 
-**`ControlFile`** — the top-level object parsed from `control.json`:
+**`ControlFile`** â€” the top-level object parsed from `control.json`:
 ```ts
 interface ControlFile {
     version: string;
@@ -3446,24 +3446,24 @@ interface ControlFile {
 }
 ```
 
-**`ControlEntry`** — a union of three entry types:
-- `TableDecl` — `{ id, view: "table", file }` — loads a CSV as a spreadsheet
-- `FlowDecl` — `{ id, view: "flow"|"spatial"|"relation", nodes, edges?, nodeStyles?, edgeStyles? }` — loads a diagram
-- `SequenceDecl` — `{ id, view: "sequence", actors, messages }` — loads a sequence diagram
+**`ControlEntry`** â€” a union of three entry types:
+- `TableDecl` â€” `{ id, view: "table", file }` â€” loads a CSV as a spreadsheet
+- `FlowDecl` â€” `{ id, view: "flow"|"spatial"|"relation", nodes, edges?, nodeStyles?, edgeStyles? }` â€” loads a diagram
+- `SequenceDecl` â€” `{ id, view: "sequence", actors, messages }` â€” loads a sequence diagram
 
-**`NodeMapping`** — declares which CSV column plays each role in a node:
+**`NodeMapping`** â€” declares which CSV column plays each role in a node:
 ```ts
 interface NodeMapping {
-    id: string;      // column name → node identity
-    label?: string;  // column name → display label
-    type?: string;   // column name → node type (drives shape/colour)
-    x?: string;      // column name → x position hint
-    y?: string;      // column name → y position hint
+    id: string;      // column name â†’ node identity
+    label?: string;  // column name â†’ display label
+    type?: string;   // column name â†’ node type (drives shape/colour)
+    x?: string;      // column name â†’ x position hint
+    y?: string;      // column name â†’ y position hint
     ...
 }
 ```
 
-**`ResolvedNode`** — a node after the mapping has been applied to a CSV row:
+**`ResolvedNode`** â€” a node after the mapping has been applied to a CSV row:
 ```ts
 interface ResolvedNode {
     id: string;
@@ -3480,7 +3480,7 @@ interface ResolvedNode {
 Validates the raw JSON object and constructs a `ControlFile`. Throws
 descriptive errors for missing required fields (e.g. `"entries"` array,
 `"id"` in node mapping). This is the only place where the control file
-format is validated — all downstream code can assume the structure is correct.
+format is validated â€” all downstream code can assume the structure is correct.
 
 #### `resolveNodes(headers, rows, mapping)`
 
@@ -3496,7 +3496,7 @@ and the diagram world (typed node objects with known fields).
 
 ---
 
-### `src/view/workspace-view.ts` — WorkspaceView Interface
+### `src/view/workspace-view.ts` â€” WorkspaceView Interface
 
 Defines the contract that all workspace-level views must implement:
 
@@ -3515,7 +3515,7 @@ and operate on one cell at a time. A registry pattern fits them perfectly.
 
 Workspace views are stateful (they remember pan/zoom/scroll position), own
 the entire workspace DOM for the duration of a tab's lifetime, and have
-complex lifecycle (mount → interact → unmount → restore state). A class
+complex lifecycle (mount â†’ interact â†’ unmount â†’ restore state). A class
 hierarchy with a shared interface is the correct model for this.
 
 `viewFactory(entry, ...)` is a simple switch on `entry.view` that instantiates
@@ -3523,7 +3523,7 @@ the correct class. Adding a new view type = new class + one line in the factory.
 
 ---
 
-### `src/view/flow-diagram-view.ts` — The Graph Renderer
+### `src/view/flow-diagram-view.ts` â€” The Graph Renderer
 
 This is the most algorithmically complex file in the project. It renders
 directed graphs as SVG diagrams. The key challenge is that the same renderer
@@ -3539,13 +3539,13 @@ dispatches to the correct layout strategy for each part of the graph.
 
 ---
 
-#### Step 1 — Tarjan's Strongly Connected Components (SCC) Algorithm
+#### Step 1 â€” Tarjan's Strongly Connected Components (SCC) Algorithm
 
 **What is a strongly connected component?**
 
 A strongly connected component (SCC) is a maximal set of nodes where every
 node can reach every other node by following directed edges. In a cycle
-`A → B → C → A`, all three nodes form one SCC because you can get from any
+`A â†’ B â†’ C â†’ A`, all three nodes form one SCC because you can get from any
 node to any other by following the arrows.
 
 A node with no cycle is its own SCC of size 1.
@@ -3557,18 +3557,18 @@ We need to know which nodes are part of a cycle so we can:
 2. Place non-cycle nodes in ranks above/below the circle (layered layout)
 3. Draw cycle edges as arcs (following the ring) vs DAG edges as right-angle paths
 
-**How Tarjan's algorithm works — step by step:**
+**How Tarjan's algorithm works â€” step by step:**
 
 Tarjan's algorithm does a single depth-first search (DFS) over the graph.
 It uses three data structures:
 
-- `index` — assigns each node a discovery order number (when it was first visited)
-- `lowlink` — tracks the lowest discovery number reachable from a node's subtree
-- `stack` — a stack of nodes currently being explored
+- `index` â€” assigns each node a discovery order number (when it was first visited)
+- `lowlink` â€” tracks the lowest discovery number reachable from a node's subtree
+- `stack` â€” a stack of nodes currently being explored
 
 The key insight: a node `v` is the root of an SCC if and only if
 `lowlink[v] === index[v]`. This means no node in `v`'s subtree can reach
-anything discovered before `v` — so `v` and everything on the stack above
+anything discovered before `v` â€” so `v` and everything on the stack above
 it form a complete SCC.
 
 Here is the algorithm in plain English:
@@ -3585,10 +3585,10 @@ function strongconnect(v):
             // w's subtree might reach back to something before v
         else if w is currently on the stack:
             lowlink[v] = min(lowlink[v], index[w])
-            // w is an ancestor — this is a back-edge (cycle!)
+            // w is an ancestor â€” this is a back-edge (cycle!)
 
     if lowlink[v] === index[v]:
-        // v is the root of an SCC — pop everything above v off the stack
+        // v is the root of an SCC â€” pop everything above v off the stack
         scc = []
         repeat:
             w = stack.pop()
@@ -3597,14 +3597,14 @@ function strongconnect(v):
         if scc.length > 1: record this SCC (it's a real cycle)
 ```
 
-**Example — Krebs cycle:**
+**Example â€” Krebs cycle:**
 
-The Krebs cycle has edges: OAA→CS→Citrate→Aconitase→IsoCitrate→IDH→aKG→KGDH→SucCoA→SCS→Succinate→SDH→Fumarate→Fumarase→Malate→MDH→OAA (closing the loop).
+The Krebs cycle has edges: OAAâ†’CSâ†’Citrateâ†’Aconitaseâ†’IsoCitrateâ†’IDHâ†’aKGâ†’KGDHâ†’SucCoAâ†’SCSâ†’Succinateâ†’SDHâ†’Fumarateâ†’Fumaraseâ†’Malateâ†’MDHâ†’OAA (closing the loop).
 
 When Tarjan's DFS reaches OAA and follows the chain all the way around, it
-eventually finds the back-edge `MDH→OAA`. At that point, `lowlink[MDH]` is
+eventually finds the back-edge `MDHâ†’OAA`. At that point, `lowlink[MDH]` is
 updated to `index[OAA]` (the discovery number of OAA). When the DFS unwinds
-back to OAA, `lowlink[OAA] === index[OAA]` — OAA is the SCC root. All 16+
+back to OAA, `lowlink[OAA] === index[OAA]` â€” OAA is the SCC root. All 16+
 nodes on the stack above OAA are popped and recorded as one SCC.
 
 In the implementation, `findCycles` returns all SCCs with size > 1. The
@@ -3612,7 +3612,7 @@ largest SCC is selected as the "main cycle" for layout purposes.
 
 ---
 
-#### Step 2 — Circular Layout for Cycle Nodes
+#### Step 2 â€” Circular Layout for Cycle Nodes
 
 Once the main cycle is identified, its nodes are placed on a circle.
 
@@ -3640,11 +3640,11 @@ correct formula is:
 
 ```
 totalPerimeter = sum of (nodeWidth + gap) for all cycle nodes
-radius = totalPerimeter / (2π)
+radius = totalPerimeter / (2Ï€)
 ```
 
 This ensures the ring's circumference equals the total space needed by all
-nodes. The old formula `(maxNodeWidth + gap) × n / 2π` was wrong — it used
+nodes. The old formula `(maxNodeWidth + gap) Ã— n / 2Ï€` was wrong â€” it used
 the widest node for every slot, inflating the radius when one node had a
 much longer label than the others.
 
@@ -3652,19 +3652,19 @@ much longer label than the others.
 
 Each node `i` of `n` total is placed at angle:
 ```
-angle = -π/2 + (2π × i / n)
+angle = -Ï€/2 + (2Ï€ Ã— i / n)
 ```
 
-Starting at `-π/2` (top of the circle) and going clockwise. The node's
+Starting at `-Ï€/2` (top of the circle) and going clockwise. The node's
 centre coordinates are:
 ```
-x = circleCentreX + radius × cos(angle)
-y = circleCentreY + radius × sin(angle)
+x = circleCentreX + radius Ã— cos(angle)
+y = circleCentreY + radius Ã— sin(angle)
 ```
 
 ---
 
-#### Step 3 — Layered Layout for Non-Cycle Nodes
+#### Step 3 â€” Layered Layout for Non-Cycle Nodes
 
 Non-cycle nodes (like the glycolysis chain feeding into the Krebs ring) are
 placed in horizontal ranks above the circle.
@@ -3696,7 +3696,7 @@ between ranks.
 
 ---
 
-#### Step 4 — Edge Routing
+#### Step 4 â€” Edge Routing
 
 Two different routing strategies are used depending on whether an edge is
 a cycle edge or a DAG edge.
@@ -3720,9 +3720,9 @@ outward with a horizontal detour below both nodes.
 This produces the clean right-angle paths characteristic of chemistry
 pathway diagrams and flowcharts.
 
-**Bézier arcs for cycle edges:**
+**BÃ©zier arcs for cycle edges:**
 
-Cycle edges (both endpoints on the cycle ring) use a quadratic Bézier curve
+Cycle edges (both endpoints on the cycle ring) use a quadratic BÃ©zier curve
 that bows outward from the circle centre. This makes the edges follow the
 ring perimeter rather than cutting through the interior.
 
@@ -3730,7 +3730,7 @@ The control point is computed as:
 ```
 midpoint = average of (from.x, from.y) and (to.x, to.y)
 direction from centre to midpoint = (midpoint - centre) / |midpoint - centre|
-controlPoint = centre + direction × (distance × pushFactor + offset)
+controlPoint = centre + direction Ã— (distance Ã— pushFactor + offset)
 ```
 
 `pushFactor = 1.35` pushes the control point 35% further from the centre
@@ -3741,11 +3741,11 @@ The SVG path is:
 M x1 y1  Q controlX controlY  x2 y2
 ```
 
-where `Q` is the SVG quadratic Bézier command.
+where `Q` is the SVG quadratic BÃ©zier command.
 
 ---
 
-#### Step 5 — Pan and Zoom
+#### Step 5 â€” Pan and Zoom
 
 All nodes and edges are placed inside a single `<g>` element. Pan and zoom
 are applied as a CSS transform on this group:
@@ -3755,15 +3755,15 @@ panGroup.setAttribute("transform", `translate(${panX},${panY}) scale(${zoom})`)
 ```
 
 Three event listeners on the SVG element update the transform:
-- `mousedown` / `mousemove` — drag to pan (updates `panX`, `panY`)
-- `wheel` — scroll to zoom (multiplies `zoom` by 1.1 or 0.9)
+- `mousedown` / `mousemove` â€” drag to pan (updates `panX`, `panY`)
+- `wheel` â€” scroll to zoom (multiplies `zoom` by 1.1 or 0.9)
 
 The state (`panX`, `panY`, `zoom`) is stored in `DiagramState` and returned
 by `unmount()` so it can be restored when the user switches back to this tab.
 
 ---
 
-### `src/main.ts` — Phase 12 Loading Flow
+### `src/main.ts` â€” Phase 12 Loading Flow
 
 The key change is that `loadFiles(files[])` now handles a batch of files
 rather than one file at a time.
@@ -3774,7 +3774,7 @@ rather than one file at a time.
 1. Read all files in parallel (Promise.all)
 2. Find control.json in the batch
 3. Parse it: parseControlFile(json)
-4. Build csvMap: filename → { headers, types, rows }
+4. Build csvMap: filename â†’ { headers, types, rows }
 5. For each "table" entry in control file:
    - Call controller.loadCSV(file, text) to add it to the KnowledgeBase
 6. Call controller.resolveAllDiagrams(controlFile, csvMap)
@@ -3798,7 +3798,7 @@ renders only the table body into `tableContainer`, leaving the tab strip intact.
 
 All CSV files are loaded as plain tables via `controller.loadCSV()`. The
 `TableView.renderAll()` path is used as before. This is identical to the
-pre-Phase-12 behaviour — full backward compatibility.
+pre-Phase-12 behaviour â€” full backward compatibility.
 
 ---
 
@@ -3807,21 +3807,21 @@ pre-Phase-12 behaviour — full backward compatibility.
 **`public/krebs-nodes.csv`**
 
 18 nodes representing the Krebs cycle participants:
-- 9 compounds: Acetyl-CoA, Oxaloacetate, Citrate, Isocitrate, α-Ketoglutarate,
+- 9 compounds: Acetyl-CoA, Oxaloacetate, Citrate, Isocitrate, Î±-Ketoglutarate,
   Succinyl-CoA, Succinate, Fumarate, Malate
 - 8 enzymes: Citrate synthase, Aconitase, IDH, KGDH, SCS, SDH, Fumarase, MDH
-- 1 entry enzyme: PDH (Pyruvate dehydrogenase) — converts Pyruvate to Acetyl-CoA
+- 1 entry enzyme: PDH (Pyruvate dehydrogenase) â€” converts Pyruvate to Acetyl-CoA
 
 **`public/krebs-edges.csv`**
 
-19 edges. The cycle: OAA → CS → Citrate → Aconitase → IsoCitrate → IDH →
-aKG → KGDH → SucCoA → SCS → Succinate → SDH → Fumarate → Fumarase → Malate →
-MDH → OAA (closing the loop). Entry: Pyruvate → PDH → AcCoA → CS.
+19 edges. The cycle: OAA â†’ CS â†’ Citrate â†’ Aconitase â†’ IsoCitrate â†’ IDH â†’
+aKG â†’ KGDH â†’ SucCoA â†’ SCS â†’ Succinate â†’ SDH â†’ Fumarate â†’ Fumarase â†’ Malate â†’
+MDH â†’ OAA (closing the loop). Entry: Pyruvate â†’ PDH â†’ AcCoA â†’ CS.
 
 **`public/metabolism-edges.csv`**
 
 All glycolysis edges plus all Krebs edges in one file. `Pyruvate` is the
-shared node — it appears in both `glycolysis-nodes.csv` (as a product of
+shared node â€” it appears in both `glycolysis-nodes.csv` (as a product of
 GAPDH/PK) and is the entry point into the Krebs cycle via PDH. The
 `metabolism-map` entry in `control.json` merges both node files and uses
 this combined edge file.
@@ -3836,7 +3836,7 @@ The study.md principle "same schema = same table" applies to maps too:
 same conceptual scope = same map. Glycolysis and Krebs are distinct pathways.
 Merging them into one map at the data level would make both maps uneditable
 independently. The control file's `nodes: [...]` array syntax provides the
-combined view without touching the source data — the same CSV files serve
+combined view without touching the source data â€” the same CSV files serve
 as both independent maps and the combined overview simultaneously.
 
 **Why Tarjan's SCC instead of simple cycle detection?**
@@ -3849,22 +3849,22 @@ The largest SCC is always the main cycle regardless of graph complexity.
 
 **Why circular layout for cycle nodes?**
 
-A cycle has no natural "top" or "bottom" — all nodes are equivalent in the
+A cycle has no natural "top" or "bottom" â€” all nodes are equivalent in the
 cycle. A circular layout makes this symmetry visually explicit. It also
 naturally separates the cycle from the linear prefix (which sits above the
 ring), making the two structural regions immediately recognisable.
 
-**Why Bézier arcs for cycle edges?**
+**Why BÃ©zier arcs for cycle edges?**
 
 Straight lines between cycle nodes would cut through the ring interior,
 making the diagram look like a spider web. Orthogonal routing would produce
-awkward right-angle paths that don't follow the ring shape. Bézier arcs
+awkward right-angle paths that don't follow the ring shape. BÃ©zier arcs
 that bow outward from the centre follow the ring perimeter naturally,
 matching the visual convention used in biochemistry textbooks.
 
 ---
 
-## Phase 12 — Table Encapsulation Refactoring
+## Phase 12 â€” Table Encapsulation Refactoring
 
 ---
 
@@ -3873,7 +3873,7 @@ matching the visual convention used in biochemistry textbooks.
 Before this refactoring, the controller was the wrong place for several
 operations. The violations fell into four categories:
 
-**1. Object construction** — the controller built `Column`, `Row`, and `Cell`
+**1. Object construction** â€” the controller built `Column`, `Row`, and `Cell`
 objects from raw CSV data:
 ```ts
 const columns = parsed.headers.map((name, i) => new Column(name, parsed.types[i]));
@@ -3884,7 +3884,7 @@ const rows = parsed.rows.map(rawRow =>
 The controller knew the internal structure of the model. If `Row` or `Cell`
 ever changed their constructor, the controller would break.
 
-**2. Direct array mutation** — the controller reached into `table.rows` and
+**2. Direct array mutation** â€” the controller reached into `table.rows` and
 mutated it directly:
 ```ts
 table.rows.push(row);
@@ -3893,21 +3893,21 @@ const [row] = table.rows.splice(rowIdx, 1);
 ```
 `Table` had no say in how its rows were added, removed, or reordered.
 
-**3. Direct cell mutation** — the controller navigated `table.rows[i].cells[j].value`:
+**3. Direct cell mutation** â€” the controller navigated `table.rows[i].cells[j].value`:
 ```ts
 table.rows[action.rowIdx].cells[action.colIdx].value = action.oldValue;
 ```
 This is three levels of internal structure exposed to the controller.
 
-**4. CSV serialisation outside `Table`** — `KnowledgeBase.exportTableAsCSV`
-accessed `r.cells.map(c => c.value)` — the serialisation logic lived in a
+**4. CSV serialisation outside `Table`** â€” `KnowledgeBase.exportTableAsCSV`
+accessed `r.cells.map(c => c.value)` â€” the serialisation logic lived in a
 container class rather than the class that owns the data.
 
 ---
 
 ### The fix: `Table` owns its own operations
 
-#### `Table.fromCSV(name, parsed)` — factory
+#### `Table.fromCSV(name, parsed)` â€” factory
 
 ```ts
 static fromCSV(name, parsed): Table {
@@ -3919,7 +3919,7 @@ static fromCSV(name, parsed): Table {
 }
 ```
 
-The controller now calls `Table.fromCSV(name, parsed)` — one line. It no
+The controller now calls `Table.fromCSV(name, parsed)` â€” one line. It no
 longer imports `Column`, `Row`, or `Cell`.
 
 #### Row mutation methods
@@ -3959,7 +3959,7 @@ toCSV(): string {
 ```
 
 CSV serialisation belongs with the data. `KnowledgeBase.exportTableAsCSV`
-now delegates to `table.toCSV()` — one line.
+now delegates to `table.toCSV()` â€” one line.
 
 ---
 
@@ -3987,7 +3987,7 @@ they silently break.
 | `getController()` | `(tableView as any).controller` |
 | `getSortState()` | `(tableView as any).sortCol` / `sortAsc` |
 
-**`sortCol` and `sortAsc` promoted to instance fields** — they were
+**`sortCol` and `sortAsc` promoted to instance fields** â€” they were
 closure-local variables inside `renderTableRows`, invisible to any external
 code. Now they are `private sortCol = -1` and `private sortAsc = true`
 instance fields, readable via `getSortState()`.
@@ -3995,14 +3995,14 @@ instance fields, readable via `getSortState()`.
 **`renderTable(tableIdx)`** renders only the table body without touching the
 tab strip. This is the correct method for `main.ts` to call when the tab
 strip is owned externally (by `renderControlTabs`). Previously `main.ts`
-called `renderAll()` which rebuilds the tab strip as a side effect — this
+called `renderAll()` which rebuilds the tab strip as a side effect â€” this
 was the root cause of the "tabs disappear" bug in Phase 12.
 
 ---
 
 ### Principle: encapsulation as a correctness guarantee
 
-The encapsulation violations were not just style issues — they caused real
+The encapsulation violations were not just style issues â€” they caused real
 bugs:
 
 - The `addRow` undo always called `table.rows.pop()` (last row), which was
@@ -4019,3 +4019,1090 @@ bugs:
 Both bugs were caused by the controller and view reaching into internals
 they should not have known about. The encapsulation fix eliminates the
 possibility of these bugs recurring.
+
+---
+
+
+---
+
+
+---
+
+
+---
+
+## Phase 13 — Graph as a First-Class Model
+
+---
+
+### Overview
+
+Phase 13 introduces `Graph` as a co-equal model class alongside `Table`,
+and `TypedValue` as the shared primitive between both. A `.graph.json` file
+loads directly into a `Graph` object in `KnowledgeBase.graphs`, the same
+way a `.csv` file loads into a `Table` in `KnowledgeBase.tables`.
+
+---
+
+### `TypedValue` — the shared primitive
+
+```ts
+class TypedValue {
+    value: string;
+    readonly typeId: string;
+}
+
+class Cell extends TypedValue {}  // table-specific: position implicit in Row.cells[]
+```
+
+`TypedValue` is the raw primitive: a value string plus a `typeId` that
+tells the plugin system how to render it. It has no spatial connotation.
+
+`Cell` is a table-specific subclass with no extra fields. All existing code
+that uses `Cell` continues to work — `Cell` IS a `TypedValue`. The only
+change is that graph properties use `TypedValue` directly, making it
+explicit that they are not cells.
+
+---
+
+### `GraphNode` and `GraphEdge`
+
+```ts
+class GraphNode {
+    readonly id: string;
+    readonly properties: Map<string, TypedValue>;
+    get label(): string  // properties.get("label")?.value ?? id
+    get type(): string   // properties.get("type")?.value ?? ""
+}
+
+class GraphEdge {
+    readonly id: string;
+    readonly from: string;
+    readonly to: string;
+    readonly properties: Map<string, TypedValue>;
+    get type(): string   // properties.get("type")?.value ?? ""
+    get label(): string  // properties.get("label")?.value ?? ""
+}
+```
+
+Both hold `TypedValue` objects in their properties maps. A node with
+`properties.get("formula") = new TypedValue("x^2", "math")` renders its
+formula using the math plugin, exactly as a table cell would — because
+both ultimately go through `renderTypedValue(typeId, value)`.
+
+---
+
+### `Graph` — the model class
+
+```ts
+class Graph {
+    readonly name: string;
+    readonly viewType: "flow" | "spatial" | "relation" | "sequence";
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    nodeStyles: Record<string, NodeStyle>;
+    edgeStyles: Record<string, EdgeStyle>;
+    layout: Record<string, { x: number; y: number }>;
+
+    static fromGraphJSON(name, json): Graph
+    toGraphJSON(): string
+
+    addNode(id, props?): GraphNode
+    removeNode(id): GraphNode | undefined
+    addEdge(from, to, props?): GraphEdge
+    removeEdge(id): GraphEdge | undefined
+    getNode(id): GraphNode | undefined
+    getEdgesFrom(nodeId): GraphEdge[]
+    getEdgesTo(nodeId): GraphEdge[]
+}
+```
+
+**`fromGraphJSON` parsing rules:**
+- String property values → `TypedValue(v, "text")`
+- Object property values `{ value, typeId }` → `TypedValue(value, typeId)`
+- Edge `id` is optional in the file; auto-generated as `e0`, `e1`, ... if absent
+
+**`toGraphJSON` serialisation rules:**
+- `text`-typed properties → written as plain strings (compact)
+- Other-typed properties → written as `{ value, typeId }` objects
+
+---
+
+### `.graph.json` file format
+
+```json
+{
+  "version": "1.0",
+  "name": "glycolysis-map",
+  "view": "flow",
+  "nodes": [
+    { "id": "Glucose", "label": "Glucose", "type": "compound" },
+    { "id": "HK",      "label": "Hexokinase", "type": "enzyme",
+      "formula": { "value": "C_6H_12O_6", "typeId": "chemistry" } }
+  ],
+  "edges": [
+    { "id": "e0", "from": "Glucose", "to": "HK", "type": "reaction", "label": "step 1" }
+  ],
+  "nodeStyles": { "compound": { "shape": "ellipse", "color": "#e0f2fe" } },
+  "edgeStyles":  { "reaction": { "arrow": "filled", "dash": false } }
+}
+```
+
+The file is self-contained — no `control.json` needed to interpret it.
+Dropping a `.graph.json` file directly into the app produces a diagram tab.
+
+---
+
+### `KnowledgeBase` changes
+
+```ts
+class KnowledgeBase {
+    readonly tables: Table[] = [];   // unchanged
+    readonly graphs: Graph[] = [];   // NEW: co-equal with tables
+    readonly graph = new AssociationGraph();
+
+    addTable(table): void   // unchanged
+    addGraph(graph): void   // NEW
+    clear(): void           // now also clears graphs
+    exportTableAsCSV(idx): string  // unchanged
+}
+```
+
+`diagrams: ResolvedDiagram[]` is removed. It was a rendering artifact
+computed from tables at load time, not a model object. `graphs: Graph[]`
+replaces it as the proper model.
+
+---
+
+### `FlowDiagramView` changes
+
+The rendering logic (Tarjan SCC, circular layout, Bézier arcs, orthogonal
+routing) is completely unchanged. Only the data source changes.
+
+Four local adapter interfaces replace the imported `ResolvedNode` etc.:
+
+```ts
+interface RNode { id, label, type, x?, y?, extra }
+interface REdge { from, to, type, label }
+interface RActor { id, label }
+interface RMessage { from, to, label, time, type }
+```
+
+Four adapter functions convert a `Graph` to these shapes:
+
+```ts
+graphToNodes(g: Graph): RNode[]
+graphToEdges(g: Graph): REdge[]
+graphToActors(g: Graph): RActor[]    // for sequence diagrams
+graphToMessages(g: Graph): RMessage[] // for sequence diagrams
+```
+
+`render()` reads `this.currentData.graph` (a `Graph` object) instead of
+`this.currentData.diagram` (a `ResolvedDiagram`).
+
+---
+
+### Loading paths in `main.ts`
+
+Three distinct loading paths:
+
+1. **Native `.graph.json` path** (new): `.graph.json` files dropped without
+   `control.json` → each loaded via `controller.loadGraph()` → `renderGraphTabs()`
+   builds one tab per graph. Any accompanying CSVs load as plain table tabs.
+
+2. **Legacy `control.json` path**: `control.json` present → `resolveAllDiagrams()`
+   produces `Graph` objects from CSV data → `renderControlTabs()` looks up
+   graphs by `entry.id` via `controller.getGraphs()`.
+
+3. **Plain CSV fallback**: no `control.json`, no `.graph.json` → all CSVs
+   load as plain tables via `tableView.renderAll()`.
+
+---
+
+### What is shared between Table and Graph
+
+| Shared | How |
+|--------|-----|
+| `TypedValue` | `Row.cells` holds `Cell[]` (subclass); `GraphNode.properties` holds `TypedValue` directly |
+| Plugin system | Both ultimately call `renderTypedValue(typeId, value)` |
+| `AssociationGraph` | Both table rows and graph nodes can have `_associations` |
+| `EditHistory` | Same mechanism; extended with `addNode/removeNode/addEdge/removeEdge` actions |
+| Search engine | Currently scans `tables`; graph search is a future extension |
+
+### What is separate
+
+| | Table | Graph |
+|---|---|---|
+| Data structure | `Row[]` (ordered, homogeneous schema) | `GraphNode[]` + `GraphEdge[]` |
+| Property container | `Cell` — TypedValue at a row/column position | `TypedValue` directly in `Map<string, TypedValue>` |
+| Mutation API | `appendRow`, `removeRowAt`, `setCellValue` | `addNode`, `removeNode`, `addEdge`, `removeEdge` |
+| Serialisation | `toCSV()` | `toGraphJSON()` |
+| View | `TableView` | `FlowDiagramView` |
+| File format | `.csv` | `.graph.json` |
+
+---
+
+## Bug fix — Diagram pan/zoom state lost on tab switch
+
+---
+
+### Symptom
+
+Panning or zooming a diagram, then switching to another tab and back,
+reset the viewport to the origin (`panX:0, panY:0, zoom:1`). The user's
+position in the diagram was lost on every tab switch.
+
+---
+
+### Root cause
+
+`FlowDiagramView` correctly implements the `WorkspaceView` interface:
+`unmount()` returns a `DiagramState` blob containing `panX`, `panY`,
+`zoom`, and `selectedNodeIds`, and `mount()` accepts an optional saved
+state and restores it. The mechanism was correct — it was simply never
+used.
+
+In `main.ts`, every tab switch did this:
+
+```ts
+// switching away — state returned but discarded
+activeDiagramView.unmount();
+activeDiagramView = null;
+
+// switching back — new instance, no saved state passed
+activeDiagramView = new FlowDiagramView(graph.viewType);
+activeDiagramView.mount(tableContainer, { graph });  // ← no state
+```
+
+`unmount()` was called but its return value was thrown away. On
+re-activation, a fresh `FlowDiagramView` was created and `mount()` was
+called with no third argument, so `DiagramState` defaulted to
+`{ panX:0, panY:0, zoom:1, selectedNodeIds:[] }` every time.
+
+---
+
+### Fix
+
+Three additions to `main.ts`:
+
+**`savedViewStates: Map<string, unknown>`** — stores the opaque state
+blob returned by `unmount()`, keyed by entry id or graph name.
+
+**`activeEntryId: string | null`** — tracks which entry is currently
+mounted so the state can be stored under the correct key.
+
+**`unmountActive()`** — a single function that replaces all direct
+`activeDiagramView.unmount()` calls. It saves the returned state before
+clearing the reference:
+
+```ts
+function unmountActive(): void {
+    if (activeDiagramView && activeEntryId) {
+        savedViewStates.set(activeEntryId, activeDiagramView.unmount());
+        activeDiagramView = null;
+    }
+    activeEntryId = null;
+}
+```
+
+On re-activation, the saved state is passed back to `mount()`:
+
+```ts
+activeDiagramView = new FlowDiagramView(graph.viewType);
+activeEntryId = graph.name;
+activeDiagramView.mount(tableContainer, { graph }, savedViewStates.get(graph.name));
+```
+
+`FlowDiagramView.mount()` already handled the optional state parameter
+correctly — it casts the blob back to `DiagramState` and applies the
+stored `panX`, `panY`, `zoom` transform immediately on render. No
+changes to `FlowDiagramView` were needed.
+
+---
+
+### Lesson
+
+The `WorkspaceView` interface contract (`unmount()` returns state,
+`mount()` accepts optional saved state) was designed correctly from the
+start. The bug was purely in the calling code failing to thread the
+return value through. Any time a function returns a value that is
+immediately discarded, it is worth asking whether the caller should be
+storing it.
+
+---
+
+## Architecture Overview — Data Flow from File to Screen
+
+This section explains the full architecture of the Webapp as it stands after
+Phase 13, and then walks through the pathway rendering pipeline in detail,
+including why Tarjan's SCC algorithm is the right tool for the job.
+
+---
+
+### The two data pipelines
+
+The app has two parallel pipelines that share infrastructure but are
+structurally distinct:
+
+```
+.csv file  →  parseCSV()  →  Table.fromCSV()  →  KnowledgeBase.tables[]
+                                                        ↓
+                                                   TableView
+                                                   (spreadsheet)
+
+.graph.json  →  Graph.fromGraphJSON()  →  KnowledgeBase.graphs[]
+                                                ↓
+                                          FlowDiagramView
+                                          (SVG diagram)
+```
+
+Both pipelines share:
+- `TypedValue` — the typed content primitive (`{ value, typeId }`)
+- Plugin system — `renderTypedValue(typeId, value)` renders both table cells
+  and graph node properties
+- `AssociationGraph` — cross-entity links work across both tables and graphs
+- `EditHistory` — undo/redo covers both table edits and graph mutations
+
+The `KnowledgeBase` is the single in-memory store. `AppController` is the
+single orchestrator. Neither the `TableView` nor the `FlowDiagramView` ever
+talk to each other or to the model directly — all mutations go through the
+controller.
+
+---
+
+### The `WorkspaceView` lifecycle
+
+Every tab in the UI is backed by a `WorkspaceView` instance. The interface
+has three methods:
+
+```ts
+mount(container, data, state?)  // attach to DOM, restore saved state
+unmount(): ViewState            // detach from DOM, return current state
+update(data)                    // data changed while mounted
+```
+
+`main.ts` owns a `savedViewStates: Map<string, unknown>` keyed by entry id.
+The tab switching sequence is:
+
+```
+user clicks tab B (currently on tab A)
+  → unmountActive()
+      → savedViewStates.set("A", activeDiagramView.unmount())
+      → activeDiagramView = null
+  → activeDiagramView = new FlowDiagramView(...)
+  → activeEntryId = "B"
+  → activeDiagramView.mount(container, { graph }, savedViewStates.get("B"))
+```
+
+The state blob is opaque to `main.ts` — it only stores and retrieves it.
+`FlowDiagramView` knows its own state shape (`DiagramState`) and restores
+`panX`, `panY`, `zoom` from it on mount.
+
+---
+
+### Pathway rendering — the full pipeline
+
+A biochemical pathway like glycolysis or the Krebs cycle is stored as a
+`Graph` object with `GraphNode[]` and `GraphEdge[]`. When a diagram tab is
+activated, `FlowDiagramView.render()` runs the following pipeline:
+
+```
+Graph
+  ↓
+graphToNodes() / graphToEdges()     adapter: Graph → RNode[] / REdge[]
+  ↓
+computeLayout(nodes, edges, W, H)   positions every node on the canvas
+  ├── findCycles()                  Tarjan SCC → which nodes form cycles
+  ├── orderCycleNodes()             walk cycle edges → ring traversal order
+  ├── circular layout               place cycle nodes on a circle
+  └── BFS layered layout            place non-cycle nodes in ranks above
+  ↓
+classifyEdges()                     split edges into cycle vs DAG
+  ↓
+renderGraph()                       draw SVG
+  ├── cycle edges  → cyclePath()    quadratic Bézier arcs
+  ├── DAG edges    → orthogonalPath() right-angle paths
+  └── nodes        → ellipse / rect / diamond shapes
+  ↓
+SVG element appended to container
+```
+
+---
+
+### Why Tarjan's SCC is the right algorithm
+
+A biochemical pathway is a directed graph that can have two structurally
+different regions in the same diagram:
+
+- **Linear prefix** — a chain of reactions leading into the cycle (glycolysis
+  feeding into the Krebs cycle via Pyruvate → PDH → Acetyl-CoA)
+- **Cyclic core** — a ring of reactions where the last step regenerates the
+  first substrate (OAA → ... → MDH → OAA)
+
+These two regions need different visual treatment:
+- The cyclic core should be drawn as a **ring** — all nodes are equivalent,
+  there is no natural top or bottom
+- The linear prefix should be drawn as a **layered chain** above the ring,
+  flowing downward into it
+
+To apply the right layout to each region, the renderer must first identify
+which nodes belong to the cycle and which do not. This is exactly what
+Strongly Connected Components (SCCs) detect.
+
+**Why not simpler cycle detection?**
+
+A simple DFS cycle check (`visited` set + recursion stack) can tell you
+*whether* a cycle exists and find *one* cycle, but it cannot:
+- Find the *largest* cycle when multiple overlapping cycles exist
+- Correctly handle a graph where some nodes are in cycles and others are not
+- Handle the metabolism map where glycolysis (mostly DAG) and Krebs (mostly
+  cyclic) are merged into one graph
+
+Tarjan's algorithm finds *all* SCCs in a single O(V+E) DFS pass. Every node
+ends up assigned to exactly one SCC. Nodes in an SCC of size 1 are not part
+of any cycle. The largest SCC is the main cycle ring.
+
+---
+
+### Tarjan's SCC — how it works
+
+The algorithm maintains three data structures during a DFS:
+
+- `index[v]` — the order in which node `v` was first visited (a counter
+  that increments with each new visit)
+- `lowlink[v]` — the lowest `index` value reachable from `v`'s DFS subtree,
+  including back-edges to ancestors
+- `stack` — nodes currently on the DFS path that have not yet been assigned
+  to a completed SCC
+
+**The key invariant:** after fully exploring `v`'s subtree,
+`lowlink[v] === index[v]` if and only if `v` is the *root* of an SCC —
+meaning no node in `v`'s subtree has a back-edge to anything discovered
+before `v`. When this condition holds, everything on the stack from `v`
+upward forms a complete SCC.
+
+**Step by step for the Krebs cycle:**
+
+```
+DFS starts at OAA (index=0, lowlink=0), pushes onto stack
+  → visits CS (index=1, lowlink=1)
+    → visits Citrate (index=2, lowlink=2)
+      → ... continues around the ring ...
+        → visits MDH (index=15, lowlink=15)
+          → MDH has edge to OAA
+          → OAA is on the stack → lowlink[MDH] = min(15, index[OAA]) = 0
+        → unwind: lowlink[Malate] = min(14, lowlink[MDH]) = 0
+      → unwind: ... all lowlinks propagate back to 0 ...
+  → unwind back to OAA: lowlink[OAA] = 0 = index[OAA]  ← SCC root!
+  → pop stack until OAA: all 16 Krebs nodes form one SCC
+```
+
+The back-edge `MDH → OAA` is what triggers the SCC detection. Without it,
+each node would be its own SCC of size 1 (a DAG). With it, the lowlink
+values propagate back through the entire ring, and when the DFS returns to
+OAA, the condition `lowlink[OAA] === index[OAA]` fires.
+
+**In the metabolism map** (glycolysis + Krebs merged):
+
+Glycolysis nodes (Glucose, G6P, F6P, ..., Pyruvate) have no back-edges —
+they form SCCs of size 1. The Krebs nodes form one large SCC. The renderer
+picks the largest SCC as the ring, places it in the centre, and lays out
+the glycolysis chain in ranks above it.
+
+---
+
+### Circular layout — why the radius formula matters
+
+Once the cycle nodes are identified and ordered, they are placed on a circle.
+The radius must be large enough that no two adjacent node boxes overlap.
+
+**Wrong formula (old):**
+```
+radius = (maxNodeWidth + gap) × n / (2π)
+```
+This uses the *widest* node for every slot. If one node has a long label
+(e.g. "α-Ketoglutarate") and the rest are short, the ring is inflated to
+accommodate the worst case at every position.
+
+**Correct formula:**
+```
+totalPerimeter = Σ (nodeWidth_i + gap)  for all i in cycle
+radius = totalPerimeter / (2π)
+```
+The ring circumference equals the total perimeter needed. Each node gets
+exactly the space its label requires. The ring is as tight as possible
+without overlap.
+
+---
+
+### Edge routing — why two strategies
+
+**Orthogonal routing for DAG edges** (right-angle paths):
+
+DAG edges connect nodes in different ranks. The path goes straight down
+from the source, jogs horizontally at the midpoint, then continues straight
+down to the target. This produces the clean ladder-like appearance of
+flowcharts and pathway diagrams. It works because DAG nodes are arranged
+in a strict top-to-bottom hierarchy.
+
+**Bézier arcs for cycle edges** (curved paths):
+
+Cycle edges connect nodes arranged on a ring. A straight line between two
+ring nodes would cut through the ring interior, making the diagram look
+like a spider web. An orthogonal path would produce awkward right-angle
+bends that don't follow the ring shape.
+
+The solution is a quadratic Bézier curve whose control point is pushed
+*outward* from the ring centre:
+
+```
+midpoint M = average of (from, to)
+direction D = (M - centre) / |M - centre|   ← unit vector pointing outward
+controlPoint = centre + D × (|M - centre| × 1.35 + 20)
+```
+
+The factor 1.35 pushes the control point 35% further from the centre than
+the midpoint, creating a visible outward bow. The result is an arc that
+follows the ring perimeter — matching the visual convention used in
+biochemistry textbooks for cyclic pathways.
+
+---
+
+### Pan and zoom — SVG transform approach
+
+All diagram content (nodes and edges) lives inside a single `<g>` element.
+Pan and zoom are applied as a single SVG transform on that group:
+
+```
+translate(panX, panY) scale(zoom)
+```
+
+This is more efficient than repositioning every element individually —
+the browser's SVG renderer applies the transform to the entire subtree in
+one operation. The transform is updated on every `mousemove` (pan) and
+`wheel` (zoom) event.
+
+The state `{ panX, panY, zoom }` is part of `DiagramState`, returned by
+`unmount()` and restored by `mount()`. This is what makes the viewport
+position persist across tab switches.
+
+---
+
+## View Layer Architecture — Current State and Intended Direction
+
+---
+
+### What the view layer contains
+
+```
+src/view/
+  table-view.ts          — renders a Table as an HTML spreadsheet
+  flow-diagram-view.ts   — renders a Graph as an SVG diagram
+  workspace-view.ts      — WorkspaceView interface + viewFactory (unused in live path)
+  table-view-adapter.ts  — wraps TableView to conform to WorkspaceView (unused in live path)
+  graph-filter-view.ts   — relation/target filter dropdowns + association detail panel
+  search-view.ts         — text search + identifier search + neighbourhood panel
+  session.ts             — localStorage session persistence utility
+```
+
+---
+
+### The honest assessment of each file
+
+**`table-view.ts` and `flow-diagram-view.ts`** — both earn their existence.
+They are the two primary workspace renderers. Each is a substantial class
+with its own state, lifecycle, and rendering logic. They are correctly
+separated because they render fundamentally different data structures
+(`Table` vs `Graph`) using fundamentally different techniques (HTML table
+vs SVG layout algorithm).
+
+**`graph-filter-view.ts` and `search-view.ts`** — both earn their existence.
+They are toolbar-level UI components, not workspace views. They live in
+`src/view/` because they produce DOM, but they are not interchangeable with
+`TableView` or `FlowDiagramView` — they are always visible alongside the
+active workspace view, not instead of it.
+
+**`session.ts`** — earns its existence as a utility. It has no DOM
+dependency and could live in `src/data/`, but `src/view/` is acceptable
+since it is consumed only by the view layer.
+
+**`workspace-view.ts`** — defines the right interface but `viewFactory` is
+currently unused in the live path. `main.ts` bypasses it and instantiates
+views directly. The interface is correct; the dispatch mechanism is not
+wired up.
+
+**`table-view-adapter.ts`** — exists only because `TableView` predates the
+`WorkspaceView` interface and was not refactored to implement it directly.
+It is a bridge that should not need to exist. `TableView` should implement
+`WorkspaceView` directly, making the adapter redundant.
+
+---
+
+### The architectural problem: tab logic lives in `main.ts`
+
+`main.ts` currently contains:
+
+```ts
+let activeDiagramView: FlowDiagramView | null = null;
+let activeEntryId: string | null = null;
+const savedViewStates = new Map<string, unknown>();
+
+function unmountActive(): void { ... }
+function renderControlTabs(controlFile): void { ... }
+function renderGraphTabs(): void { ... }
+```
+
+This is view orchestration logic — it owns the tab strip, manages the
+active view lifecycle, and saves/restores view state. It belongs in a
+dedicated class, not in the application entry point.
+
+The consequence is that `main.ts` has two separate tab-building functions
+(`renderControlTabs` for the legacy CSV path, `renderGraphTabs` for the
+native `.graph.json` path) that duplicate the same tab switching logic.
+Every new loading path would require a third function.
+
+---
+
+### The correct architecture: `WorkspaceController`
+
+Table and graph are both workspace-level views. They should be dispatched
+through the same mechanism. The distinction between "a table tab" and "a
+diagram tab" is a rendering detail — at the tab strip level, both are just
+entries with an id, a view, and data.
+
+**`viewFactory` should dispatch on model type, not on control file entry
+view string:**
+
+```ts
+// Current (dispatches on string from control file)
+function viewFactory(entry: ControlEntry, ...): WorkspaceView {
+    switch (entry.view) {
+        case "table": return new TableViewAdapter(...);
+        case "flow":  return new FlowDiagramView("flow");
+    }
+}
+
+// Correct (dispatches on model object type)
+function viewFactory(model: Table | Graph, ...): WorkspaceView {
+    if (model instanceof Table) return new TableView(...);
+    if (model instanceof Graph) return new FlowDiagramView(model.viewType);
+}
+```
+
+**`WorkspaceController` owns the tab strip and all dispatch logic:**
+
+```ts
+class WorkspaceController {
+    private tabs = new Map<string, { view: WorkspaceView; data: WorkspaceData }>();
+    private savedStates = new Map<string, ViewState>();
+    private activeId: string | null = null;
+
+    constructor(
+        private tabStrip: HTMLElement,
+        private container: HTMLElement,
+        private statusText: HTMLElement,
+    ) {}
+
+    registerTab(id: string, view: WorkspaceView, data: WorkspaceData): void {
+        this.tabs.set(id, { view, data });
+        const btn = document.createElement("button");
+        btn.className = "tab-btn";
+        btn.textContent = id;
+        btn.addEventListener("click", () => this.activateTab(id));
+        this.tabStrip.appendChild(btn);
+    }
+
+    activateTab(id: string): void {
+        // Save state of current tab
+        if (this.activeId) {
+            const current = this.tabs.get(this.activeId);
+            if (current) this.savedStates.set(this.activeId, current.view.unmount());
+        }
+        // Mount new tab with saved state
+        const next = this.tabs.get(id);
+        if (!next) return;
+        this.container.innerHTML = "";
+        this.tabStrip.querySelectorAll(".tab-btn")
+            .forEach(b => b.classList.toggle("tab-active", b.textContent === id));
+        next.view.mount(this.container, next.data, this.savedStates.get(id));
+        this.activeId = id;
+        this.statusText.textContent = id;
+    }
+
+    activateFirst(): void {
+        const first = this.tabs.keys().next().value;
+        if (first) this.activateTab(first);
+    }
+}
+```
+
+**`main.ts` becomes thin wiring:**
+
+```ts
+const ws = new WorkspaceController(tabStrip, tableContainer, statusText);
+
+for (const table of kb.tables)
+    ws.registerTab(table.name, new TableView(...), { table });
+
+for (const graph of kb.graphs)
+    ws.registerTab(graph.name, new FlowDiagramView(graph.viewType), { graph });
+
+ws.activateFirst();
+```
+
+The same three lines work regardless of whether the data came from a
+`.csv` file, a `.graph.json` file, or a `control.json` batch. There is
+no `renderControlTabs` vs `renderGraphTabs` split.
+
+**`TableView` implements `WorkspaceView` directly:**
+
+```ts
+class TableView implements WorkspaceView {
+    mount(container, data, state?) { ... }
+    unmount(): ViewState { ... }
+    update(data) { ... }
+}
+```
+
+`TableViewAdapter` is deleted. The adapter only exists because `TableView`
+was written before the interface existed. Once `TableView` implements the
+interface directly, the adapter has no purpose.
+
+---
+
+### Why the current state is not wrong, just incomplete
+
+The `WorkspaceView` interface was designed correctly. `FlowDiagramView`
+already implements it correctly. The `viewFactory` function was written
+with the right intent. The problem is that `main.ts` was never updated to
+use them — it grew its own tab management logic instead.
+
+The current code works correctly. The architectural issue is one of
+organisation: tab logic that belongs in a `WorkspaceController` class is
+scattered across `main.ts`, and `TableViewAdapter` exists as a workaround
+for `TableView` not implementing the interface directly.
+
+This is the planned refactoring for a future phase. The priority order is:
+
+1. Make `TableView` implement `WorkspaceView` directly — removes the adapter
+2. Add `WorkspaceController` — moves tab logic out of `main.ts`
+3. Update `viewFactory` to dispatch on model type — removes the string-based switch
+4. Delete `TableViewAdapter` — no longer needed
+
+None of these changes affect the model, controller, or rendering logic.
+They are purely organisational changes to the view layer.
+
+---
+
+### Summary: why each view file exists
+
+| File | Status | Reason |
+|---|---|---|
+| `table-view.ts` | Correct | Primary workspace renderer for Table |
+| `flow-diagram-view.ts` | Correct | Primary workspace renderer for Graph |
+| `workspace-view.ts` | Correct interface, incomplete wiring | `viewFactory` bypassed by `main.ts` |
+| `table-view-adapter.ts` | Temporary workaround | Exists because `TableView` doesn't implement `WorkspaceView` directly |
+| `graph-filter-view.ts` | Correct | Toolbar-level UI, not a workspace view |
+| `search-view.ts` | Correct | Toolbar-level UI, not a workspace view |
+| `session.ts` | Correct | Persistence utility |
+
+---
+
+## Post-Phase 13 — Graph Editing, Dynamic Toolbar & Bug Fixes
+
+---
+
+### Dynamic toolbar architecture
+
+The toolbar is split into two DOM sections:
+
+```
+#dynamic-toolbar   ← rebuilt on every tab switch and selection change
+#static-toolbar    ← Export button, always present
+```
+
+**Data flow:**
+
+```
+WorkspaceController.activateTab()
+  → view.mount()
+  → onToolbarChange(view.getToolbarActions(), view)   ← fires callback
+  → AppShell rebuilds #dynamic-toolbar from action descriptors
+  → sets toolbarRefresh callback on view
+
+view.onNodeClick() / onToolbarAction() / edge click
+  → this.toolbarRefresh?.()
+  → onToolbarChange(view.getToolbarActions(), view)   ← fires again
+  → AppShell rebuilds #dynamic-toolbar with updated disabled states
+```
+
+**`ToolbarAction` descriptor:**
+```ts
+interface ToolbarAction {
+    id: string;
+    label: string;
+    title?: string;
+    disabled?: boolean;
+}
+```
+
+Views declare their actions as data, not as DOM. `AppShell` owns the
+toolbar DOM. Views own the action logic via `onToolbarAction(id)`.
+
+---
+
+### `FlowDiagramView` — graph editing interactions
+
+#### State fields
+
+| Field | Purpose |
+|-------|---------|
+| `kbGraphIdx` | Real index in `kb.graphs[]`, resolved at mount |
+| `selectedEdgeId` | Currently selected edge id, or null |
+| `edgeFromNodeId` | Edge-draw mode: null = off, "" = waiting for source, id = source set |
+| `pendingEditNodeId` | Node to enter inline edit on next render (used by `+ Node`) |
+| `toolbarRefresh` | Callback to rebuild toolbar after selection changes |
+| `clickTimer` | Timer to distinguish single-click from double-click |
+
+#### Click/dblclick disambiguation
+
+`dblclick` fires after two `click` events. Without disambiguation, the
+first `click` would call `render()` which destroys the SVG, and `dblclick`
+would fire on a stale element.
+
+Solution: 220ms timer on single-click:
+
+```
+click fires
+  → clearTimeout(clickTimer) if pending
+  → clickTimer = setTimeout(() => onNodeClick(id), 220)
+
+dblclick fires (within 220ms of first click)
+  → clearTimeout(clickTimer)   ← cancels the pending single-click
+  → onNodeDblClick(id, ...)    ← runs on live DOM
+```
+
+#### Inline label editing
+
+`onNodeDblClick` inserts a `<foreignObject>` containing an `<input>` into
+the SVG's pan group, sized to the node's bounding box via `getBBox()`.
+The SVG `<text>` label is hidden while the input is active.
+
+A `committed` flag prevents double-commit (blur fires after Enter in some
+browsers):
+
+```ts
+let committed = false;
+const commit = () => {
+    if (committed) return;
+    committed = true;
+    // ... apply label change
+};
+input.addEventListener("keydown", e => { if (e.key === "Enter") commit(); });
+input.addEventListener("blur", commit);
+```
+
+#### Edge-draw mode
+
+`edgeFromNodeId` drives a two-click edge creation flow:
+
+```
+"" (empty)  → waiting for source node click
+"nodeId"    → source set, waiting for target node click
+null        → mode off
+```
+
+The cursor changes to `crosshair` on all nodes while in edge-draw mode.
+The `+ Edge` button label changes to "Cancel Edge" while active.
+
+#### `REdge.id` and edge selection
+
+`REdge` now carries `id: string` populated from `GraphEdge.id`. Each edge
+is wrapped in a `<g>` with a 10px-wide transparent `<path>` as a hit area
+(making thin paths easy to click) and a visible `<path>`. Clicking an edge
+calls `onEdgeSelect(edgeId)` which toggles `selectedEdgeId` and clears
+node selection.
+
+---
+
+### `kbTableIdx` and `kbGraphIdx` — the index resolution pattern
+
+Both `TableView` and `FlowDiagramView` follow the same pattern:
+
+```ts
+// In mount():
+this.kbTableIdx = kb.tables.indexOf(data.table);   // TableView
+this.kbGraphIdx = kb.graphs.indexOf(data.graph);   // FlowDiagramView
+```
+
+This resolves the real index in the global `kb.tables[]` / `kb.graphs[]`
+array once at mount time. All controller calls use this index. Without
+this, every `TableView` instance would use `activeTabIdx = 0` and always
+edit `kb.tables[0]` regardless of which table it was showing.
+
+---
+
+### Undo/redo tab navigation
+
+`undo()` and `redo()` call `navigateToTable(tableIdx)` or
+`navigateToGraph(graphIdx)` instead of `showAll()`:
+
+```ts
+private navigateToTable(tableIdx: number): void {
+    const table = this.knowledgeBase.tables[tableIdx];
+    const tv = this.workspaceController?.getActiveTableView();
+    if (tv && this.workspaceController?.getActiveId() === table.name) {
+        tv.renderTable(tableIdx);   // already on correct tab: fast path
+    } else {
+        this.workspaceController?.activateTab(table.name);  // switch tab
+    }
+}
+```
+
+The fast path avoids unmount/remount when the affected tab is already
+active. The switch path calls `activateTab` which mounts the view and
+re-renders automatically.
+
+---
+
+### Workspace overflow toggle
+
+`WorkspaceController.activateTab` toggles `workspace-diagram` on
+`#workspace` (the container's parent element):
+
+```ts
+const isDiagram = next.data.graph !== undefined;
+this.container.parentElement?.classList.toggle("workspace-diagram", isDiagram);
+```
+
+CSS:
+```css
+#workspace { overflow: auto; }
+#workspace.workspace-diagram { overflow: hidden; }
+```
+
+This suppresses scrollbars on diagram tabs (which have their own pan/zoom)
+while preserving scrolling on table tabs.
+
+---
+
+### Bug fix — Edge id collision on add/remove/add cycle
+
+**Symptom:** After removing an edge and adding a new one, the new edge
+received the same id as an existing edge, causing silent data corruption
+(two edges with the same id, delete-by-id removing the wrong one, etc.).
+
+**Root cause:** `Graph.addEdge` generated ids as `e${this.edges.length}`.
+This is wrong because `edges.length` decreases when an edge is removed:
+
+```
+add 10 edges  → ids e0..e9,  length = 10
+remove e5     → length = 9
+add new edge  → id = e9  ← COLLISION with existing e9
+```
+
+The same class of bug existed in `controller/index.ts` where
+`resolveAllDiagrams` used a local `edgeCounter` and then overrode the
+generated id via an unsafe cast:
+```ts
+(edge as { id: string }).id = `e${edgeCounter++}`;
+```
+This cast bypassed TypeScript's type system to mutate a `readonly` field.
+
+**Fix:** Added `private edgeSeq: number` to `Graph` — a monotonically
+increasing counter that only ever increments, never resets:
+
+```ts
+private nextEdgeId(): string {
+    return `e${this.edgeSeq++}`;
+}
+```
+
+`addEdge` now calls `this.nextEdgeId()`. The sequence is never affected
+by removals — it only moves forward.
+
+**`fromGraphJSON` initialisation:** When loading a `.graph.json` file,
+edges may already have explicit numeric ids (e.g. `e0`, `e14`). The
+`edgeSeq` is initialised to one past the highest numeric id found:
+
+```ts
+const edgeSeq = edges.reduce((max, e) => {
+    const n = parseInt(e.id.replace(/^e/, ""), 10);
+    return isNaN(n) ? max : Math.max(max, n + 1);
+}, 0);
+```
+
+This guarantees that any `addEdge` call after loading never collides with
+ids that came from the file, regardless of how many edges were removed
+before the first `addEdge`.
+
+**`controller/index.ts`:** Removed `edgeCounter`, the cast hack, and the
+`graph.edges = []` reset that preceded it. `addEdge` generates correct
+unique ids on its own — no override needed.
+
+**Lesson:** Never use a mutable collection's `.length` as an id generator.
+Length decreases on removal; a sequence counter does not. Any id that must
+be unique for the lifetime of the object must come from a counter that only
+moves forward.
+
+---
+
+### Bug fix — `node.x` / `node.y` do not exist on `GraphNode`
+
+**Symptom:** TypeScript error `Property 'x' does not exist on type 'GraphNode'`
+in `onNodeDblClick`.
+
+**Root cause:** The fallback `bbox` in `onNodeDblClick` referenced
+`node.x` and `node.y`:
+
+```ts
+bbox = { x: node.x - 40, y: node.y - 10, width: 80, height: 20 };
+```
+
+`node` here is a `GraphNode` (the model class), which has no `x` or `y`
+fields — those are layout coordinates that only exist on `LayoutNode`
+(the internal rendering struct computed by `computeLayout`). The model
+class stores position hints in `node.properties.get("x")` as a
+`TypedValue`, not as a direct numeric field.
+
+**Fix:** The fallback is only reached if `getBBox()` throws, which should
+not happen on a mounted SVG element. Replace with safe zero-based defaults:
+
+```ts
+bbox = { x: 0, y: 0, width: 80, height: 24 };
+```
+
+The exact fallback values don't matter much — they only affect the
+`<foreignObject>` position if `getBBox()` fails, which is a degenerate
+case.
+
+**Lesson:** `GraphNode` (model) and `LayoutNode` (rendering) are distinct
+types. `GraphNode` stores typed property values in a `Map<string, TypedValue>`.
+`LayoutNode` is a transient rendering struct with computed `x`, `y`, `w`,
+`h` fields. Never confuse the two.
+
+---
+
+### Fix — unused parameters in single-click lambda
+
+**Symptom:** TypeScript warnings `'shapeEl' is declared but its value is
+never read` and `'lblEl' is declared but its value is never read` in the
+single-click callback passed to `renderGraph`.
+
+**Root cause:** `renderGraph` passes `(nodeId, shapeEl, lblEl)` to both
+the single-click and double-click callbacks. The double-click handler uses
+all three to perform inline editing. The single-click handler only needs
+`nodeId` to toggle selection — `shapeEl` and `lblEl` are irrelevant.
+
+**Fix:** Prefix unused parameters with `_` to signal intentional non-use:
+
+```ts
+// single-click: only nodeId is needed
+(nodeId, _shapeEl, _lblEl) => { ... }
+
+// double-click: all three are needed
+(nodeId, shapeEl, lblEl) => this.onNodeDblClick(nodeId, shapeEl, lblEl)
+```
+
+The `_` prefix is the TypeScript/JavaScript convention for "this parameter
+is required by the interface but intentionally unused here".

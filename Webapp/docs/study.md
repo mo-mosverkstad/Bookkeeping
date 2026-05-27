@@ -3104,7 +3104,331 @@ diagram tab and the node label has updated.
 
 ---
 
-#### Phase 13 — File System Access & Save Strategy 📐 *planned*
+#### Phase 13 — Graph as a First-Class Model 📐 *planned*
+
+**Goal:** Introduce `Graph` as a co-equal model class alongside `Table`.
+A `.graph.json` file loads into a `Graph` object in the `KnowledgeBase`,
+not into a derived rendering declaration. `Graph` objects are displayed
+by `FlowDiagramView` directly from the model, the same way `Table` objects
+are displayed by `TableView`. The plugin system, association layer, and
+edit history are shared between both model types.
+
+---
+
+##### The architectural insight
+
+The current model has an implicit assumption: **everything is a table**.
+`KnowledgeBase` holds `tables: Table[]` as the primary data, and
+`diagrams: ResolvedDiagram[]` as a derived rendering layer computed from
+tables at load time. A diagram is not a model object — it is a view
+declaration over table data.
+
+This assumption is wrong. Tables and graphs are **co-equal, structurally
+distinct data structures**. A biochemistry pathway is not a table that
+happens to be rendered as a graph — it *is* a graph. Its natural
+representation is nodes and edges, not rows and columns.
+
+The correct architecture:
+
+```
+KnowledgeBase
+  tables: Table[]     ← loaded from CSV files
+  graphs: Graph[]     ← loaded from .graph.json files   (NEW)
+  assocGraph: AssociationGraph   ← shared, connects both
+```
+
+The view layer dispatches by model type:
+- `Table` → `TableView` (spreadsheet)
+- `Graph` → `FlowDiagramView` (diagram)
+
+The plugin system is shared: a node's label, a node's formula property,
+an edge's label — all are `TypedValue` objects rendered by the same
+`math`, `chemistry`, `text` plugins. `TypedValue` is the shared primitive.
+`Cell` is a table-specific wrapper around a `TypedValue` at a row/column
+position. `GraphNode` and `GraphEdge` hold `TypedValue` objects directly
+in their properties maps, without the table-specific `Cell` wrapper.
+
+---
+
+##### What is shared between Table and Graph
+
+| Shared | How |
+|--------|-----|
+| `TypedValue` | The primitive: `{ value: string, typeId: string }`. `Row` wraps these as `Cell[]`; `GraphNode.properties` holds them directly as `Map<string, TypedValue>` |
+| Plugin system | `renderTypedValue(typeId, value)` works identically for table cells and node property values |
+| `AssociationGraph` | Both table rows and graph nodes can have `_associations`; the shared graph connects them across types |
+| `EditHistory` | Same `EditAction` union, extended with graph-specific actions |
+| Search engine | `searchText` and `searchByIdentifier` scan both `tables` and `graphs` |
+| Session persistence | File names of both CSV and `.graph.json` files are saved |
+
+##### What is separate
+
+| Separate | Table | Graph |
+|----------|-------|-------|
+| Data structure | `Row[]` (ordered, homogeneous schema) | `GraphNode[]` + `GraphEdge[]` (topology) |
+| Schema | `Column[]` defines property types for all rows | Each node declares its own properties |
+| Property container | `Cell` — a `TypedValue` at a row/column position | `TypedValue` directly in a `Map<string, TypedValue>` |
+| Mutation API | `appendRow`, `removeRowAt`, `setCellValue` | `addNode`, `removeNode`, `addEdge`, `removeEdge` |
+| Serialisation | `toCSV()` | `toGraphJSON()` |
+| View | `TableView` | `FlowDiagramView` |
+| File format | `.csv` | `.graph.json` |
+
+---
+
+##### The `TypedValue` primitive and the `Graph` model class
+
+`TypedValue` is the shared primitive — a value string plus a `typeId`
+that tells the plugin system how to render it. It has no spatial
+connotation (not "cell", not "field position").
+
+`Cell` is a table-specific concept: a `TypedValue` at a position in a
+`Row`. The word "cell" remains valid as a UI term (a cell in the table
+view) but the model class `Cell` belongs to the table layer only.
+
+```ts
+class TypedValue {
+    value: string;
+    readonly typeId: string;
+    // The shared primitive. No position, no container context.
+}
+
+class Cell extends TypedValue {
+    // Table-specific wrapper. Exists at a row/column position.
+    // No extra fields needed — the position is implicit in Row.cells[].
+}
+
+class GraphNode {
+    id: string;
+    properties: Map<string, TypedValue>;   // keyed by property name
+    // TypedValue.typeId drives plugin rendering; TypedValue.value is the raw source
+}
+
+class GraphEdge {
+    id: string;
+    from: string;    // source node id
+    to: string;      // target node id
+    properties: Map<string, TypedValue>;   // "label", "type", etc.
+}
+
+class Graph {
+    readonly name: string;
+    readonly viewType: "flow" | "spatial" | "relation" | "sequence";
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+    nodeStyles: Record<string, NodeStyle>;
+    edgeStyles: Record<string, EdgeStyle>;
+    layout?: Record<string, { x: number; y: number }>;  // saved positions
+
+    static fromGraphJSON(name: string, json: unknown): Graph
+    toGraphJSON(): string
+
+    // Node/edge mutations (parallel to Table's row mutations)
+    addNode(id: string, properties?: Record<string, string>): GraphNode
+    removeNode(id: string): GraphNode | undefined
+    addEdge(from: string, to: string, properties?: Record<string, string>): GraphEdge
+    removeEdge(id: string): GraphEdge | undefined
+
+    // Queries
+    getNode(id: string): GraphNode | undefined
+    getEdgesFrom(nodeId: string): GraphEdge[]
+    getEdgesTo(nodeId: string): GraphEdge[]
+}
+```
+
+The `properties` map on both `GraphNode` and `GraphEdge` uses `TypedValue`
+objects so that property values can be typed and rendered by the plugin
+system. A node with `properties.get("formula") = new TypedValue("x^2+1", "math")`
+renders its formula property using the math plugin, exactly as a table
+cell would — because both ultimately go through `renderTypedValue(typeId, value)`.
+
+---
+
+##### The `.graph.json` file format
+
+A `.graph.json` file is the serialised form of a `Graph` model object.
+It is a self-contained file — no `control.json` needed to interpret it.
+
+```json
+{
+  "version": "1.0",
+  "name": "glycolysis",
+  "view": "flow",
+  "nodes": [
+    { "id": "Glucose",    "label": "Glucose",    "type": "compound" },
+    { "id": "Hexokinase", "label": "Hexokinase", "type": "enzyme" },
+    { "id": "G6P",        "label": "Glucose-6-phosphate", "type": "compound" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "Glucose",    "to": "Hexokinase", "type": "reaction" },
+    { "id": "e2", "from": "Hexokinase", "to": "G6P",        "type": "reaction", "label": "Hexokinase" }
+  ],
+  "nodeStyles": {
+    "compound": { "shape": "ellipse", "color": "#e0f2fe" },
+    "enzyme":   { "shape": "rect",    "color": "#fef9c3" }
+  },
+  "edgeStyles": {
+    "reaction": { "arrow": "filled", "dash": false }
+  }
+}
+```
+
+Node and edge properties beyond `id`, `label`, `type` are stored as
+`{ value, typeId }` pairs when they carry typed content:
+
+```json
+{ "id": "ATP", "label": "ATP", "type": "compound",
+  "formula": { "value": "C_10H_16N_5O_13P_3", "typeId": "chemistry" } }
+```
+
+This allows a graph node to carry rich typed content rendered by the
+plugin system, not just plain string labels. The `{ value, typeId }` pair
+is the serialised form of a `TypedValue`.
+
+---
+
+##### Relationship to the existing `control.json` + CSV approach
+
+The Phase 12 approach (CSV nodes + CSV edges + `control.json` mapping)
+remains supported as a **legacy import path**. When `control.json` is
+present, the loader resolves its entries as before and constructs `Graph`
+objects from the resolved data — the same `Graph` model class, just
+populated from a different source.
+
+The `.graph.json` file is the **native format** for graph data. The
+CSV-based approach is the transitional format, kept for backward
+compatibility and for the case where nodes are also knowledge tables
+(the glycolysis compounds are independently useful as a spreadsheet).
+
+For the glycolysis case specifically, the correct long-term structure is:
+- `glycolysis-nodes.csv` — the knowledge table (compounds, enzymes as entities)
+- `glycolysis.graph.json` — the graph (topology: which node connects to which)
+- `control.json` — optional; declares that the nodes CSV feeds into the graph
+
+For a pure topology diagram (a flowchart, a UML diagram) where nodes have
+no independent knowledge content, a standalone `.graph.json` with inline
+nodes is the correct and complete representation.
+
+---
+
+##### `KnowledgeBase` changes
+
+```ts
+class KnowledgeBase {
+    readonly tables: Table[] = [];
+    readonly graphs: Graph[] = [];    // NEW: co-equal with tables
+    readonly assocGraph = new AssociationGraph();
+
+    addTable(table: Table): void { ... }   // unchanged
+    addGraph(graph: Graph): void {         // NEW
+        this.graphs.push(graph);
+        // extract _associations from node properties if present
+    }
+    clear(): void { ... }   // clears both tables and graphs
+}
+```
+
+`ResolvedDiagram[]` is removed from `KnowledgeBase`. It was a rendering
+artifact, not a model object. `Graph[]` replaces it as the proper model.
+
+---
+
+##### Controller changes
+
+```ts
+class AppController {
+    loadCSV(name, text): void       // unchanged — produces Table
+    loadGraph(name, text): void     // NEW — produces Graph from .graph.json
+    resolveControlDiagram(decl, csvMap): void  // existing — produces Graph from control.json entry
+    getGraphs(): Graph[]            // NEW
+}
+```
+
+Edit actions extended:
+```ts
+type EditAction =
+    | { type: "cell"; ... }          // existing
+    | { type: "addRow"; ... }        // existing
+    | { type: "deleteRow"; ... }     // existing
+    | { type: "moveRow"; ... }       // existing
+    | { type: "addNode"; graphIdx: number; node: GraphNode }      // NEW
+    | { type: "removeNode"; graphIdx: number; nodeId: string; node: GraphNode }  // NEW
+    | { type: "addEdge"; graphIdx: number; edge: GraphEdge }      // NEW
+    | { type: "removeEdge"; graphIdx: number; edgeId: string; edge: GraphEdge }  // NEW
+```
+
+---
+
+##### View dispatch
+
+`main.ts` tab strip construction:
+- For each `Table` in `kb.tables`: create a table tab → `TableView`
+- For each `Graph` in `kb.graphs`: create a graph tab → `FlowDiagramView`
+
+`FlowDiagramView` is updated to accept a `Graph` model object directly
+instead of a `ResolvedDiagram`. The rendering logic (Tarjan SCC, circular
+layout, Bézier arcs) is unchanged — only the data source changes.
+
+---
+
+##### Sample data migration
+
+| Before | After |
+|--------|-------|
+| `glycolysis-edges.csv` + mapping in `control.json` | `glycolysis.graph.json` (inline edges, CSV node ref) |
+| `krebs-edges.csv` + mapping in `control.json` | `krebs.graph.json` (inline edges, CSV node ref) |
+| `metabolism-edges.csv` + mapping in `control.json` | `metabolism.graph.json` (inline edges, two CSV node refs) |
+
+The nodes CSV files (`glycolysis-nodes.csv`, `krebs-nodes.csv`) are unchanged.
+
+---
+
+##### Concrete tasks
+- [ ] Add `TypedValue` class to `src/model/TypedValue.ts` — `{ value: string, typeId: string }`;
+      refactor `Cell` to extend `TypedValue` (no logic change, just inheritance)
+- [ ] Add `GraphNode`, `GraphEdge`, `Graph` classes to `src/model/`
+      (one class per file; `GraphNode.properties` and `GraphEdge.properties`
+      are `Map<string, TypedValue>`; `Graph.fromGraphJSON` and `Graph.toGraphJSON`
+      own all serialisation)
+- [ ] Add `readonly graphs: Graph[] = []` and `addGraph(graph)` to
+      `KnowledgeBase`; remove `readonly diagrams: ResolvedDiagram[]`
+- [ ] Add `loadGraph(name, text)` to `AppController`
+- [ ] Update `AppController.resolveAllDiagrams` to produce `Graph` objects
+      and call `kb.addGraph()` instead of pushing to `kb.diagrams`
+- [ ] Extend `EditAction` union with `addNode`, `removeNode`, `addEdge`,
+      `removeEdge` variants; implement undo/redo for each
+- [ ] Update `FlowDiagramView` to accept `Graph` instead of `ResolvedDiagram`
+- [ ] Update `main.ts` tab strip: iterate `kb.graphs` for diagram tabs
+- [ ] Update `main.ts` loading flow: detect `.graph.json` files, call
+      `controller.loadGraph(name, text)`
+- [ ] Migrate sample data: create `glycolysis.graph.json`, `krebs.graph.json`,
+      `metabolism.graph.json`; update `control.json`
+- [ ] Update `src/model/index.ts` barrel to export new classes
+- [ ] Add tests for `Graph.fromGraphJSON` and `Graph.toGraphJSON`
+- [ ] Add tests for `KnowledgeBase.addGraph`
+- [ ] Add tests for graph edit undo/redo
+- [ ] Update `docs/history.md`, `docs/codebase_analysis.md`, `docs/docs_guide.md`
+
+**Completion criteria:**
+- Loading a `.graph.json` file produces a `Graph` in `kb.graphs` and a
+  diagram tab in the UI, rendered by `FlowDiagramView`
+- `FlowDiagramView` renders identically to Phase 12 (same visual output)
+- `Graph.toGraphJSON()` round-trips losslessly with `Graph.fromGraphJSON()`
+- Graph edit actions (add/remove node, add/remove edge) are undoable
+- The old CSV-based `control.json` entries continue to work — they now
+  produce `Graph` objects via `resolveControlDiagram` instead of
+  `ResolvedDiagram` objects
+- `kb.diagrams` is removed; `kb.graphs` replaces it
+- All existing Phase 1–12 tests pass without modification
+
+**Demo:** Drop `glycolysis.graph.json` directly (no `control.json` needed).
+A diagram tab appears and renders the glycolysis pathway. Drop
+`glycolysis-nodes.csv` separately — a table tab appears for the same
+nodes. Both tabs are independent views over their respective model objects.
+Edit a node label in the graph tab — the change is undoable with Ctrl+Z.
+
+---
+
+#### Phase 14 — File System Access & Save Strategy 📐 *planned*
 
 **Goal:** Upgrade the file open/save lifecycle from download-only to
 direct filesystem access where the browser supports it, using a
@@ -3343,7 +3667,7 @@ location regardless of browser.
 
 ---
 
-#### Phase 14 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
+#### Phase 15 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
 
 ##### New model classes (additive — no existing classes modified)
 
@@ -3605,14 +3929,14 @@ model is generic, the panel is configured rather than hardcoded:
 The flat table editor (Phases 3–8) is unchanged. The semantic graph
 panel is an additional view layer on top.
 
-##### What is explicitly deferred to Phase 13
+##### What is explicitly deferred to Phase 14
 
 - **Stable entity IDs** — `sourceEntityId` still uses the fragile
   first-cell string. Renaming a row in the CSV breaks the sidecar link.
-  Phase 13 introduces UUIDs and a stable ID registry.
-- **Semantic editing** — Phase 14 is read-only for the semantic layer.
-  Creating/editing nodes and edges via the UI is Phase 15.
-- **Native format** — CSV remains the canonical storage. Phase 16
+  Phase 14 introduces UUIDs and a stable ID registry.
+- **Semantic editing** — Phase 15 is read-only for the semantic layer.
+  Creating/editing nodes and edges via the UI is Phase 16.
+- **Native format** — CSV remains the canonical storage. Phase 17
   replaces it with a format that natively encodes the semantic layer.
 
 ##### Concrete tasks
@@ -3645,7 +3969,7 @@ panel is an additional view layer on top.
 - The semantic panel renders a tree driven by the configured edge label
 - Clicking a node with a `sourceEntityId` highlights its row in the
   flat table
-- All existing Phase 1–13 tests pass without modification
+- All existing Phase 1–14 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. The semantic panel
 shows a tree built from `"child-of"` edges: `Differential Calculus >
@@ -3657,11 +3981,11 @@ completely different tree structure from the same generic model.
 
 ---
 
-#### Phase 15 — Stable Entity Identity & Semantic Editing 📐 *planned*
+#### Phase 16 — Stable Entity Identity & Semantic Editing 📐 *planned*
 
 ##### Background and motivation
 
-Phase 14 introduces the semantic layer but leaves one critical fragility
+Phase 15 introduces the semantic layer but leaves one critical fragility
 intact: `sourceEntityId` is still the mutable first-cell string value of
 a CSV row. If the user renames "Fundamental Theorem of Calculus" to
 "FTC" in the flat table, the sidecar link silently breaks — the
@@ -3770,7 +4094,7 @@ the user saves a sidecar.
 - All semantic edits are undoable with Ctrl+Z
 - Exporting a sidecar and reloading it restores the full semantic layer
   including all UUIDs
-- All existing Phase 1–14 tests pass without modification
+- All existing Phase 1–15 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. Rename
 "Fundamental Theorem of Calculus" to "FTC" in the flat table — the
@@ -3782,7 +4106,7 @@ sidecar. Reload — the node, edge, and properties are all preserved.
 
 ---
 
-#### Phase 16 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
+#### Phase 17 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
 
 ##### Background and motivation
 
@@ -3796,7 +4120,7 @@ semantic layer grows:
 2. **No typed cells** — the type row convention (`text`, `math`) is a
    custom encoding on top of CSV, not part of the format.
 3. **No stable identity** — entity IDs are display-name strings. The
-   UUID registry (Phase 13) patches this but the patch lives outside
+   UUID registry (Phase 14) patches this but the patch lives outside
    the CSV.
 
 Phase 15 introduces a native JSON format (`.bk.json`) that natively
@@ -3887,7 +4211,7 @@ layer on top of them.
 - CSV files still load correctly via the existing path
 - The semantic layer (concepts, collections, items, families) survives
   the round-trip without any sidecar file
-- All existing Phase 1–15 tests pass without modification
+- All existing Phase 1–16 tests pass without modification
 
 **Demo:** Load `sample.bk.json` directly. The flat table, association
 graph, and collection browser all populate from a single file. Edit a

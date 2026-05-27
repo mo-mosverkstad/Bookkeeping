@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "name": "glycolysis-map",
+  "view": "flow",
+  "nodes": [
+    { "id": "Glucose",    "label": "Glucose",                    "type": "compound" },
+    { "id": "G6P",        "label": "Glucose-6-phosphate",        "type": "compound" },
+    { "id": "F6P",        "label": "Fructose-6-phosphate",       "type": "compound" },
+    { "id": "F16BP",      "label": "Fructose-1-6-bisphosphate",  "type": "compound" },
+    { "id": "DHAP",       "label": "Dihydroxyacetone phosphate", "type": "compound" },
+    { "id": "G3P",        "label": "Glyceraldehyde-3-phosphate", "type": "compound" },
+    { "id": "Pyruvate",   "label": "Pyruvate",                   "type": "compound" },
+    { "id": "Hexokinase", "label": "Hexokinase",                 "type": "enzyme" },
+    { "id": "PGI",        "label": "Phosphoglucose isomerase",   "type": "enzyme" },
+    { "id": "PFK",        "label": "Phosphofructokinase",        "type": "enzyme" },
+    { "id": "Aldolase",   "label": "Aldolase",                   "type": "enzyme" },
+    { "id": "TPI",        "label": "Triosephosphate isomerase",  "type": "enzyme" },
+    { "id": "GAPDH",      "label": "GAPDH",                      "type": "enzyme" },
+    { "id": "PK",         "label": "Pyruvate kinase",            "type": "enzyme" }
+  ],
+  "edges": [
+    { "id": "e0",  "from": "Glucose",    "to": "Hexokinase", "type": "reaction" },
+    { "id": "e1",  "from": "Hexokinase", "to": "G6P",        "type": "reaction", "label": "Hexokinase" },
+    { "id": "e2",  "from": "G6P",        "to": "PGI",        "type": "reaction" },
+    { "id": "e3",  "from": "PGI",        "to": "F6P",        "type": "reaction", "label": "PGI" },
+    { "id": "e4",  "from": "F6P",        "to": "PFK",        "type": "reaction" },
+    { "id": "e5",  "from": "PFK",        "to": "F16BP",      "type": "reaction", "label": "PFK" },
+    { "id": "e6",  "from": "F16BP",      "to": "Aldolase",   "type": "reaction" },
+    { "id": "e7",  "from": "Aldolase",   "to": "DHAP",       "type": "reaction", "label": "Aldolase" },
+    { "id": "e8",  "from": "Aldolase",   "to": "G3P",        "type": "reaction", "label": "Aldolase" },
+    { "id": "e9",  "from": "DHAP",       "to": "TPI",        "type": "reaction" },
+    { "id": "e10", "from": "TPI",        "to": "G3P",        "type": "reaction", "label": "TPI" },
+    { "id": "e11", "from": "G3P",        "to": "GAPDH",      "type": "reaction" },
+    { "id": "e12", "from": "GAPDH",      "to": "Pyruvate",   "type": "reaction", "label": "GAPDH" },
+    { "id": "e13", "from": "Pyruvate",   "to": "PK",         "type": "reaction" },
+    { "id": "e14", "from": "PK",         "to": "Pyruvate",   "type": "reaction", "label": "PK" }
+  ],
+  "nodeStyles": {
+    "compound": { "shape": "ellipse", "color": "#e0f2fe" },
+    "enzyme":   { "shape": "rect",    "color": "#fef9c3" }
+  },
+  "edgeStyles": {
+    "reaction": { "arrow": "filled", "dash": false },
+    "inhibits": { "arrow": "flat",   "dash": true  }
+  }
+}

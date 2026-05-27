@@ -1,4 +1,4 @@
-# Documentation Guide
+﻿# Documentation Guide
 
 This folder contains all documentation for the Bookkeeping Webapp project.
 Each file serves a distinct purpose and targets a different reading context.
@@ -93,7 +93,7 @@ Contents:
 
 ---
 
-## Source Structure (after Phase 12 refactoring)
+## Source Structure (after Phase 13 — View Layer Refactoring)
 
 ```
 src/
@@ -139,7 +139,6 @@ src/
 │   └── text/            # Plain text plugin (fallback)
 ├── data/            # Data persistence (CSV parser, types)
 ├── search/          # Search engine
-├── ui/              # Legacy UI functions (backward compat for tests)
 └── main.ts          # App entry point (MVC wiring)
 
 test/                # Mirrors src structure

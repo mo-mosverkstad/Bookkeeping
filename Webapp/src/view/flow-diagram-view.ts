@@ -8,12 +8,46 @@
  *   4. DAG edges use orthogonal routing; back-edges use curved arcs.
  */
 
-import type { WorkspaceView, WorkspaceData, ViewState } from "./workspace-view.ts";
-import type {
-    ResolvedNode, ResolvedEdge,
-    ResolvedActor, ResolvedMessage,
-    NodeStyle, EdgeStyle,
-} from "../data/control.ts";
+import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
+import type { NodeStyle, EdgeStyle } from "../data/control.ts";
+import type { Graph } from "../model/Graph.ts";
+import type { AppController } from "../controller/index.ts";
+
+// ── Thin adapters: Graph → the shapes renderGraph/renderSequence expect ───────
+
+interface RNode { id: string; label: string; type: string; x?: number; y?: number; extra: Record<string, string> }
+interface REdge { id: string; from: string; to: string; type: string; label: string }
+interface RActor { id: string; label: string }
+interface RMessage { from: string; to: string; label: string; time: number; type: string }
+
+function graphToNodes(g: Graph): RNode[] {
+    return g.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        x: n.properties.has("x") ? parseFloat(n.properties.get("x")!.value) : undefined,
+        y: n.properties.has("y") ? parseFloat(n.properties.get("y")!.value) : undefined,
+        extra: {},
+    }));
+}
+
+function graphToEdges(g: Graph): REdge[] {
+    return g.edges.map(e => ({ id: e.id, from: e.from, to: e.to, type: e.type, label: e.label }));
+}
+
+function graphToActors(g: Graph): RActor[] {
+    return g.nodes.map(n => ({ id: n.id, label: n.label }));
+}
+
+function graphToMessages(g: Graph): RMessage[] {
+    return g.edges.map((e, i) => ({
+        from: e.from,
+        to: e.to,
+        label: e.label,
+        time: e.properties.has("time") ? parseFloat(e.properties.get("time")!.value) : i,
+        type: e.type,
+    }));
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -67,7 +101,7 @@ interface LayoutNode {
  */
 function findCycles(
     nodeIds: string[],
-    edges: ResolvedEdge[],
+    edges: REdge[],
 ): string[][] {
     const out = new Map<string, string[]>();
     for (const id of nodeIds) out.set(id, []);
@@ -135,12 +169,12 @@ const COL_GAP     = 16;   // horizontal gap between nodes in same rank
  *      back-edges.
  */
 function computeLayout(
-    nodes: ResolvedNode[],
-    edges: ResolvedEdge[],
+    nodes: RNode[],
+    edges: REdge[],
     canvasW: number,
     canvasH: number,
 ): Map<string, LayoutNode> {
-    const nodeMap = new Map<string, ResolvedNode>(nodes.map(n => [n.id, n]));
+    const nodeMap = new Map<string, RNode>(nodes.map(n => [n.id, n]));
     const nodeIds = nodes.map(n => n.id);
 
     // ── 1. Find main cycle ────────────────────────────────────────────────────
@@ -302,7 +336,7 @@ function computeLayout(
  * Order cycle nodes by walking the cycle edges starting from the node
  * with the lowest in-degree within the cycle (most likely the entry point).
  */
-function orderCycleNodes(ids: string[], cycleEdges: ResolvedEdge[]): string[] {
+function orderCycleNodes(ids: string[], cycleEdges: REdge[]): string[] {
     if (ids.length === 0) return [];
 
     const outMap = new Map<string, string>();
@@ -401,11 +435,11 @@ function cyclePath(
  * or a "dag edge" (at least one endpoint off the cycle).
  */
 function classifyEdges(
-    edges: ResolvedEdge[],
+    edges: REdge[],
     cycleSet: Set<string>,
-): { cycleEdges: ResolvedEdge[]; dagEdges: ResolvedEdge[] } {
-    const cycleEdges: ResolvedEdge[] = [];
-    const dagEdges: ResolvedEdge[] = [];
+): { cycleEdges: REdge[]; dagEdges: REdge[] } {
+    const cycleEdges: REdge[] = [];
+    const dagEdges: REdge[] = [];
     for (const e of edges) {
         if (cycleSet.has(e.from) && cycleSet.has(e.to)) cycleEdges.push(e);
         else dagEdges.push(e);
@@ -416,14 +450,18 @@ function classifyEdges(
 // ── renderGraph ───────────────────────────────────────────────────────────────
 
 function renderGraph(
-    nodes: ResolvedNode[],
-    edges: ResolvedEdge[],
+    nodes: RNode[],
+    edges: REdge[],
     nodeStyles: Record<string, NodeStyle>,
     edgeStyles: Record<string, EdgeStyle>,
     W: number,
     H: number,
     state: DiagramState,
-    onSelect: (id: string) => void,
+    selectedEdgeId: string | null,
+    edgeDrawMode: boolean,
+    onSelect: (id: string, shapeEl: SVGElement, lblEl: SVGElement) => void,
+    onDblClick: (id: string, shapeEl: SVGElement, lblEl: SVGElement) => void,
+    onEdgeSelect: (edgeId: string) => void,
 ): SVGElement {
     const layout = computeLayout(nodes, edges, W, H);
 
@@ -488,16 +526,23 @@ function renderGraph(
         if (!from || !to) continue;
 
         const style = edgeStyles[edge.type] ?? edgeStyles[""] ?? { arrow: "filled", dash: false };
-        const color = style.color ?? "#94a3b8";
+        const isSelEdge = selectedEdgeId === edge.id;
+        const color = isSelEdge ? "#3b82f6" : (style.color ?? "#94a3b8");
         const mid   = `arrow-${edge.type || "default"}`;
 
         const d = cyclePath(from, to, circleCx, circleCy);
-        edgeGroup.appendChild(svgEl("path", {
+        const eg = svgEl("g");
+        eg.style.cursor = "pointer";
+        // Invisible wide hit area
+        eg.appendChild(svgEl("path", { d, fill: "none", stroke: "transparent", "stroke-width": "10" }));
+        eg.appendChild(svgEl("path", {
             d, fill: "none", stroke: color,
-            "stroke-width": "1.5",
+            "stroke-width": isSelEdge ? "2.5" : "1.5",
             "stroke-dasharray": style.dash ? "5 3" : "none",
             "marker-end": `url(#${mid})`,
         }));
+        eg.addEventListener("click", (e) => { e.stopPropagation(); onEdgeSelect(edge.id); });
+        edgeGroup.appendChild(eg);
 
         if (edge.label) {
             const mx = (from.x + to.x) / 2;
@@ -526,16 +571,22 @@ function renderGraph(
         if (!from || !to) continue;
 
         const style = edgeStyles[edge.type] ?? edgeStyles[""] ?? { arrow: "filled", dash: false };
-        const color = style.color ?? "#94a3b8";
+        const isSelEdge = selectedEdgeId === edge.id;
+        const color = isSelEdge ? "#3b82f6" : (style.color ?? "#94a3b8");
         const mid   = `arrow-${edge.type || "default"}`;
+        const d = orthogonalPath(from, to);
 
-        edgeGroup.appendChild(svgEl("path", {
-            d: orthogonalPath(from, to),
-            fill: "none", stroke: color,
-            "stroke-width": "1.5",
+        const eg = svgEl("g");
+        eg.style.cursor = "pointer";
+        eg.appendChild(svgEl("path", { d, fill: "none", stroke: "transparent", "stroke-width": "10" }));
+        eg.appendChild(svgEl("path", {
+            d, fill: "none", stroke: color,
+            "stroke-width": isSelEdge ? "2.5" : "1.5",
             "stroke-dasharray": style.dash ? "5 3" : "none",
             "marker-end": `url(#${mid})`,
         }));
+        eg.addEventListener("click", (e) => { e.stopPropagation(); onEdgeSelect(edge.id); });
+        edgeGroup.appendChild(eg);
 
         if (edge.label) {
             const mx = (from.x + to.x) / 2;
@@ -589,10 +640,14 @@ function renderGraph(
         lbl.textContent = labelText;
 
         const g = svgEl("g");
-        g.style.cursor = "pointer";
+        g.setAttribute("data-node-id", node.id);
+        g.style.cursor = edgeDrawMode ? "crosshair" : "pointer";
+        shapeEl.classList.add("node-shape");
+        lbl.classList.add("node-label");
         g.appendChild(shapeEl);
         g.appendChild(lbl);
-        g.addEventListener("click", () => onSelect(node.id));
+        g.addEventListener("click", (e) => { e.stopPropagation(); onSelect(node.id, shapeEl, lbl); });
+        g.addEventListener("dblclick", (e) => { e.stopPropagation(); onDblClick(node.id, shapeEl, lbl); });
         nodeGroup.appendChild(g);
     }
 
@@ -632,8 +687,8 @@ function renderGraph(
 // ── renderSequence ────────────────────────────────────────────────────────────
 
 function renderSequence(
-    actors: ResolvedActor[],
-    messages: ResolvedMessage[],
+    actors: RActor[],
+    messages: RMessage[],
     W: number,
     H: number,
 ): SVGElement {
@@ -681,17 +736,38 @@ function renderSequence(
 
 export class FlowDiagramView implements WorkspaceView {
     private readonly viewType: string;
+    private readonly controller: AppController | null;
     private container: HTMLElement | null = null;
     private svg: SVGElement | null = null;
     private state: DiagramState = { ...DEFAULT_STATE };
     private currentData: WorkspaceData | null = null;
+    private kbGraphIdx = 0;
+    private selectedEdgeId: string | null = null;
+    /** Non-null = edge-draw mode. Empty string = waiting for first node. */
+    private edgeFromNodeId: string | null = null;
+    /** Node id to enter inline-edit on next render. */
+    private pendingEditNodeId: string | null = null;
+    /** Callback to refresh the dynamic toolbar after selection changes. */
+    private toolbarRefresh: (() => void) | null = null;
+    /** Timer used to distinguish single-click from double-click. */
+    private clickTimer: ReturnType<typeof setTimeout> | null = null;
 
-    constructor(viewType: string) { this.viewType = viewType; }
+    constructor(viewType: string, controller?: AppController) {
+        this.viewType = viewType;
+        this.controller = controller ?? null;
+    }
+
+    setToolbarRefreshCallback(cb: () => void): void {
+        this.toolbarRefresh = cb;
+    }
 
     mount(container: HTMLElement, data: WorkspaceData, savedState?: ViewState): void {
         this.container = container;
         this.currentData = data;
         if (savedState) this.state = savedState as DiagramState;
+        if (data.graph && this.controller) {
+            this.kbGraphIdx = this.controller.getKnowledgeBase().graphs.indexOf(data.graph);
+        }
         this.render();
     }
 
@@ -699,6 +775,9 @@ export class FlowDiagramView implements WorkspaceView {
         if (this.svg && this.container?.contains(this.svg))
             this.container.removeChild(this.svg);
         this.svg = null;
+        this.edgeFromNodeId = null;
+        this.pendingEditNodeId = null;
+        if (this.clickTimer) { clearTimeout(this.clickTimer); this.clickTimer = null; }
         return { ...this.state };
     }
 
@@ -707,31 +786,209 @@ export class FlowDiagramView implements WorkspaceView {
         if (this.container) this.render();
     }
 
+    getToolbarActions(): ToolbarAction[] {
+        const edgeMode = this.edgeFromNodeId !== null;
+        const hasNode = this.state.selectedNodeIds.length > 0;
+        const hasEdge = this.selectedEdgeId !== null;
+        const hasSelection = hasNode || hasEdge;
+
+        const deleteLabel = hasNode ? `Delete Node` : hasEdge ? `Delete Edge` : `Delete`;
+        const deleteTitle = hasNode
+            ? `Delete selected node and its edges`
+            : hasEdge
+            ? `Delete selected edge`
+            : `Select a node or edge first`;
+
+        return [
+            { id: "add-node", label: "+ Node", title: "Add a new node" },
+            { id: "add-edge",
+              label: edgeMode ? "Cancel Edge" : "+ Edge",
+              title: edgeMode
+                ? `Cancel — click source node is "${this.edgeFromNodeId || "?"}"`
+                : "Click source node then target node to connect" },
+            { id: "delete", label: deleteLabel, title: deleteTitle, disabled: !hasSelection },
+        ];
+    }
+
+    onToolbarAction(id: string): void {
+        if (!this.controller) return;
+        const graph = this.currentData?.graph;
+        if (!graph) return;
+
+        if (id === "add-node") {
+            const base = "node";
+            let n = graph.nodes.length + 1;
+            let nodeId = `${base}-${n}`;
+            while (graph.getNode(nodeId)) nodeId = `${base}-${++n}`;
+            this.controller.addNode(this.kbGraphIdx, nodeId, { label: nodeId });
+            this.state.selectedNodeIds = [nodeId];
+            this.selectedEdgeId = null;
+            this.edgeFromNodeId = null;
+            this.pendingEditNodeId = nodeId;
+            this.render();
+            this.toolbarRefresh?.();
+
+        } else if (id === "add-edge") {
+            if (this.edgeFromNodeId !== null) {
+                this.edgeFromNodeId = null;
+            } else {
+                this.edgeFromNodeId = "";
+                this.state.selectedNodeIds = [];
+                this.selectedEdgeId = null;
+            }
+            this.render();
+            this.toolbarRefresh?.();
+
+        } else if (id === "delete") {
+            if (this.state.selectedNodeIds.length > 0) {
+                const nodeId = this.state.selectedNodeIds[0];
+                if (!confirm(`Delete node "${nodeId}" and all its edges?`)) return;
+                this.controller.removeNode(this.kbGraphIdx, nodeId);
+                this.state.selectedNodeIds = [];
+            } else if (this.selectedEdgeId) {
+                if (!confirm(`Delete this edge?`)) return;
+                this.controller.removeEdge(this.kbGraphIdx, this.selectedEdgeId);
+                this.selectedEdgeId = null;
+            }
+            this.render();
+            this.toolbarRefresh?.();
+        }
+    }
+
+    private onNodeClick(nodeId: string): void {
+        if (this.edgeFromNodeId !== null) {
+            if (this.edgeFromNodeId === "" || this.edgeFromNodeId === nodeId) {
+                // First click in edge-draw mode: set source
+                this.edgeFromNodeId = nodeId;
+                this.state.selectedNodeIds = [nodeId];
+            } else {
+                // Second click: create edge
+                this.controller?.addEdge(this.kbGraphIdx, this.edgeFromNodeId, nodeId);
+                this.edgeFromNodeId = null;
+                this.state.selectedNodeIds = [];
+            }
+        } else {
+            // Normal selection toggle
+            const idx = this.state.selectedNodeIds.indexOf(nodeId);
+            if (idx >= 0) this.state.selectedNodeIds.splice(idx, 1);
+            else this.state.selectedNodeIds = [nodeId];
+            this.selectedEdgeId = null;
+        }
+        this.render();
+        this.toolbarRefresh?.();
+    }
+
+    private onNodeDblClick(nodeId: string, shapeEl: SVGElement, lblEl: SVGElement): void {
+        if (!this.controller) return;
+        const graph = this.currentData?.graph;
+        if (!graph) return;
+        const node = graph.getNode(nodeId);
+        if (!node) return;
+
+        // Hide the SVG text label
+        lblEl.style.display = "none";
+
+        // Size the foreignObject to the shape bounding box
+        let bbox: { x: number; y: number; width: number; height: number };
+        try {
+            bbox = (shapeEl as SVGGraphicsElement).getBBox();
+        } catch {
+            bbox = { x: 0, y: 0, width: 80, height: 24 };
+        }
+
+        const fo = svgEl("foreignObject", {
+            x: bbox.x, y: bbox.y,
+            width: Math.max(bbox.width, 80), height: Math.max(bbox.height, 24),
+        }) as SVGForeignObjectElement;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = node.label;
+        input.style.cssText = [
+            "width:100%;height:100%;box-sizing:border-box;",
+            "border:2px solid #3b82f6;border-radius:3px;",
+            "font:11px system-ui,sans-serif;text-align:center;",
+            "background:#fff;outline:none;padding:0 4px;",
+        ].join("");
+
+        fo.appendChild(input);
+        // Append to the panGroup's parent so it sits above the node
+        shapeEl.closest("g[transform]")?.appendChild(fo)
+            ?? shapeEl.parentElement?.appendChild(fo);
+
+        let committed = false;
+        const commit = () => {
+            if (committed) return;
+            committed = true;
+            const newLabel = input.value.trim() || node.label;
+            fo.remove();
+            lblEl.style.display = "";
+            if (newLabel !== node.label) {
+                this.controller!.editNodeLabel(this.kbGraphIdx, nodeId, newLabel);
+                this.render();
+            }
+        };
+
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter")  { e.preventDefault(); commit(); }
+            if (e.key === "Escape") { committed = true; fo.remove(); lblEl.style.display = ""; }
+        });
+        input.addEventListener("blur", commit);
+
+        requestAnimationFrame(() => { input.focus(); input.select(); });
+    }
+
     private render(): void {
-        if (!this.container || !this.currentData?.diagram) return;
+        if (!this.container || !this.currentData?.graph) return;
         if (this.svg && this.container.contains(this.svg))
             this.container.removeChild(this.svg);
 
-        const diagram = this.currentData.diagram;
+        const graph = this.currentData.graph;
         const W = this.container.clientWidth  || 800;
         const H = this.container.clientHeight || 600;
 
         if (this.viewType === "sequence") {
-            this.svg = renderSequence(diagram.actors ?? [], diagram.messages ?? [], W, H);
+            this.svg = renderSequence(graphToActors(graph), graphToMessages(graph), W, H);
         } else {
+            const edgeMode = this.edgeFromNodeId !== null;
             this.svg = renderGraph(
-                diagram.nodes ?? [], diagram.edges ?? [],
-                diagram.nodeStyles ?? {}, diagram.edgeStyles ?? {},
-                W, H, this.state,
-                (id) => {
-                    const idx = this.state.selectedNodeIds.indexOf(id);
-                    if (idx >= 0) this.state.selectedNodeIds.splice(idx, 1);
-                    else this.state.selectedNodeIds = [id];
-                    if (this.container) this.render();
+                graphToNodes(graph), graphToEdges(graph),
+                graph.nodeStyles, graph.edgeStyles,
+                W, H, this.state, this.selectedEdgeId, edgeMode,
+                // Single-click: use timer to distinguish from dblclick
+                (nodeId, _shapeEl, _lblEl) => {
+                    if (this.clickTimer) { clearTimeout(this.clickTimer); this.clickTimer = null; }
+                    this.clickTimer = setTimeout(() => {
+                        this.clickTimer = null;
+                        this.onNodeClick(nodeId);
+                    }, 220);
+                },
+                // Double-click: cancel pending single-click, enter edit
+                (nodeId, shapeEl, lblEl) => {
+                    if (this.clickTimer) { clearTimeout(this.clickTimer); this.clickTimer = null; }
+                    this.onNodeDblClick(nodeId, shapeEl, lblEl);
+                },
+                (edgeId) => {
+                    this.selectedEdgeId = this.selectedEdgeId === edgeId ? null : edgeId;
+                    this.state.selectedNodeIds = [];
+                    this.render();
+                    this.toolbarRefresh?.();
                 },
             );
         }
 
         this.container.appendChild(this.svg);
+
+        // Trigger inline edit for newly added node
+        if (this.pendingEditNodeId && this.svg) {
+            const nodeId = this.pendingEditNodeId;
+            this.pendingEditNodeId = null;
+            const g = this.svg.querySelector(`[data-node-id="${nodeId}"]`);
+            if (g) {
+                const shapeEl = g.querySelector(".node-shape") as SVGElement;
+                const lblEl   = g.querySelector(".node-label") as SVGElement;
+                if (shapeEl && lblEl) this.onNodeDblClick(nodeId, shapeEl, lblEl);
+            }
+        }
     }
 }
