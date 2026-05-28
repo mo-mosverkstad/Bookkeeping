@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "name": "Hardware Reference",
+  "sections": [
+    {
+      "id": "boolean-algebra",
+      "title": "Boolean Algebra",
+      "block": {
+        "type": "table",
+        "file": "hardware-boolean.csv"
+      }
+    },
+    {
+      "id": "logic-gates",
+      "title": "Logic Gates",
+      "block": {
+        "type": "table",
+        "file": "hardware-gates.csv"
+      }
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPlugin, renderCell } from "../../src/plugins/registry.ts";
+import { getPlugin, renderCell } from "../../src/cell-renderers/registry.ts";
 
 // ── Plugin Registry ───────────────────────────────────────────────────────────
 

@@ -5,11 +5,12 @@
  */
 
 import { AppController } from "./controller/index.ts";
-import { GraphFilterView } from "./view/graph-filter-view.ts";
-import { SearchView } from "./view/search-view.ts";
-import { WorkspaceController } from "./view/workspace-controller.ts";
-import { AppShell } from "./view/app-shell.ts";
-import { SourceEditorView } from "./view/source-editor-view.ts";
+import { GraphFilterView } from "./shell/graph-filter-view.ts";
+import { SearchView } from "./shell/search-view.ts";
+import { WorkspaceController } from "./knowledge-pane/workspace-controller.ts";
+import { AppShell } from "./shell/app-shell.ts";
+import { SourceEditorView } from "./source-editor/source-editor-view.ts";
+import { NavigationTreeView } from "./shell/navigation-tree-view.ts";
 
 window.addEventListener("load", () => {
     // ── DOM references ────────────────────────────────────────────────────────
@@ -23,6 +24,9 @@ window.addEventListener("load", () => {
     const sessionBanner        = document.getElementById("session-banner") as HTMLElement;
     const btnExport            = document.getElementById("btn-export-csv")!;
     const btnToggleSidebar     = document.getElementById("btn-toggle-sidebar")!;
+    const btnToggleNav         = document.getElementById("btn-toggle-nav")!;
+    const navTreePanel         = document.getElementById("nav-tree-panel")!;
+    const navTreeEl            = document.getElementById("nav-tree")!;
     const dynamicToolbar       = document.getElementById("dynamic-toolbar")!;
     const statusText           = document.getElementById("status-text")!;
     const sidebarEl            = document.getElementById("sidebar")!;
@@ -55,7 +59,11 @@ window.addEventListener("load", () => {
     const sourceEditor = new SourceEditorView(controller, sourceEditorContainer);
 
     // ── AppShell ──────────────────────────────────────────────────────────────
-    const shell = new AppShell(controller, workspace, sourceEditor, {
+    // Navigation tree
+    const navTree = new NavigationTreeView(navTreeEl, controller);
+    navTree.setWorkspaceController(workspace);
+
+    const shell = new AppShell(controller, workspace, sourceEditor, navTree, {
         fileInput,
         workspaceEl,
         errorEl,
@@ -63,6 +71,8 @@ window.addEventListener("load", () => {
         dynamicToolbar,
         btnExport,
         btnToggleSidebar,
+        btnToggleNav,
+        navTreePanel,
         sidebarEl,
         statusText,
     });

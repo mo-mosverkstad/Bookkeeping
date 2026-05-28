@@ -9,8 +9,8 @@
  */
 
 import type { KnowledgeBase } from "../model/index.ts";
-import { parser } from "../plugins/math/grammar.ts";
-import type { MathNode } from "../plugins/math/types.ts";
+import { parser } from "../cell-renderers/math/grammar.ts";
+import type { MathNode } from "../cell-renderers/math/types.ts";
 
 // ── Result types ──────────────────────────────────────────────────────────────
 

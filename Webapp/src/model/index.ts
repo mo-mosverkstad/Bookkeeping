@@ -13,3 +13,5 @@ export { GraphNode } from "./GraphNode.ts";
 export { GraphEdge } from "./GraphEdge.ts";
 export { Graph } from "./Graph.ts";
 export type { GraphViewType } from "./Graph.ts";
+export { Document, Section } from "./Document.ts";
+export type { Block, TableBlock, GraphBlock, ReferenceMapping } from "./Document.ts";

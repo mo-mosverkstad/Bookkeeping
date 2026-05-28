@@ -1423,3 +1423,189 @@ This was a bug fixed in Phase 14. If text is invisible, check that
 This was a bug fixed in Phase 14. The fix checks `syntaxType` in the
 keydown handler. Ensure `source-editor-view.ts` has the single-line
 syntax check: `["math", "chemistry"].includes(this.syntaxType)`.
+
+---
+
+## Phase 15.B - Document Model, Navigation Tree & Tab Lifecycle
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Prerequisites
+
+The following files from `Webapp/public/` are needed for the full demo:
+
+```
+control.json
+mathematics.doc.json
+math-calculus.csv
+math-linear-algebra.csv
+biochemistry.doc.json
+glycolysis-compounds.csv
+glycolysis.graph.json
+krebs.graph.json
+metabolism.graph.json
+hardware.doc.json
+hardware-boolean.csv
+hardware-gates.csv
+theorems.csv
+glycolysis-nodes.csv
+glycolysis-edges.csv
+krebs-nodes.csv
+krebs-edges.csv
+metabolism-edges.csv
+```
+
+---
+
+## Demo Steps
+
+### 1. Load all public files
+
+1. Open `Webapp/public/` in a file explorer
+2. Select all files (Ctrl+A)
+3. Drag them onto the workspace drop zone in the browser
+
+After loading, the status bar shows something like:
+`Loaded control.json with 6 entries`
+
+### 2. Verify the navigation tree
+
+The left sidebar (nav tree) should show:
+
+```
+📁 Biochemistry Reference
+    ▤ Glycolysis Compounds
+    ◈ Glycolysis Pathway
+    ◈ Krebs Cycle
+    ◈ Full Metabolism Overview
+📁 Hardware Reference
+    ▤ Boolean Algebra
+    ▤ Logic Gates
+📁 Mathematics Reference
+    ▤ Calculus
+    ▤ Linear Algebra
+📁 Standalone
+    ▤ theorems
+    ▤ glycolysis-table
+    ◈ glycolysis-map
+    ▤ krebs-table
+    ◈ krebs-map
+    ◈ metabolism-map
+```
+
+Documents appear as collapsible folders. Standalone items (loaded via
+`control.json` but not owned by any document) appear under Standalone.
+
+### 3. Open a document tab
+
+1. Click the **Mathematics Reference** folder label in the nav tree
+2. A new tab opens: `Mathematics Reference`
+3. The workspace shows the document with two collapsible sections:
+   - **Calculus** — a table of calculus formulas with math rendering
+   - **Linear Algebra** — a table of linear algebra formulas
+
+### 4. Open a section directly
+
+1. Click **Calculus** under Mathematics Reference in the nav tree
+2. The Mathematics Reference tab activates (or opens if not already open)
+3. The view scrolls to the Calculus section
+
+### 5. Collapse and expand a section
+
+1. Click the section header arrow (▼) next to **Calculus**
+2. The section collapses — only the header is visible
+3. Click again — the section expands
+4. Switch to another tab and back — collapse state is preserved
+
+### 6. Open a document with graphs
+
+1. Click **Biochemistry Reference** in the nav tree
+2. A new tab opens showing four sections:
+   - Glycolysis Pathway (graph/diagram)
+   - Glycolysis Compounds (table)
+   - Krebs Cycle (graph/diagram)
+   - Full Metabolism Overview (graph/diagram)
+3. Each graph section renders the SVG diagram inline within the document
+
+### 7. Verify closeable tabs
+
+1. Open several items from the nav tree (Mathematics Reference, Hardware Reference, theorems)
+2. Each click opens a new tab with a ✕ button
+3. Click ✕ on the Mathematics Reference tab — it closes
+4. The adjacent tab activates automatically
+5. Click Mathematics Reference in the nav tree again — it reopens
+
+### 8. Verify standalone items
+
+1. Click **theorems** under Standalone in the nav tree
+2. A plain table tab opens (not inside any document)
+3. Click **glycolysis-map** under Standalone
+4. The glycolysis flow diagram opens as a standalone tab
+
+### 9. Toggle the nav tree panel
+
+1. Click the **☰ Nav** button in the toolbar
+2. The nav tree panel collapses — workspace takes full width
+3. Click again — the panel expands and restores
+
+### 10. Edit a cell inside a document section
+
+1. Open Mathematics Reference
+2. Click any math cell in the Calculus section
+3. The source editor sidebar populates with the cell's raw source
+4. Edit the source and click Apply
+5. The cell in the document section updates immediately
+
+---
+
+## Expected Behaviour Summary
+
+| Action | Expected result |
+|--------|----------------|
+| Click document folder label | Opens document tab |
+| Click section leaf | Opens document tab + scrolls to section |
+| Click standalone item | Opens standalone table/graph tab |
+| Click ✕ on tab | Closes tab, activates adjacent tab |
+| Reopen closed tab via nav tree | Tab reopens with fresh state |
+| Collapse section header | Section body hides, state saved across tab switches |
+| Toggle nav panel | Panel collapses/expands with animation |
+| Apply in source editor | Cell updates immediately in document section |
+
+---
+
+## Troubleshooting
+
+### Nav tree shows "No files loaded"
+Files were not dropped or the load failed. Check the status bar and browser
+console for error messages. Make sure all files were selected before dropping.
+
+### Documents show 0 sections
+The `.doc.json` file references CSV/graph files that were not included in
+the drop. All files referenced by a `.doc.json` must be dropped together.
+Check the browser console for "not loaded, skipping section" warnings.
+
+### Documents not visible in nav tree (only Standalone items)
+This was the main bug fixed in Phase 15.B. If it recurs, check:
+1. The `.doc.json` files are included in the drop
+2. `control.json` is present (if using the control file path)
+3. The browser console shows `[registerAllTabs] docs: N` with N > 0
+
+### Apply shows "No active cell" error
+Click a cell in the table first to activate it, then edit in the source
+editor and click Apply. The source editor must be populated by a cell click
+before Apply works.
+
+### Graph sections inside a document show blank
+The `.graph.json` file referenced by the document section was not loaded.
+Ensure all graph files are included in the drop alongside the `.doc.json`.

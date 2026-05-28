@@ -1,4 +1,4 @@
-# Study — Design & Planning
+﻿# Study — Design & Planning
 
 ---
 
@@ -47,18 +47,18 @@ conflict — they are complementary layers of the same underlying data.
 
 ```
 Knowledge Entity
-├── Internal properties     (scalar values, expressions, text, diagrams)
-│   ├── Property A
-│   ├── Property B
-│   └── ...
-└── Associations            (links to other entities, typed by vocabulary)
-    ├── → Entity X  (type: "is-special-case-of")
-    ├── → Entity Y  (type: "used-in-proof-of")
-    └── ...
+ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Internal properties     (scalar values, expressions, text, diagrams)
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Property A
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Property B
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ ...
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Associations            (links to other entities, typed by vocabulary)
+    ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Entity X  (type: "is-special-case-of")
+    ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Entity Y  (type: "used-in-proof-of")
+    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ ...
 ```
 
-Entities of the same kind share a property schema → they form a **table**.
-Tables can be linked to other tables via explicit associations → they form
+Entities of the same kind share a property schema ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ they form a **table**.
+Tables can be linked to other tables via explicit associations ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ they form
 a **graph of tables**.
 
 Constant properties shared across a table can be factored into a
@@ -96,11 +96,11 @@ preserving enough structure for consistent querying.
 Querying the system means asking the graph to filter and reorder entities,
 then projecting the result as a table. For example:
 
-- "Show all theorems that use integration by parts" →
+- "Show all theorems that use integration by parts" ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
   graph traversal (filter by relation type `uses`, target = integration-by-parts entity)
-  → project matching entities as a table
-- "Show all entities related to the Fundamental Theorem of Calculus" →
-  graph neighbourhood query → project as a table
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ project matching entities as a table
+- "Show all entities related to the Fundamental Theorem of Calculus" ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
+  graph neighbourhood query ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ project as a table
 
 This is a hybrid database model: graph storage + tabular projection. Basic
 filtering (by property value or relation type) is the primary query pattern.
@@ -124,17 +124,17 @@ Example vocabularies:
 
 ```
 Math relations:
-  generalizes          ↔  is-special-case-of
-  proves               ↔  is-proved-by
-  uses                 ↔  is-used-by
-  defines              ↔  is-defined-by
+  generalizes          ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â  is-special-case-of
+  proves               ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â  is-proved-by
+  uses                 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â  is-used-by
+  defines              ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â  is-defined-by
   equivalent-to            (symmetric)
 
 Chemistry relations:
   reacts-with              (symmetric)
-  produces             ↔  is-produced-by
+  produces             ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â  is-produced-by
   is-isomer-of             (symmetric)
-  catalyzes            ↔  is-catalyzed-by
+  catalyzes            ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Â  is-catalyzed-by
 ```
 
 New relation types are added to the vocabulary as needed. The vocabulary
@@ -225,7 +225,7 @@ dependency of every other grammar plugin.
 ```
 Base layer
   Math syntax     — algebra, calculus, linear algebra
-      ↑ embedded by all domain grammars for scalar/algebraic values
+      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬Ëœ embedded by all domain grammars for scalar/algebraic values
 
 Domain grammar plugins
   Geometry syntax     — points, lines, angles, constructions, proofs
@@ -254,8 +254,8 @@ The rendering and parsing of data blobs is designed to be **plugin-based**:
 
 - Each data type (math expression, chemical equation, diagram, plain text,
   etc.) is handled by a dedicated plugin
-- A plugin provides: a parser (text → internal representation), a renderer
-  (internal representation → visual output), and optionally a binary encoder/
+- A plugin provides: a parser (text ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ internal representation), a renderer
+  (internal representation ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ visual output), and optionally a binary encoder/
   decoder
 - Plugins can be composed — a table cell can contain a math expression blob
   rendered by the math syntax plugin, inside a table rendered by the table plugin
@@ -330,18 +330,18 @@ different structural characteristics:
 ```
 Layer 1 — Flat tabular data
   Tables, columns, rows, typed cells
-  → Homogeneous within a table, heterogeneous across tables
-  → Natural fit: relational tables
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Homogeneous within a table, heterogeneous across tables
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Natural fit: relational tables
 
 Layer 2 — Association graph
   Directed typed edges between entities (uses, derives-from, etc.)
-  → Sparse, variable degree, vocabulary-controlled
-  → Natural fit: edge table in relational, or native graph DB
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Sparse, variable degree, vocabulary-controlled
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Natural fit: edge table in relational, or native graph DB
 
 Layer 3 — Semantic graph
   Generic labelled property graph (SemanticNode + SemanticEdge)
-  → Fully schema-free, arbitrary property bags
-  → Natural fit: property graph DB, or EAV in relational
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Fully schema-free, arbitrary property bags
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Natural fit: property graph DB, or EAV in relational
 ```
 
 These three layers have different query patterns, different mutability
@@ -750,6 +750,409 @@ ORDER BY CAST(json_extract(properties_json, '$.position') AS INTEGER);
 
 ---
 
+---
+
+## Part I.B — Document Model: Blending Tables and Graphs
+
+This section records a design analysis reached after Phase 15. It addresses
+the hardest open problem in the system: how to represent knowledge that
+requires both tabular structure and graph topology simultaneously.
+
+---
+
+### The blending problem
+
+Almost every real-world cheat sheet mixes tables and graphs. A biochemistry
+reference sheet has metabolic pathway diagrams and compound property tables
+for the same domain. An anatomy reference sheet has spatial relationship
+diagrams and organ property tables. A hardware architecture reference sheet
+has bus topology diagrams and instruction set tables.
+
+The naive solutions all fail:
+
+**Embedding graphs in table cells** — a `pathway` cell type whose value is a
+serialised graph. Fails because: the cell value becomes a large opaque blob
+inside a CSV; the graph nodes duplicate entity data already in companion
+tables; the two copies drift out of sync; editing a graph-in-a-cell requires
+a fundamentally different editor than editing a math expression.
+
+**Making Table and Graph co-equal top-level objects** — the current model.
+Fails for blended content because: there is no coordination layer; the user
+must manually navigate between a table tab and a graph tab to see related
+content; numbered labels on graph nodes cannot reference table rows.
+
+**Removing Graph and replacing everything with tables** — fails because graphs
+are the correct representation for pathway topology, anatomical connectivity,
+and architectural relationships. Forcing graph data into table rows loses the
+topological structure entirely.
+
+---
+
+### The correct framing: granularity
+
+The question is not "graph or table?" The question is:
+
+> At what granularity does the user want to navigate and edit knowledge?
+
+For a cheat sheet, the answer is: **the reference sheet is the unit**. A
+biochemistry cheat sheet is one thing. A metabolism cheat sheet is one thing.
+The user opens a reference sheet, sees all its content, and edits it.
+
+A reference sheet is not a table. It is not a graph. It is a **Document** that
+contains both. The document has sections. Some sections are tables. Some
+sections are charts. Some sections are mixed — a chart with numbered labels
+that map into a companion table.
+
+---
+
+### Illustration vs Chart — the critical distinction
+
+Not all visual diagrams are the same kind of thing. There are two fundamentally
+different uses of node-and-edge diagrams in a reference sheet:
+
+**Chart** — a large navigable diagram that is itself the primary content of a
+section. The topology is the knowledge. Nodes have real entity identity,
+typed properties, and associations with other entities in the system. The user
+navigates it, zooms in, clicks nodes, edits properties. Size: medium to large
+(10–100+ nodes).
+
+Examples: glycolysis pathway, Krebs cycle, cell anatomy overview, CPU bus
+topology, nervous system connectivity.
+
+**Illustration** — a small inline visual that explains a concept inside a
+reference entry. The entities are the knowledge; the diagram is a visual aid.
+Nodes have no independent identity. The user reads past it. Size: small
+(3–8 nodes). Lives inside a table cell as a `TypedValue` with
+`typeId: "illustration"`.
+
+Examples: a UML class diagram example in a notation reference, a logic gate
+symbol, a small state machine example, a circuit snippet.
+
+**The decision rule:**
+
+> Use a Chart when the topology is the knowledge.
+> Use an Illustration when the entities are the knowledge and the diagram
+> is a visual aid.
+
+This distinction prevents the pathological case of a UML cheat sheet
+generating 15 separate `.graph.json` files for 15 small illustrative examples.
+Those examples are Illustrations — they live in table cells, not as top-level
+graph files.
+
+**Why this is not confusing:**
+
+The context makes the type unambiguous. If a diagram fills a section of a
+document, it is a Chart. If a diagram is inside a table cell, it is an
+Illustration. The user never has to ask "which kind is this?" — the location
+answers the question.
+
+---
+
+### Graph type taxonomy
+
+Not all Charts are the same kind of graph. The `viewType` field on a
+`.graph.json` file declares the rendering strategy:
+
+| viewType | Structure | Layout | Examples |
+|---|---|---|---|
+| `flow` | Directed graph, possibly cyclic | Layered + circular for cycles | Metabolic pathways, flowcharts |
+| `spatial` | Containment + adjacency | Fixed positions, containment boxes | Anatomy, system architecture |
+| `relation` | General directed graph | Force-directed | UML class diagrams (large), concept maps |
+| `sequence` | Ordered actors × messages | Lifelines + arrows | UML sequence diagrams (large) |
+| `network` | Undirected or directed | Force-directed | Hardware bus topology, computer networks |
+
+The `network` viewType is new — it covers hardware and network graphs where
+the connection structure matters but there is no natural directional flow or
+spatial containment.
+
+---
+
+### The clean architecture
+
+**Three distinct layers, each with a single responsibility:**
+
+```
+Layer 1 — Filesystem (navigation)
+  Domain folders, document files, table files, graph files.
+  The folder hierarchy is the navigation structure.
+  Folders can cross-reference each other (cycles allowed —
+  a document can belong to multiple domains).
+
+Layer 2 — Document (orchestration)
+  A .doc.json file that declares which tables and graphs
+  belong to this reference sheet, how they are arranged
+  into sections, and how they reference each other.
+  The document is the coordination layer.
+
+Layer 3 — Table / Graph (atomic data)
+  .csv / .table.json files and .graph.json files.
+  Each is self-contained and knows nothing about the others.
+  A table does not know it is part of a document.
+  A graph does not know it is part of a document.
+```
+
+**Key principle: Table and Graph stay atomic.**
+
+A `Table` is a collection of entities with shared properties. Nothing more.
+A `Graph` is a topology of nodes and edges. Nothing more.
+The Document is the only place where they are combined and coordinated.
+Illustrations are `TypedValue` objects inside table cells — they are not
+Graph model objects.
+
+---
+
+### The Document file format
+
+A `.doc.json` file declares a reference sheet:
+
+```json
+{
+  "version": "1.0",
+  "name": "Cellular Anatomy",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Overview Chart",
+      "block": {
+        "type": "graph",
+        "file": "cellular-anatomy.graph.json",
+        "labelStyle": "numbered"
+      }
+    },
+    {
+      "id": "structures",
+      "title": "Structures",
+      "block": {
+        "type": "table",
+        "file": "cellular-structures.csv"
+      },
+      "referenceMapping": {
+        "chartSection": "overview",
+        "nodeIdColumn": "Number",
+        "labelColumn": "Name"
+      }
+    },
+    {
+      "id": "glycolysis",
+      "title": "Glycolysis Pathway",
+      "block": {
+        "type": "graph",
+        "file": "glycolysis.graph.json"
+      }
+    },
+    {
+      "id": "compounds",
+      "title": "Compounds",
+      "block": {
+        "type": "table",
+        "file": "compounds.csv"
+      }
+    }
+  ]
+}
+```
+
+**The numbered-label pattern:**
+
+When `labelStyle: "numbered"`, the chart renderer shows sequential integers
+(1, 2, 3, ...) on nodes instead of their full labels. The `referenceMapping`
+in the companion table section declares that column `Number` in the table
+corresponds to node IDs in the chart, and column `Name` is the display label.
+The user sees the chart with numbers and the table with descriptions — exactly
+how real anatomy diagrams work. This is a *reference mapping*, not an
+embedding. The graph file and the table file are independent.
+
+**The UML cheat sheet — using Illustrations:**
+
+```json
+{
+  "version": "1.0",
+  "name": "UML Reference",
+  "sections": [
+    {
+      "id": "diagram-types",
+      "title": "Diagram Types",
+      "block": {
+        "type": "table",
+        "file": "uml-diagram-types.csv"
+      }
+    }
+  ]
+}
+```
+
+`uml-diagram-types.csv`:
+```
+Name,Example,Description
+text,illustration,text
+Class Diagram,[illustration source],Shows classes and relationships
+Sequence Diagram,[illustration source],Shows object interactions over time
+State Machine,[illustration source],Shows states and transitions
+```
+
+The `illustration` column contains `TypedValue` objects with
+`typeId: "illustration"`. The cell renderer produces a small SVG. No
+`.graph.json` files needed. No pathological overhead.
+
+---
+
+### The folder hierarchy as a navigation graph
+
+The filesystem folder structure is the navigation layer. It is not a strict
+tree — a document can appear in multiple domain folders via cross-references.
+The navigation view renders the folder hierarchy as a graph (cycles allowed).
+
+```
+Bookkeeping/
+  Biochemistry/
+    cellular-anatomy.doc.json
+    glycolysis.doc.json
+    krebs.doc.json
+    compounds.csv
+    glycolysis.graph.json
+    krebs.graph.json
+    cellular-anatomy.graph.json
+    cellular-structures.csv
+  Biology/
+    nervous-system.doc.json
+    cell-biology.doc.json      <- cross-references Biochemistry/cellular-anatomy
+  Hardware/
+    cpu-architecture.doc.json
+    logic-gates.doc.json       <- uses illustration cells, no .graph.json files
+    instruction-set.csv
+    pipeline.graph.json
+  Mathematics/
+    calculus.doc.json
+    linear-algebra.doc.json
+    theorems.csv
+```
+
+The navigation view shows this hierarchy. Clicking a `.doc.json` file opens
+the document in the Knowledge Pane. The Knowledge Pane renders the document's
+sections in order.
+
+---
+
+### How the Source Editor fits
+
+The Source Editor remains the sidebar panel. Its behaviour depends on what
+the user focuses in the Knowledge Pane:
+
+- **Focus a table cell (math, chemistry, text, etc.)** — Source Editor shows
+  the cell's raw source. Apply commits the edit. Unchanged from current
+  behaviour.
+
+- **Focus a table cell (illustration)** — Source Editor shows the illustration
+  source notation. Apply re-renders the illustration. Same mechanism as math
+  cells — the editing unit is always a `TypedValue`.
+
+- **Focus a chart node property** — Source Editor shows the property value's
+  raw source (e.g. a `formula` property typed as `math`). Apply commits the
+  edit. The editing unit is always a `TypedValue`.
+
+- **Focus a chart node label** — inline edit (double-click, already
+  implemented). The Source Editor is not needed for plain string labels.
+
+- **Focus a document section header** — Source Editor shows the section's
+  `.doc.json` fragment. Apply updates the document structure. Future.
+
+The Source Editor never shows an entire chart as source. Structural chart
+editing (adding nodes, edges, rearranging) is done through the graph editing
+toolbar. The Source Editor handles *content* (TypedValue expressions), not
+*structure*.
+
+---
+
+### What changes in the architecture
+
+**Model layer:**
+- Add `Document` class: `{ name, sections: Section[] }`
+- Add `Section` class: `{ id, title, block: TableBlock | GraphBlock, referenceMapping? }`
+- `KnowledgeBase` gains `documents: Document[]`
+- `Table` and `Graph` are unchanged — they remain atomic
+- Add `network` to `GraphViewType` union
+
+**Data layer:**
+- Add `.doc.json` file format and parser
+- `AppShell.loadFiles` detects `.doc.json` files and loads them as Documents
+- A Document's referenced table and graph files are loaded automatically
+
+**Cell renderer layer:**
+- Add `illustration` CellRenderer — parses a compact inline notation,
+  renders a small SVG diagram. The notation language is to be designed.
+  This is a future phase.
+
+**View layer:**
+- `DocumentView` implements `WorkspaceView` — renders a Document's sections
+- The tab strip shows Documents (and standalone Tables/Graphs for backward
+  compatibility)
+- `DocumentView` renders each section: `TableView` for table blocks,
+  `FlowDiagramView` for graph blocks, with reference mapping applied
+- `FlowDiagramView` gains `network` layout strategy
+
+**Navigation layer (future):**
+- A folder tree view that renders the domain hierarchy as a navigable graph
+- Clicking a document node opens it in the Knowledge Pane
+
+---
+
+### What does NOT change
+
+- `Table`, `Graph`, `TypedValue`, `Cell`, `GraphNode`, `GraphEdge` — unchanged
+- `TableView`, `FlowDiagramView` — unchanged; reused inside `DocumentView`
+- `control.json` — remains supported as a legacy orchestration format;
+  `.doc.json` is the successor
+- All existing `.csv` and `.graph.json` files — unchanged; they load as
+  standalone tabs exactly as before (backward compatible)
+- The Source Editor's cell-editing behaviour — unchanged
+
+---
+
+### Terminology summary
+
+| Term | Definition |
+|---|---|
+| **Document** | A `.doc.json` file that orchestrates one reference sheet. Contains sections. |
+| **Section** | A named block within a Document. Contains one Table or one Chart. |
+| **Chart** | A large navigable diagram (`.graph.json`). The topology is the knowledge. Nodes have entity identity. |
+| **Illustration** | A small inline diagram inside a table cell (`typeId: "illustration"`). The entities are the knowledge; the diagram is a visual aid. |
+| **Reference mapping** | A declaration in a Document that connects chart node IDs to table row IDs (the legend pattern). |
+| **Knowledge Pane** | The central view area. Shows a Document, Table, or Chart. |
+| **Chart viewType** | `flow`, `spatial`, `relation`, `sequence`, `network` — declares the rendering strategy for a Chart. |
+
+---
+
+### Open questions
+
+1. **Illustration notation language** — what is the compact inline syntax for
+   illustrations? It must be expressive enough for UML snippets, logic gate
+   symbols, and small state machines, but compact enough to live in a CSV cell.
+   This requires its own grammar design phase.
+
+2. **Reference mapping maintenance** — when a chart uses numbered labels that
+   map to table rows, how is the mapping maintained when rows are reordered or
+   nodes are added? The mapping is declared in the document; the document must
+   be updated when either the table or chart changes.
+
+3. **Cross-document entity identity** — a compound in `compounds.csv` may
+   appear as a node in `glycolysis.graph.json` and also in `krebs.graph.json`.
+   The stable UUID registry (Phase 19) is the long-term solution. For now,
+   the node ID in the graph must match the first-column value in the table.
+
+4. **Document editing UI** — how does the user create and edit `.doc.json`
+   files? A document editor (add section, reorder sections, assign files to
+   blocks) is needed. This is a future phase.
+
+5. **Folder loading** — the current file picker loads individual files. Loading
+   a domain folder requires either a folder picker (File System Access API,
+   Phase 17) or a zip archive.
+
+6. **Navigation graph** — the folder hierarchy rendered as a navigable graph
+   is a significant new view. Deferred until the Document model is implemented
+   and the testresources are rectified (Phase 16).
+
+---
+
 ## Part II — Webapp: Delivery Vehicle
 
 The Webapp is the web-browser-based implementation of the Bookkeeping
@@ -817,13 +1220,13 @@ function resolveGlyph(raw: string): string {
 ```
 
 Examples:
-- `\a` → `{ raw: "a" }` → `GLYPH_TABLE["a"]` → `α`
-- `\fa` → `{ raw: "fa" }` → `GLYPH_TABLE["fa"]` → no entry → renders `fa`
-- `\faa` → `{ raw: "faa" }` → `GLYPH_TABLE["faa"]` → `ا` (Persian alef)
-- `\ha` → `{ raw: "ha" }` → `GLYPH_TABLE["ha"]` → `ℵ`
-- `\sin` → `{ raw: "sin" }` → no entry → renders `sin` ✓
-- `\pm` → `{ raw: "pm" }` → `GLYPH_TABLE["pm"]` → `±`
-- `\1fa` → `{ raw: "fa", skew: "right" }` → `ا` with right-skew CSS
+- `\a` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "a" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `GLYPH_TABLE["a"]` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `ÃƒÅ½Ã‚Â±`
+- `\fa` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "fa" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `GLYPH_TABLE["fa"]` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ no entry ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ renders `fa`
+- `\faa` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "faa" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `GLYPH_TABLE["faa"]` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `ÃƒËœÃ‚Â§` (Persian alef)
+- `\ha` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "ha" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `GLYPH_TABLE["ha"]` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ`
+- `\sin` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "sin" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ no entry ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ renders `sin` ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- `\pm` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "pm" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `GLYPH_TABLE["pm"]` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `Ãƒâ€šÃ‚Â±`
+- `\1fa` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "fa", skew: "right" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `ÃƒËœÃ‚Â§` with right-skew CSS
 
 Skew is used in physics to disambiguate conflicting symbols. For example,
 `T` is period time and `` `1T `` is temperature — visually distinct,
@@ -835,14 +1238,14 @@ extension to additional variants without breaking the grammar.
 #### Vector/Matrix Name Decorator
 
 `[a]` denotes the **vector or matrix named `a`**, rendered with an arrow
-over it (`a⃗`). It is a name decorator, not a container literal. The
+over it (`aÃƒÂ¢Ã†â€™Ã¢â‚¬â€`). It is a name decorator, not a container literal. The
 brackets signal that `a` is a vector/matrix quantity, visually
 distinguishing it from the scalar `a`.
 
 The parser distinguishes by content inside `[...]`:
-- `[single_identifier]` — name decorator → `VectorNameNode`, renders as `a⃗`
-- `[expr, expr, ...]` — row vector literal → `MatrixNode`
-- `[[row], [row], ...]` — matrix literal → `MatrixNode`
+- `[single_identifier]` — name decorator ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `VectorNameNode`, renders as `aÃƒÂ¢Ã†â€™Ã¢â‚¬â€`
+- `[expr, expr, ...]` — row vector literal ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `MatrixNode`
+- `[[row], [row], ...]` — matrix literal ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `MatrixNode`
 
 Name decorators only accept a single identifier (with optional skew
 prefix). `[a+b]` is not a name decorator — it is a 1-element row vector.
@@ -864,8 +1267,8 @@ prefix). `[a+b]` is not a name decorator — it is a 1-element row vector.
 | `x_i` | Subscript |
 | `` `a `` | Left-skewed (italic) identifier |
 | `` `1T `` | Right-skewed identifier (e.g. temperature T) |
-| `\a` | Greek letter α |
-| `\1a` | Right-skewed Greek α |
+| `\a` | Greek letter ÃƒÅ½Ã‚Â± |
+| `\1a` | Right-skewed Greek ÃƒÅ½Ã‚Â± |
 | `\int{a, b, f(x)}` | Integral with bounds and body |
 | `\sqrt{x}` | Square root |
 | `\name{...}` | Generic control expression |
@@ -927,7 +1330,7 @@ A phase is not complete until its demo works end-to-end.
 
 ---
 
-#### Phase 1 — Math Syntax: Expression Parser & Renderer ✅ *complete*
+#### Phase 1 — Math Syntax: Expression Parser & Renderer ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ *complete*
 
 **Goal:** Prove that math syntax notation can be parsed and rendered
 correctly in the browser with no external dependencies.
@@ -968,10 +1371,10 @@ Demo inputs to show:
 |-------|-----------------|
 | `-2*(3+5)*4e^x^2` | `(-2)(3 + 5)(4)(e`^`(x`^`2))` |
 | `a/b + c/d` | stacked fractions joined by `+` |
-| `\int{0, 1, x^2}` | integral symbol with bounds 0, 1 and body `x²` |
+| `\int{0, 1, x^2}` | integral symbol with bounds 0, 1 and body `xÃƒâ€šÃ‚Â²` |
 | `\sqrt{x+1}` | radical over `x + 1` |
 | `` `1T / `1t `` | right-skewed T over right-skewed t |
-| `\a + \1b` | α + right-skewed β |
+| `\a + \1b` | ÃƒÅ½Ã‚Â± + right-skewed ÃƒÅ½Ã‚Â² |
 
 ---
 
@@ -987,26 +1390,26 @@ annotation model.
 **Vector/matrix name decorator `[a]`**
 
 `[a]` denotes the vector or matrix **named** `a`, rendered with an arrow
-over it (`a⃗`). It is a name decorator, not a container. The brackets
+over it (`aÃƒÂ¢Ã†â€™Ã¢â‚¬â€`). It is a name decorator, not a container. The brackets
 signal that `a` is a vector/matrix quantity, visually distinguishing it
 from the scalar `a`.
 
 The parser distinguishes by content inside `[...]`:
-- `[single_identifier]` — name decorator → `VectorNameNode`, renders as `a⃗`
-- `[expr, expr, ...]` — row vector literal → `MatrixNode`
-- `[[row], [row], ...]` — matrix literal → `MatrixNode`
+- `[single_identifier]` — name decorator ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `VectorNameNode`, renders as `aÃƒÂ¢Ã†â€™Ã¢â‚¬â€`
+- `[expr, expr, ...]` — row vector literal ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `MatrixNode`
+- `[[row], [row], ...]` — matrix literal ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `MatrixNode`
 
 Name decorators only accept a single identifier (with optional skew
 prefix). `[a+b]` is not a name decorator — it is a 1-element row vector.
 
 Edge cases:
-- `[`1T`]` — right-skewed identifier inside decorator → valid, treated as
+- `[`1T`]` — right-skewed identifier inside decorator ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ valid, treated as
   name decorator for the right-skewed identifier `` `1T ``
 - `[a_i]` — `a_i` is a `SubscriptExpression`, not a bare identifier, so
   this is a 1-element row vector, not a name decorator. To subscript a
   vector name, write `[a]_i` instead
 - `[[a]]` — outer `[` sees inner `[a]` as its first element, which is a
-  `VectorNameNode` not a plain identifier, so this is a 1×1 matrix
+  `VectorNameNode` not a plain identifier, so this is a 1ÃƒÆ’Ã¢â‚¬â€1 matrix
   containing the vector named `a`
 
 ---
@@ -1017,22 +1420,22 @@ Vectors and matrices are unified under one construct: a rectangular array
 of expressions. Shape is determined by nesting depth:
 
 ```
-[a]                  →  vector/matrix named a, renders as a⃗
-[a, b, c]            →  1×3 row vector literal
-[[a], [b], [c]]      →  3×1 column vector literal
-(a, b, c)            →  equivalent to [[a], [b], [c]], column vector
-[[a, b], [c, d]]     →  2×2 matrix literal
+[a]                  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢  vector/matrix named a, renders as aÃƒÂ¢Ã†â€™Ã¢â‚¬â€
+[a, b, c]            ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢  1ÃƒÆ’Ã¢â‚¬â€3 row vector literal
+[[a], [b], [c]]      ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢  3ÃƒÆ’Ã¢â‚¬â€1 column vector literal
+(a, b, c)            ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢  equivalent to [[a], [b], [c]], column vector
+[[a, b], [c, d]]     ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢  2ÃƒÆ’Ã¢â‚¬â€2 matrix literal
 ```
 
 The `(a, b, c)` column vector convention reuses the parenthesis character.
 The parser disambiguates by comma presence at the top level:
-- `(expr)` — no commas → grouping, unwrap to inner expression
-- `(expr, expr, ...)` — commas present → column vector / `MatrixNode`
-- `(expr)` with one element and no commas → grouping (not a 1×1 vector)
+- `(expr)` — no commas ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ grouping, unwrap to inner expression
+- `(expr, expr, ...)` — commas present ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ column vector / `MatrixNode`
+- `(expr)` with one element and no commas ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ grouping (not a 1ÃƒÆ’Ã¢â‚¬â€1 vector)
 
 Edge cases that must be explicitly rejected:
-- `(a,)` — trailing comma → parse error
-- `()` — empty parens as standalone Primary → parse error (empty argument
+- `(a,)` — trailing comma ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ parse error
+- `()` — empty parens as standalone Primary ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ parse error (empty argument
   list is only valid inside a function call suffix)
 
 ---
@@ -1040,17 +1443,17 @@ Edge cases that must be explicitly rejected:
 **Dot product `.`**
 
 `u.v` is the dot product. The `.` is a binary operator at multiplicative
-precedence. Rendered as `u · v` (centre dot `·`).
+precedence. Rendered as `u Ãƒâ€šÃ‚Â· v` (centre dot `Ãƒâ€šÃ‚Â·`).
 
 *Issue — `digit.identifier` edge case:*
 The number regex `/^([0-9]+(\.[ 0-9]*)?|\.[0-9]+)/` matches `3.` as the
 number `3.0` (zero fractional digits). So `3.v` is parsed as the number
-`3.0` implicitly multiplied by `v`, not as `3 · v`. This is technically
+`3.0` implicitly multiplied by `v`, not as `3 Ãƒâ€šÃ‚Â· v`. This is technically
 an ambiguity, but in practice dot product of a bare scalar literal with
 a vector (`3.v`) is unusual and arguably ill-typed. The behaviour is
 acceptable and consistent.
 
-*Resolution:* Document the edge case. If `3 · v` is ever needed with a
+*Resolution:* Document the edge case. If `3 Ãƒâ€šÃ‚Â· v` is ever needed with a
 literal coefficient, write `3 .v` (space before dot) or `(3).v`. The
 space causes the number token to be fully consumed before the dot is seen.
 
@@ -1061,8 +1464,8 @@ space causes the number token to be fully consumed before the dot is seen.
 `u * v` is parsed identically whether the operands are vectors or scalars.
 The AST node is always `BinaryExpression(*)`. The semantic layer (above
 the parser) resolves whether `*` means cross product or scalar multiplication
-based on operand types. The renderer shows `×` for vector×vector and
-juxtaposition for scalar×vector, driven by type annotation, not syntax.
+based on operand types. The renderer shows `ÃƒÆ’Ã¢â‚¬â€` for vectorÃƒÆ’Ã¢â‚¬â€vector and
+juxtaposition for scalarÃƒÆ’Ã¢â‚¬â€vector, driven by type annotation, not syntax.
 
 ---
 
@@ -1092,8 +1495,8 @@ by the existing function call syntax.
 **Rollout operators `+{...}` and `*{...}`**
 
 ```
-+{k=0, n, A[k]}    →  A[0] + A[1] + ... + A[n]
-*{k=0, n, A[k]}    →  A[0] * A[1] * ... * A[n]
++{k=0, n, A[k]}    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢  A[0] + A[1] + ... + A[n]
+*{k=0, n, A[k]}    ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢  A[0] * A[1] * ... * A[n]
 ```
 
 *Issue — whitespace breaks the lookahead approach:*
@@ -1113,13 +1516,13 @@ and `Multiplicative` ever see the `+` or `*`, the rollout form is consumed
 whole and the operator never reaches the additive/multiplicative rules.
 
 ```
-Primary → RolloutExpression | Number | Identifier | ( Expression ) | ...
+Primary ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ RolloutExpression | Number | Identifier | ( Expression ) | ...
 
 RolloutExpression:
   regex /^[+*]\{/ — matches opening token atomically (no skip inside)
   then: ArgumentList
   then: literal "}"
-  → ControlExpression { name: "+" or "*", args: [...] }
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ControlExpression { name: "+" or "*", args: [...] }
 ```
 
 The AST node is `ControlExpression` with `name: "+"` or `name: "*"`,
@@ -1224,56 +1627,56 @@ renderer maps it to the correct Unicode glyph or HTML structure. The syntax
 is designed to be concise and typeable on a standard keyboard.
 
 *Relation operators* — new precedence level below additive.
-`Relational → Additive (rel_op Additive)?` — not chained, since
+`Relational ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Additive (rel_op Additive)?` — not chained, since
 `a = b = c` is not standard math notation.
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
 | `=` | = | equals |
-| `!=` | ≠ | not equal |
+| `!=` | ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â  | not equal |
 | `<` | < | less than |
 | `>` | > | greater than |
-| `<=` | ≤ | less or equal |
-| `>=` | ≥ | greater or equal |
-| `~=` | ≈ | approximately equal |
-| `:=` | ≡ | defined as / identical |
-| `~` | ∝ | proportional to |
-| `<<` | ≪ | much less than |
-| `>>` | ≫ | much greater than |
-| `->` | → | approaching / function mapping |
-| `\sub` | ⊂ | subset |
-| `\supset` | ⊃ | superset (`\sup` reserved for supremum) |
-| `\sube` | ⊆ | subset or equal |
-| `\supe` | ⊇ | superset or equal |
+| `<=` | ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â¤ | less or equal |
+| `>=` | ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â¥ | greater or equal |
+| `~=` | ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€  | approximately equal |
+| `:=` | ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â¡ | defined as / identical |
+| `~` | ÃƒÂ¢Ã‹â€ Ã‚Â | proportional to |
+| `<<` | ÃƒÂ¢Ã¢â‚¬Â°Ã‚Âª | much less than |
+| `>>` | ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â« | much greater than |
+| `->` | ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ | approaching / function mapping |
+| `\sub` | ÃƒÂ¢Ã…Â Ã¢â‚¬Å¡ | subset |
+| `\supset` | ÃƒÂ¢Ã…Â Ã†â€™ | superset (`\sup` reserved for supremum) |
+| `\sube` | ÃƒÂ¢Ã…Â Ã¢â‚¬Â  | subset or equal |
+| `\supe` | ÃƒÂ¢Ã…Â Ã¢â‚¬Â¡ | superset or equal |
 
 *Set operators* — `\inter` binds tighter than `\union` (mirrors `*` vs `+`).
 `\in` and `\notin` are relation operators.
 
 | Syntax | Symbol | Meaning | Type |
 |--------|--------|---------|------|
-| `\union` | ∪ | union | binary |
-| `\inter` | ∩ | intersection | binary |
-| `\diff` | ∖ | set difference | binary |
-| `\cross` | × | Cartesian product | binary |
-| `\comp` | ∁ | complement | unary prefix |
+| `\union` | ÃƒÂ¢Ã‹â€ Ã‚Âª | union | binary |
+| `\inter` | ÃƒÂ¢Ã‹â€ Ã‚Â© | intersection | binary |
+| `\diff` | ÃƒÂ¢Ã‹â€ Ã¢â‚¬â€œ | set difference | binary |
+| `\cross` | ÃƒÆ’Ã¢â‚¬â€ | Cartesian product | binary |
+| `\comp` | ÃƒÂ¢Ã‹â€ Ã‚Â | complement | unary prefix |
 
 
-| `\empty` | ∅ | empty set | constant |
-| `\pow` | 𝒫 | power set | unary prefix |
+| `\empty` | ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â¦ | empty set | constant |
+| `\pow` | ÃƒÂ°Ã‚ÂÃ¢â‚¬â„¢Ã‚Â« | power set | unary prefix |
 
 *Blackboard bold number sets* — double backslash `\\` prefix to avoid
-conflict with single-backslash Greek letters (`\N`=Ν Nu, `\Z`=Ζ Zeta,
-`\R`=Ρ Rho, `\C`=Χ Chi, `\H`=Η Eta, `\P`=Π Pi).
+conflict with single-backslash Greek letters (`\N`=ÃƒÅ½Ã‚Â Nu, `\Z`=ÃƒÅ½Ã¢â‚¬â€œ Zeta,
+`\R`=ÃƒÅ½Ã‚Â¡ Rho, `\C`=ÃƒÅ½Ã‚Â§ Chi, `\H`=ÃƒÅ½Ã¢â‚¬â€ Eta, `\P`=ÃƒÅ½Ã‚Â  Pi).
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `\\N` | ℕ | natural numbers |
-| `\\Z` | ℤ | integers |
-| `\\Q` | ℚ | rationals |
-| `\\R` | ℝ | reals |
-| `\\C` | ℂ | complex numbers |
-| `\\H` | ℍ | quaternions |
-| `\\P` | ℙ | primes / projective space |
+| `\\N` | ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Â¢ | natural numbers |
+| `\\Z` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¤ | integers |
+| `\\Q` | ÃƒÂ¢Ã¢â‚¬Å¾Ã…Â¡ | rationals |
+| `\\R` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â | reals |
+| `\\C` | ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Å¡ | complex numbers |
+| `\\H` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â | quaternions |
+| `\\P` | ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â€žÂ¢ | primes / projective space |
 
 Grammar rule: `BlackboardBoldIdentifier` matches `/^\\\\[A-Z]/` (two
 backslashes followed by one uppercase letter), tried before `BackslashIdentifier`.
@@ -1282,28 +1685,28 @@ backslashes followed by one uppercase letter), tried before `BackslashIdentifier
 
 | Syntax | Symbol | Meaning | Type |
 |--------|--------|---------|------|
-| `\and` | ∧ | logical and | binary |
-| `\or` | ∨ | logical or | binary |
-| `\not` | ¬ | logical not | unary prefix |
-| `\imp` | ⟹ | implies | binary |
-| `\iff` | ⟺ | if and only if | binary |
-| `\all` | ∀ | for all | quantifier prefix |
-| `\ex` | ∃ | there exists | quantifier prefix |
-| `\nex` | ∄ | there does not exist | quantifier prefix |
+| `\and` | ÃƒÂ¢Ã‹â€ Ã‚Â§ | logical and | binary |
+| `\or` | ÃƒÂ¢Ã‹â€ Ã‚Â¨ | logical or | binary |
+| `\not` | Ãƒâ€šÃ‚Â¬ | logical not | unary prefix |
+| `\imp` | ÃƒÂ¢Ã…Â¸Ã‚Â¹ | implies | binary |
+| `\iff` | ÃƒÂ¢Ã…Â¸Ã‚Âº | if and only if | binary |
+| `\all` | ÃƒÂ¢Ã‹â€ Ã¢â€šÂ¬ | for all | quantifier prefix |
+| `\ex` | ÃƒÂ¢Ã‹â€ Ã†â€™ | there exists | quantifier prefix |
+| `\nex` | ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¾ | there does not exist | quantifier prefix |
 
 *Calculus and analysis*
 
 | Syntax | Symbol | Meaning | Notes |
 |--------|--------|---------|-------|
-| `\inf` | ∞ | infinity | |
+| `\inf` | ÃƒÂ¢Ã‹â€ Ã…Â¾ | infinity | |
 | `\d` | d | differential | plain upright d, used as `\d x` in integrals |
-| `\\d` | ∂ | partial derivative | double backslash to distinguish from `\d` |
-| `\nabla` | ∇ | nabla / gradient | |
-| `\S{...}` | Σ | summation | `\S` = uppercase Sigma, used as control expression |
-| `\P{...}` | Π | product | `\P` = uppercase Pi, used as control expression |
+| `\\d` | ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¡ | partial derivative | double backslash to distinguish from `\d` |
+| `\nabla` | ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â¡ | nabla / gradient | |
+| `\S{...}` | ÃƒÅ½Ã‚Â£ | summation | `\S` = uppercase Sigma, used as control expression |
+| `\P{...}` | ÃƒÅ½Ã‚Â  | product | `\P` = uppercase Pi, used as control expression |
 | `\lim{x->a, f(x)}` | lim | limit | `->` means approaching |
-| `\pm` | ± | plus-minus | backslash identifier, maps to ± |
-| `\mp` | ∓ | minus-plus | backslash identifier, maps to ∓ |
+| `\pm` | Ãƒâ€šÃ‚Â± | plus-minus | backslash identifier, maps to Ãƒâ€šÃ‚Â± |
+| `\mp` | ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å“ | minus-plus | backslash identifier, maps to ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å“ |
 
 Note: `->` serves dual purpose — as a relation operator meaning "approaching"
 in limits (`x -> a`), and as function mapping (`f: A -> B`). The parser
@@ -1312,9 +1715,9 @@ layer distinguishes the two uses from context.
 
 *Absolute value and norm* — both use `|...|` syntax. The renderer
 automatically distinguishes them by the inner node type:
-- `|x|` where `x` is a scalar → renders as `|x|` (absolute value)
-- `|[x]|` where `[x]` is a `VectorNameNode` or `MatrixNode` → renders
-  as `‖x‖` (norm with double bars)
+- `|x|` where `x` is a scalar ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ renders as `|x|` (absolute value)
+- `|[x]|` where `[x]` is a `VectorNameNode` or `MatrixNode` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ renders
+  as `ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬â€œxÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬â€œ` (norm with double bars)
 
 No separate `\abs` or `\norm` syntax is needed.
 
@@ -1322,18 +1725,18 @@ No separate `\abs` or `\norm` syntax is needed.
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `\floor{x}` | ⌊x⌋ | floor |
-| `\ceil{x}` | ⌈x⌉ | ceiling |
+| `\floor{x}` | ÃƒÂ¢Ã…â€™Ã…Â xÃƒÂ¢Ã…â€™Ã¢â‚¬Â¹ | floor |
+| `\ceil{x}` | ÃƒÂ¢Ã…â€™Ã‹â€ xÃƒÂ¢Ã…â€™Ã¢â‚¬Â° | ceiling |
 | `x!` | x! | factorial (postfix suffix) |
-| `\binom{n,r}` | ⁿCᵣ | binomial coefficient |
-| `->` | → | function mapping (same token as approaching) |
-| `\circ` | ∘ | function composition |
-| `\oplus` | ⊕ | direct sum / XOR |
-| `\otimes` | ⊗ | tensor product |
-| `\inner{x,y}` | ⟨x,y⟩ | inner product |
-| `\bar{x}` | x̄ | overline / complex conjugate |
-| `\hat{x}` | x̂ | hat |
-| `\tilde{x}` | x̃ | tilde |
+| `\binom{n,r}` | ÃƒÂ¢Ã‚ÂÃ‚Â¿CÃƒÂ¡Ã‚ÂµÃ‚Â£ | binomial coefficient |
+| `->` | ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ | function mapping (same token as approaching) |
+| `\circ` | ÃƒÂ¢Ã‹â€ Ã‹Å“ | function composition |
+| `\oplus` | ÃƒÂ¢Ã…Â Ã¢â‚¬Â¢ | direct sum / XOR |
+| `\otimes` | ÃƒÂ¢Ã…Â Ã¢â‚¬â€ | tensor product |
+| `\inner{x,y}` | ÃƒÂ¢Ã…Â¸Ã‚Â¨x,yÃƒÂ¢Ã…Â¸Ã‚Â© | inner product |
+| `\bar{x}` | xÃƒÅ’Ã¢â‚¬Å¾ | overline / complex conjugate |
+| `\hat{x}` | xÃƒÅ’Ã¢â‚¬Å¡ | hat |
+| `\tilde{x}` | xÃƒÅ’Ã†â€™ | tilde |
 
 ---
 
@@ -1349,31 +1752,31 @@ raw name to namespace each script:
 
 | Raw name prefix | Script | Example raw | Glyph |
 |----------------|--------|-------------|-------|
-| (single letter) | Greek | `a` | α |
-| `h` + letter | Hebrew | `ha` | ℵ |
-| `cy` + letter | Cyrillic | `cya` | а |
-| `am` + letter | Armenian | `ama` | Ա |
-| `gn` + letter | Georgian | `gna` | ა |
-| `fa` + letter | Persian/Farsi | `faa` | ا |
+| (single letter) | Greek | `a` | ÃƒÅ½Ã‚Â± |
+| `h` + letter | Hebrew | `ha` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ |
+| `cy` + letter | Cyrillic | `cya` | ÃƒÂÃ‚Â° |
+| `am` + letter | Armenian | `ama` | Ãƒâ€Ã‚Â± |
+| `gn` + letter | Georgian | `gna` | ÃƒÂ¡Ã†â€™Ã‚Â |
+| `fa` + letter | Persian/Farsi | `faa` | ÃƒËœÃ‚Â§ |
 
 These are naming conventions in the lookup table, not grammar rules.
 `\fa` is a perfectly valid backslash identifier with raw name `fa`.
 It does not conflict with `\f` (phi) + `a` because the greedy regex
 consumes `\fa` as one token. `GLYPH_TABLE["fa"]` has no entry, so
-`\fa` renders as the text `fa`. `GLYPH_TABLE["faa"]` = `ا`, so
+`\fa` renders as the text `fa`. `GLYPH_TABLE["faa"]` = `ÃƒËœÃ‚Â§`, so
 `\faa` renders as Persian alef.
 
 Skew index comes immediately after `\`, before the raw name:
-`\1ha` → `{ raw: "ha", skew: "right" }` → right-skewed ℵ.
+`\1ha` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `{ raw: "ha", skew: "right" }` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ right-skewed ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ.
 
 *Hebrew letters used in mathematics:*
 
 | Input | Skewed | Glyph | Name | Use |
 |-------|--------|-------|------|-----|
-| `\ha` | `\1ha` | ℵ | aleph | cardinal numbers (ℵ₀, ℵ₁, ...) |
-| `\hb` | `\1hb` | ℶ | beth | beth numbers |
-| `\hg` | `\1hg` | ℷ | gimel | gimel function |
-| `\hd` | `\1hd` | ℸ | dalet | dalet function |
+| `\ha` | `\1ha` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ | aleph | cardinal numbers (ÃƒÂ¢Ã¢â‚¬Å¾Ã‚ÂµÃƒÂ¢Ã¢â‚¬Å¡Ã¢â€šÂ¬, ÃƒÂ¢Ã¢â‚¬Å¾Ã‚ÂµÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â, ...) |
+| `\hb` | `\1hb` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¶ | beth | beth numbers |
+| `\hg` | `\1hg` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â· | gimel | gimel function |
+| `\hd` | `\1hd` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¸ | dalet | dalet function |
 
 *Extended scripts — use cases and priority:*
 
@@ -1388,7 +1791,7 @@ Skew index comes immediately after `\`, before the raw name:
 The `BackslashIdentifier` regex `/^\\[a-zA-Z][a-zA-Z0-9]*/` is greedy
 and consumes the entire alphanumeric run as one token. After consuming
 `\ca`, the parser position is at `\cb`, which starts a new identifier.
-The `ImplicitPower` rule starts from `Postfix` → `Primary` → `Identifier`,
+The `ImplicitPower` rule starts from `Postfix` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `Primary` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `Identifier`,
 so a `\`-prefixed identifier is a valid implicit factor.
 
 `\ca\cb\cg` parses as `\ca * \cb * \cg` — implicit multiplication works
@@ -1415,9 +1818,9 @@ the second character.
 
 `|x|` and `|[x]|` are described in the symbol table but `|` is currently
 unused in the grammar. Resolution: add `AbsoluteValueExpression` as a new
-`Primary` option: `| Expression |` → `AbsoluteValueNode`. The renderer
-checks the inner node type: `VectorNameNode` or `MatrixNode` → norm `‖x‖`,
-otherwise → absolute value `|x|`.
+`Primary` option: `| Expression |` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `AbsoluteValueNode`. The renderer
+checks the inner node type: `VectorNameNode` or `MatrixNode` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ norm `ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬â€œxÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬â€œ`,
+otherwise ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ absolute value `|x|`.
 
 *Gap 3 — `x!` factorial has no grammar rule*
 
@@ -1449,11 +1852,11 @@ The `Expression` rule currently points to `Additive`. With relation
 operators added, `Expression` must point to `Relational`, which points to
 `Additive`. This makes `=`, `<`, `->` etc. valid at the top level and
 inside `ArgumentList` (enabling `x->a` inside `\lim{...}`).
-Resolution: `Expression → Relational → Additive → Multiplicative → ...`
+Resolution: `Expression ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Relational ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Additive ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Multiplicative ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ...`
 
 *Gap 7 — `\mapsto` in symbol table but not in concrete tasks*
 
-`\mapsto` (↦) appears in the miscellaneous table but is absent from the
+`\mapsto` (ÃƒÂ¢Ã¢â‚¬Â Ã‚Â¦) appears in the miscellaneous table but is absent from the
 It is a backslash identifier with raw name `mapsto` that maps to the mapsto glyph in the renderer.
 
 
@@ -1473,9 +1876,9 @@ relational operator choices. Resolution: order choices longest-first.
 `\notin` starts with `\not`. The `BackslashIdentifier` regex is greedy and
 would consume `\notin` as a single identifier named `notin`. This is
 actually correct — `\notin` is a backslash identifier that maps
-to ∉, and `\not` maps to ¬. No conflict at the grammar level since both
+to ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â°, and `\not` maps to Ãƒâ€šÃ‚Â¬. No conflict at the grammar level since both
 are consumed as full identifiers by the greedy regex. The renderer
-distinguishes them by name. ✓ Not a real conflict.
+distinguishes them by name. ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Not a real conflict.
 
 *Conflict 4 — `\inner` vs `\in` vs `\inter` vs `\inf`*
 
@@ -1483,12 +1886,12 @@ All start with `\in`. The greedy `BackslashIdentifier` regex
 `/^\\[a-zA-Z][a-zA-Z0-9]*/` consumes the longest match, so `\inner`,
 `\inter`, `\inf`, `\in` are all consumed as distinct full identifiers.
 The renderer maps each name to its symbol. No grammar conflict — the
-greedy regex handles ordering automatically. ✓ Not a real conflict.
+greedy regex handles ordering automatically. ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Not a real conflict.
 
 *Conflict 5 — `\supset` vs `\sube` vs `\supe`*
 
 Same as Conflict 4 — all consumed as full identifiers by the greedy regex.
-`\supset` → ⊃, `\sube` → ⊆, `\supe` → ⊇. ✓ Not a real conflict.
+`\supset` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ÃƒÂ¢Ã…Â Ã†â€™, `\sube` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ÃƒÂ¢Ã…Â Ã¢â‚¬Â , `\supe` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ÃƒÂ¢Ã…Â Ã¢â‚¬Â¡. ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Not a real conflict.
 
 *Conflict 6 -- resolved by the glyph lookup architecture*
 
@@ -1532,7 +1935,7 @@ So `x!` matches factorial, but `x!=y` leaves `!=` for the Relational level.
 | Gap 3 | Add `FactorialSuffix` to `Postfix` |
 | Gap 4 | No change needed — `n=0` parses as relational expression |
 | Gap 5 | Add `BlackboardBoldIdentifier` rule |
-| Gap 6 | Update `Expression → Relational → Additive` |
+| Gap 6 | Update `Expression ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Relational ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Additive` |
 | Gap 7 | Add `\mapsto` to concrete tasks |
 | Conflict 1 | Order `~=` before `~` in relational choices |
 | Conflict 2 | Order `<<` before `<`, `>>` before `>` |
@@ -1551,8 +1954,8 @@ need to be added to Phase 2.
 
 *Two important semantic conflicts to document:*
 
-- `\inf` = ∞ (infinity) conflicts with infimum (greatest lower bound).
-  Resolution: keep `\inf` = ∞, use `\infimum` for the infimum operator.
+- `\inf` = ÃƒÂ¢Ã‹â€ Ã…Â¾ (infinity) conflicts with infimum (greatest lower bound).
+  Resolution: keep `\inf` = ÃƒÂ¢Ã‹â€ Ã…Â¾, use `\infimum` for the infimum operator.
 - `(a, b)` = column vector conflicts with ordered pair notation. These
   are syntactically identical. The semantic layer decides from context.
   Document this explicitly — the parser cannot distinguish them.
@@ -1561,38 +1964,38 @@ need to be added to Phase 2.
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `...` | … | ellipsis (sequences: `a_1, ..., a_n`) |
+| `...` | ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ | ellipsis (sequences: `a_1, ..., a_n`) |
 | `\mod` | mod | modulo operator |
-| `\div` | ÷ | integer division |
+| `\div` | ÃƒÆ’Ã‚Â· | integer division |
 
 *Number theory*
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `\divides` | ∣ | divides (`a \divides b`) |
-| `\ndivides` | ∤ | does not divide |
-| `\cong` | ≅ | congruence (`a \cong b \mod n`) |
+| `\divides` | ÃƒÂ¢Ã‹â€ Ã‚Â£ | divides (`a \divides b`) |
+| `\ndivides` | ÃƒÂ¢Ã‹â€ Ã‚Â¤ | does not divide |
+| `\cong` | ÃƒÂ¢Ã¢â‚¬Â°Ã¢â‚¬Â¦ | congruence (`a \cong b \mod n`) |
 
 *Calculus / analysis*
 
 | Syntax | Symbol | Meaning | Notes |
 |--------|--------|---------|-------|
-| `'` postfix | ′ | derivative prime | `f'(x)`, `f''(x)` |
-| `\eval{expr, var=val}` | ❙ | evaluated at | `f(x)\|_{x=a}` |
-| `\infimum` | inf | infimum | distinct from `\inf` = ∞ |
+| `'` postfix | ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â² | derivative prime | `f'(x)`, `f''(x)` |
+| `\eval{expr, var=val}` | ÃƒÂ¢Ã‚ÂÃ¢â€žÂ¢ | evaluated at | `f(x)\|_{x=a}` |
+| `\infimum` | inf | infimum | distinct from `\inf` = ÃƒÂ¢Ã‹â€ Ã…Â¾ |
 | `\supremum` | sup | supremum | distinct from `\sup` reserved |
 | `\limsup` | lim sup | limit superior | control expression |
 | `\liminf` | lim inf | limit inferior | control expression |
-| `\oint` | ∮ | contour integral | control expression |
-| `\iint` | ∬ | double integral | control expression |
-| `\iiint` | ∭ | triple integral | control expression |
+| `\oint` | ÃƒÂ¢Ã‹â€ Ã‚Â® | contour integral | control expression |
+| `\iint` | ÃƒÂ¢Ã‹â€ Ã‚Â¬ | double integral | control expression |
+| `\iiint` | ÃƒÂ¢Ã‹â€ Ã‚Â­ | triple integral | control expression |
 
 *Linear algebra*
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `\had` | ⊙ | Hadamard (element-wise) product |
-| `\kron` | ⊗ | Kronecker product (distinct from `\otimes` tensor) |
+| `\had` | ÃƒÂ¢Ã…Â Ã¢â€žÂ¢ | Hadamard (element-wise) product |
+| `\kron` | ÃƒÂ¢Ã…Â Ã¢â‚¬â€ | Kronecker product (distinct from `\otimes` tensor) |
 | `\Id` | I | identity matrix (bold I) |
 | `\0` | 0 | zero vector/matrix (bold 0) |
 
@@ -1600,40 +2003,40 @@ need to be added to Phase 2.
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `\psub` | ⊊ | proper subset |
-| `\psupset` | ⊋ | proper superset |
-| `\symdiff` | △ | symmetric difference |
-| `\\U` | 𝕌 | universal set (blackboard bold U) |
-| `\given` | ∣ | conditional bar: `P(A \given B)` = `P(A|B)` | â€” shares glyph âˆ£ with `\divides`; semantic layer distinguishes
+| `\psub` | ÃƒÂ¢Ã…Â Ã…Â  | proper subset |
+| `\psupset` | ÃƒÂ¢Ã…Â Ã¢â‚¬Â¹ | proper superset |
+| `\symdiff` | ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â³ | symmetric difference |
+| `\\U` | ÃƒÂ°Ã‚ÂÃ¢â‚¬Â¢Ã…â€™ | universal set (blackboard bold U) |
+| `\given` | ÃƒÂ¢Ã‹â€ Ã‚Â£ | conditional bar: `P(A \given B)` = `P(A|B)` | ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â shares glyph ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â Ãƒâ€šÃ‚Â£ with `\divides`; semantic layer distinguishes
 
 *Geometry*
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `\angle` | ∠ | angle |
-| `\tri` | △ | triangle |
-| `\parallel` | ∥ | parallel |
-| `\perp` | ⊥ | perpendicular |
-| `\sim` | ∼ | similar (geometric) |
-| `\arc{AB}` | ⌢ | arc |
+| `\angle` | ÃƒÂ¢Ã‹â€ Ã‚Â  | angle |
+| `\tri` | ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â³ | triangle |
+| `\parallel` | ÃƒÂ¢Ã‹â€ Ã‚Â¥ | parallel |
+| `\perp` | ÃƒÂ¢Ã…Â Ã‚Â¥ | perpendicular |
+| `\sim` | ÃƒÂ¢Ã‹â€ Ã‚Â¼ | similar (geometric) |
+| `\arc{AB}` | ÃƒÂ¢Ã…â€™Ã‚Â¢ | arc |
 
 *Structural / display*
 
 | Syntax | Symbol | Meaning |
 |--------|--------|---------|
-| `\ul{x}` | x̲ | underline |
-| `\ubrace{expr, label}` | ⏟ | underbrace with label |
-| `\obrace{expr, label}` | ⏞ | overbrace with label |
-| `\cancel{x}` | x̶ | strikethrough / cancel |
+| `\ul{x}` | xÃƒÅ’Ã‚Â² | underline |
+| `\ubrace{expr, label}` | ÃƒÂ¢Ã‚ÂÃ…Â¸ | underbrace with label |
+| `\obrace{expr, label}` | ÃƒÂ¢Ã‚ÂÃ…Â¾ | overbrace with label |
+| `\cancel{x}` | xÃƒÅ’Ã‚Â¶ | strikethrough / cancel |
 
 *Already covered by existing syntax (no new rules needed):*
-- Transpose `A^T`, conjugate transpose `A^*` — via superscript ✓
+- Transpose `A^T`, conjugate transpose `A^*` — via superscript ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
 - Trig: `\sin(x)`, `\cos(x)`, `\arctan(x)`, `\sinh(x)` — via multi-letter
-  identifier + function call ✓
-- Cardinality `|A|` — via absolute value ✓
-- Big-O `O(f(n))` — via function call ✓
-- Leibniz derivative `\d y / \d x` — via existing rules ✓
-- Complex: `\Re{z}`, `\Im{z}`, `\arg{z}` — via function call ✓
+  identifier + function call ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- Cardinality `|A|` — via absolute value ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- Big-O `O(f(n))` — via function call ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- Leibniz derivative `\d y / \d x` — via existing rules ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- Complex: `\Re{z}`, `\Im{z}`, `\arg{z}` — via function call ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
 
 ---
 
@@ -1658,9 +2061,9 @@ This produces `IdentifierNode { raw: "...", skew: "none" }` where
 Separate rules still exist for structural prefixes that change the
 grammar behaviour:
 - `BlackboardBoldIdentifier` `/^\\\\[A-Z]/` — double backslash, one
-  uppercase letter → `blackboard: true`
+  uppercase letter ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `blackboard: true`
 - `RightSkewBackslashIdentifier` `/^\\[0-9]+[a-zA-Z]+/` — skew index before
-  name → `skew: "right"`
+  name ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `skew: "right"`
 
 *Renderer layer — flat glyph lookup table*
 
@@ -1671,66 +2074,66 @@ naturally — they have no entry and render as the text `sin`, `cos`, `lim`).
 
 ```ts
 const GLYPH_TABLE: Record<string, string> = {
-    // Greek single-letter (a=α, b=β, ...)
-    "a": "α", "b": "β", "g": "γ", "d": "δ", "e": "ε",
-    "z": "ζ", "h": "η", "q": "θ", "i": "ι", "k": "κ",
-    "l": "λ", "m": "μ", "n": "ν", "x": "ξ", "o": "ο",
-    "p": "π", "r": "ρ", "s": "σ", "t": "τ", "u": "υ",
-    "f": "φ", "c": "χ", "y": "ψ", "w": "ω",
-    "A": "Α", "B": "Β", "G": "Γ", "D": "Δ", "E": "Ε",
-    "Z": "Ζ", "H": "Η", "Q": "Θ", "I": "Ι", "K": "Κ",
-    "L": "Λ", "M": "Μ", "N": "Ν", "X": "Ξ", "O": "Ο",
-    "P": "Π", "R": "Ρ", "S": "Σ", "T": "Τ", "U": "Υ",
-    "F": "Φ", "C": "Χ", "Y": "Ψ", "W": "Ω",
+    // Greek single-letter (a=ÃƒÅ½Ã‚Â±, b=ÃƒÅ½Ã‚Â², ...)
+    "a": "ÃƒÅ½Ã‚Â±", "b": "ÃƒÅ½Ã‚Â²", "g": "ÃƒÅ½Ã‚Â³", "d": "ÃƒÅ½Ã‚Â´", "e": "ÃƒÅ½Ã‚Âµ",
+    "z": "ÃƒÅ½Ã‚Â¶", "h": "ÃƒÅ½Ã‚Â·", "q": "ÃƒÅ½Ã‚Â¸", "i": "ÃƒÅ½Ã‚Â¹", "k": "ÃƒÅ½Ã‚Âº",
+    "l": "ÃƒÅ½Ã‚Â»", "m": "ÃƒÅ½Ã‚Â¼", "n": "ÃƒÅ½Ã‚Â½", "x": "ÃƒÅ½Ã‚Â¾", "o": "ÃƒÅ½Ã‚Â¿",
+    "p": "ÃƒÂÃ¢â€šÂ¬", "r": "ÃƒÂÃ‚Â", "s": "ÃƒÂÃ†â€™", "t": "ÃƒÂÃ¢â‚¬Å¾", "u": "ÃƒÂÃ¢â‚¬Â¦",
+    "f": "ÃƒÂÃ¢â‚¬Â ", "c": "ÃƒÂÃ¢â‚¬Â¡", "y": "ÃƒÂÃ‹â€ ", "w": "ÃƒÂÃ¢â‚¬Â°",
+    "A": "ÃƒÅ½Ã¢â‚¬Ëœ", "B": "ÃƒÅ½Ã¢â‚¬â„¢", "G": "ÃƒÅ½Ã¢â‚¬Å“", "D": "ÃƒÅ½Ã¢â‚¬Â", "E": "ÃƒÅ½Ã¢â‚¬Â¢",
+    "Z": "ÃƒÅ½Ã¢â‚¬â€œ", "H": "ÃƒÅ½Ã¢â‚¬â€", "Q": "ÃƒÅ½Ã‹Å“", "I": "ÃƒÅ½Ã¢â€žÂ¢", "K": "ÃƒÅ½Ã…Â¡",
+    "L": "ÃƒÅ½Ã¢â‚¬Âº", "M": "ÃƒÅ½Ã…â€œ", "N": "ÃƒÅ½Ã‚Â", "X": "ÃƒÅ½Ã…Â¾", "O": "ÃƒÅ½Ã…Â¸",
+    "P": "ÃƒÅ½Ã‚Â ", "R": "ÃƒÅ½Ã‚Â¡", "S": "ÃƒÅ½Ã‚Â£", "T": "ÃƒÅ½Ã‚Â¤", "U": "ÃƒÅ½Ã‚Â¥",
+    "F": "ÃƒÅ½Ã‚Â¦", "C": "ÃƒÅ½Ã‚Â§", "Y": "ÃƒÅ½Ã‚Â¨", "W": "ÃƒÅ½Ã‚Â©",
 
     // Hebrew (h prefix)
-    "ha": "ℵ", "hb": "ℶ", "hg": "ℷ", "hd": "ℸ",
+    "ha": "ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ", "hb": "ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¶", "hg": "ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â·", "hd": "ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¸",
 
     // Cyrillic (cy prefix)
-    "cya": "а", "cyb": "б", "cyv": "в", "cyg": "г",
-    "cyd": "д", "cye": "е", "cyz": "з", "cyi": "и",
-    "cyk": "к", "cyl": "л", "cym": "м", "cyn": "н",
-    "cyo": "о", "cyp": "п", "cyr": "р", "cys": "с",
-    "cyt": "т", "cyu": "у", "cyf": "ф", "cyh": "х",
-    "cyc": "ц", "cysh": "ш", "cyya": "я",
+    "cya": "ÃƒÂÃ‚Â°", "cyb": "ÃƒÂÃ‚Â±", "cyv": "ÃƒÂÃ‚Â²", "cyg": "ÃƒÂÃ‚Â³",
+    "cyd": "ÃƒÂÃ‚Â´", "cye": "ÃƒÂÃ‚Âµ", "cyz": "ÃƒÂÃ‚Â·", "cyi": "ÃƒÂÃ‚Â¸",
+    "cyk": "ÃƒÂÃ‚Âº", "cyl": "ÃƒÂÃ‚Â»", "cym": "ÃƒÂÃ‚Â¼", "cyn": "ÃƒÂÃ‚Â½",
+    "cyo": "ÃƒÂÃ‚Â¾", "cyp": "ÃƒÂÃ‚Â¿", "cyr": "Ãƒâ€˜Ã¢â€šÂ¬", "cys": "Ãƒâ€˜Ã‚Â",
+    "cyt": "Ãƒâ€˜Ã¢â‚¬Å¡", "cyu": "Ãƒâ€˜Ã†â€™", "cyf": "Ãƒâ€˜Ã¢â‚¬Å¾", "cyh": "Ãƒâ€˜Ã¢â‚¬Â¦",
+    "cyc": "Ãƒâ€˜Ã¢â‚¬Â ", "cysh": "Ãƒâ€˜Ã‹â€ ", "cyya": "Ãƒâ€˜Ã‚Â",
 
     // Armenian (am prefix)
-    "ama": "Ա", "amb": "Բ", "amg": "Գ", "amd": "Դ",
-    "ame": "Ե", "amz": "Զ", "amh": "Հ",
+    "ama": "Ãƒâ€Ã‚Â±", "amb": "Ãƒâ€Ã‚Â²", "amg": "Ãƒâ€Ã‚Â³", "amd": "Ãƒâ€Ã‚Â´",
+    "ame": "Ãƒâ€Ã‚Âµ", "amz": "Ãƒâ€Ã‚Â¶", "amh": "Ãƒâ€¢Ã¢â€šÂ¬",
 
     // Georgian (gn prefix)
-    "gna": "ა", "gnb": "ბ", "gng": "გ", "gnd": "დ",
-    "gne": "ე", "gnv": "ვ", "gnz": "ზ",
+    "gna": "ÃƒÂ¡Ã†â€™Ã‚Â", "gnb": "ÃƒÂ¡Ã†â€™Ã¢â‚¬Ëœ", "gng": "ÃƒÂ¡Ã†â€™Ã¢â‚¬â„¢", "gnd": "ÃƒÂ¡Ã†â€™Ã¢â‚¬Å“",
+    "gne": "ÃƒÂ¡Ã†â€™Ã¢â‚¬Â", "gnv": "ÃƒÂ¡Ã†â€™Ã¢â‚¬Â¢", "gnz": "ÃƒÂ¡Ã†â€™Ã¢â‚¬â€œ",
 
     // Persian/Farsi (fa prefix)
-    "faa": "ا", "fab": "ب", "fap": "پ", "fat": "ت",
-    "fas": "س", "faf": "ف", "faq": "ق", "fak": "ک",
-    "fag": "گ", "fal": "ل", "fam": "م", "fan": "ن",
-    "fav": "و", "fah": "ه", "fay": "ی",
+    "faa": "ÃƒËœÃ‚Â§", "fab": "ÃƒËœÃ‚Â¨", "fap": "Ãƒâ„¢Ã‚Â¾", "fat": "ÃƒËœÃ‚Âª",
+    "fas": "ÃƒËœÃ‚Â³", "faf": "Ãƒâ„¢Ã‚Â", "faq": "Ãƒâ„¢Ã¢â‚¬Å¡", "fak": "ÃƒÅ¡Ã‚Â©",
+    "fag": "ÃƒÅ¡Ã‚Â¯", "fal": "Ãƒâ„¢Ã¢â‚¬Å¾", "fam": "Ãƒâ„¢Ã¢â‚¬Â¦", "fan": "Ãƒâ„¢Ã¢â‚¬Â ",
+    "fav": "Ãƒâ„¢Ã‹â€ ", "fah": "Ãƒâ„¢Ã¢â‚¬Â¡", "fay": "Ãƒâ€ºÃ…â€™",
 
     // Operators and symbols
-    "pm": "±", "mp": "∓", "inf": "∞",
-    "nabla": "∇", "partial": "∂",
-    "union": "∪", "inter": "∩", "diff": "∖",
-    "cross": "×", "comp": "∁", "in": "∈", "notin": "∉",
-    "empty": "∅", "pow": "𝒫",
-    "sub": "⊂", "supset": "⊃", "sube": "⊆", "supe": "⊇",
-    "psub": "⊊", "psupset": "⊋", "symdiff": "△",
-    "and": "∧", "or": "∨", "not": "¬",
-    "imp": "⟹", "iff": "⟺",
-    "all": "∀", "ex": "∃", "nex": "∄",
-    "circ": "∘", "oplus": "⊕", "otimes": "⊗",
-    "had": "⊙", "kron": "⊗",
-    "mapsto": "↦",
-    "parallel": "∥", "perp": "⊥", "sim": "∼",
-    "angle": "∠", "tri": "△",
-    "divides": "∣", "ndivides": "∤", "cong": "≅",
-    "given": "∣",
-    "mod": "mod", "div": "÷",
+    "pm": "Ãƒâ€šÃ‚Â±", "mp": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å“", "inf": "ÃƒÂ¢Ã‹â€ Ã…Â¾",
+    "nabla": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â¡", "partial": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¡",
+    "union": "ÃƒÂ¢Ã‹â€ Ã‚Âª", "inter": "ÃƒÂ¢Ã‹â€ Ã‚Â©", "diff": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬â€œ",
+    "cross": "ÃƒÆ’Ã¢â‚¬â€", "comp": "ÃƒÂ¢Ã‹â€ Ã‚Â", "in": "ÃƒÂ¢Ã‹â€ Ã‹â€ ", "notin": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â°",
+    "empty": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â¦", "pow": "ÃƒÂ°Ã‚ÂÃ¢â‚¬â„¢Ã‚Â«",
+    "sub": "ÃƒÂ¢Ã…Â Ã¢â‚¬Å¡", "supset": "ÃƒÂ¢Ã…Â Ã†â€™", "sube": "ÃƒÂ¢Ã…Â Ã¢â‚¬Â ", "supe": "ÃƒÂ¢Ã…Â Ã¢â‚¬Â¡",
+    "psub": "ÃƒÂ¢Ã…Â Ã…Â ", "psupset": "ÃƒÂ¢Ã…Â Ã¢â‚¬Â¹", "symdiff": "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â³",
+    "and": "ÃƒÂ¢Ã‹â€ Ã‚Â§", "or": "ÃƒÂ¢Ã‹â€ Ã‚Â¨", "not": "Ãƒâ€šÃ‚Â¬",
+    "imp": "ÃƒÂ¢Ã…Â¸Ã‚Â¹", "iff": "ÃƒÂ¢Ã…Â¸Ã‚Âº",
+    "all": "ÃƒÂ¢Ã‹â€ Ã¢â€šÂ¬", "ex": "ÃƒÂ¢Ã‹â€ Ã†â€™", "nex": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¾",
+    "circ": "ÃƒÂ¢Ã‹â€ Ã‹Å“", "oplus": "ÃƒÂ¢Ã…Â Ã¢â‚¬Â¢", "otimes": "ÃƒÂ¢Ã…Â Ã¢â‚¬â€",
+    "had": "ÃƒÂ¢Ã…Â Ã¢â€žÂ¢", "kron": "ÃƒÂ¢Ã…Â Ã¢â‚¬â€",
+    "mapsto": "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â¦",
+    "parallel": "ÃƒÂ¢Ã‹â€ Ã‚Â¥", "perp": "ÃƒÂ¢Ã…Â Ã‚Â¥", "sim": "ÃƒÂ¢Ã‹â€ Ã‚Â¼",
+    "angle": "ÃƒÂ¢Ã‹â€ Ã‚Â ", "tri": "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â³",
+    "divides": "ÃƒÂ¢Ã‹â€ Ã‚Â£", "ndivides": "ÃƒÂ¢Ã‹â€ Ã‚Â¤", "cong": "ÃƒÂ¢Ã¢â‚¬Â°Ã¢â‚¬Â¦",
+    "given": "ÃƒÂ¢Ã‹â€ Ã‚Â£",
+    "mod": "mod", "div": "ÃƒÆ’Ã‚Â·",
     "infimum": "inf", "supremum": "sup",
     "limsup": "lim sup", "liminf": "lim inf",
-    "oint": "âˆ®", "iint": "âˆ¬", "iiint": "âˆ­",
-    // Note: \given and \divides both map to âˆ£ (U+2223)
+    "oint": "ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â Ãƒâ€šÃ‚Â®", "iint": "ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â Ãƒâ€šÃ‚Â¬", "iiint": "ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â Ãƒâ€šÃ‚Â­",
+    // Note: \given and \divides both map to ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â Ãƒâ€šÃ‚Â£ (U+2223)
     // The semantic layer distinguishes them by context.
     // Structural decorators (rendered as wrappers, not glyphs):
     // \ul, \ubrace, \obrace, \cancel are control expressions
@@ -1751,11 +2154,11 @@ independent of what the glyph is.
 *Benefits of this architecture:*
 - Adding a new symbol = one line in `GLYPH_TABLE`, no grammar change
 - Adding a new script = adding entries with the script prefix, no grammar change
-- `\fa` alone → lookup `"fa"` → no entry → renders as `fa` (acceptable)
-- `\faa` → lookup `"faa"` → `ا` (Persian alef) ✓
-- `\ha` → lookup `"ha"` → `ℵ` ✓
-- `\sin` → lookup `"sin"` → no entry → renders as `sin` ✓
-- `\pm` → lookup `"pm"` → `±` ✓
+- `\fa` alone ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ lookup `"fa"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ no entry ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ renders as `fa` (acceptable)
+- `\faa` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ lookup `"faa"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `ÃƒËœÃ‚Â§` (Persian alef) ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- `\ha` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ lookup `"ha"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ` ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- `\sin` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ lookup `"sin"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ no entry ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ renders as `sin` ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
+- `\pm` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ lookup `"pm"` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `Ãƒâ€šÃ‚Â±` ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“
 - Unknown symbols render as their name, never crash
 
 *Blackboard bold remains a separate rule* because `\\` (double backslash)
@@ -1763,15 +2166,15 @@ is a structurally different prefix that requires its own regex. Its glyph
 lookup uses a separate `BLACKBOARD_TABLE`:
 ```ts
 const BLACKBOARD_TABLE: Record<string, string> = {
-    "N": "ℕ", "Z": "ℤ", "Q": "ℚ", "R": "ℝ", "C": "ℂ",
-    "H": "ℍ", "P": "ℙ", "U": "𝕌", "d": "∂",
+    "N": "ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Â¢", "Z": "ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¤", "Q": "ÃƒÂ¢Ã¢â‚¬Å¾Ã…Â¡", "R": "ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â", "C": "ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Å¡",
+    "H": "ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â", "P": "ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â€žÂ¢", "U": "ÃƒÂ°Ã‚ÂÃ¢â‚¬Â¢Ã…â€™", "d": "ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¡",
 }
 ```
 
 ---
 
 **Concrete tasks:**
-- [ ] Update `Expression` rule: `Expression → Relational → Additive`
+- [ ] Update `Expression` rule: `Expression ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Relational ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Additive`
       (Gap 6 fix — makes relation operators valid at top level and inside
       ArgumentList, enabling `x->a` inside `\lim{...}`)
 - [ ] Add `Relational` grammar level below `Additive`: operators `=`, `!=`,
@@ -1779,28 +2182,28 @@ const BLACKBOARD_TABLE: Record<string, string> = {
       `\sube`, `\supe`, `\in`, `\notin`, `\divides`, `\ndivides`, `\cong`, `\parallel`, `\perp`, `\sim` — ordered longest-first to resolve
       conflicts: `~=` before `~`, `<<` before `<`, `>>` before `>`,
       `->` before `>`, `!=` before `!`
-- [ ] Add `AbsoluteValueExpression` to `Primary`: `| Expression |` →
+- [ ] Add `AbsoluteValueExpression` to `Primary`: `| Expression |` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
       `AbsoluteValueNode`; renderer checks inner node type: `VectorNameNode`
-      or `MatrixNode` → norm `‖x‖`, otherwise → `|x|` (Gap 2 fix)
+      or `MatrixNode` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ norm `ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬â€œxÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬â€œ`, otherwise ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `|x|` (Gap 2 fix)
 - [ ] Add `FactorialSuffix` to `Postfix` suffix choices: regex `/^!(?!=)/`
       (negative lookahead: does not match `!=`) -> `FactorialExpression(base)` (Gap 3 + Conflict 8 fix)
 - [ ] Add `BlackboardBoldIdentifier` rule: regex `/^\\\\[A-Z]/`, tried
       before `BackslashIdentifier`; renderer maps letter to blackboard bold
-      glyph: N→ℕ, Z→ℤ, Q→ℚ, R→ℝ, C→ℂ, H→ℍ, P→ℙ (Gap 5 fix)
-- [ ] Add vector name decorator: `[single_identifier]` → `VectorNameNode`,
+      glyph: NÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Â¢, ZÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¤, QÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã…Â¡, RÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â, CÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Å¡, HÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â, PÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â€žÂ¢ (Gap 5 fix)
+- [ ] Add vector name decorator: `[single_identifier]` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `VectorNameNode`,
       renders with arrow over the identifier
 - [ ] Add array literal grammar rule: `[expr, expr, ...]` and
-      `[[row], [row], ...]` as a new `Primary` option → `MatrixNode`
+      `[[row], [row], ...]` as a new `Primary` option ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `MatrixNode`
 - [ ] Add column vector shorthand: `(expr, expr, ...)` in `Primary`,
       disambiguated from grouping by comma presence; reject `(a,)` and
       standalone `()`
-- [ ] Add index expression postfix suffix: `base[expr]` → `IndexExpression`
+- [ ] Add index expression postfix suffix: `base[expr]` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `IndexExpression`
 - [ ] Add `\mod` and `\div` operators at multiplicative level (same precedence
       as `*` and `/`): `\mod` -> `BinaryExpression(mod)`, `\div` -> `BinaryExpression(div)`
-- [ ] Add dot product operator `.` at multiplicative level →
+- [ ] Add dot product operator `.` at multiplicative level ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
       `BinaryExpression(.)`; document `3.v` edge case
 - [ ] Add `RolloutExpression` as a new `Primary` option matching `/^[+*]\{/`
-      atomically, consuming `ArgumentList` and `}` →
+      atomically, consuming `ArgumentList` and `}` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
       `ControlExpression { name: "+" or "*", args }`
 - [ ] Add `SubSuperscriptExpression` AST node
       `{ type, base, subscript, superscript }`
@@ -1814,25 +2217,25 @@ const BLACKBOARD_TABLE: Record<string, string> = {
 - [ ] Add renderer for `SubSuperscriptExpression`: base with stacked
       `<sup>` and `<sub>` on the right using `.subsuperscript` CSS
 - [ ] Implement set operators as backslash identifiers in renderer:
-      `\union`→∪, `\inter`→∩, `\diff`→∖, `\cross`→×, `\comp`→∁,
-      `\empty`→∅, `\pow`→𝒫
+      `\union`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã‚Âª, `\inter`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã‚Â©, `\diff`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã¢â‚¬â€œ, `\cross`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬â€, `\comp`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã‚Â,
+      `\empty`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â¦, `\pow`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ°Ã‚ÂÃ¢â‚¬â„¢Ã‚Â«
 - [ ] Implement logic operators as backslash identifiers in renderer:
-      `\and`→∧, `\or`→∨, `\not`→¬, `\imp`→⟹, `\iff`→⟺,
-      `\all`→∀, `\ex`→∃, `\nex`→∄
+      `\and`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã‚Â§, `\or`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã‚Â¨, `\not`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â¬, `\imp`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã…Â¸Ã‚Â¹, `\iff`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã…Â¸Ã‚Âº,
+      `\all`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã¢â€šÂ¬, `\ex`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã†â€™, `\nex`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¾
 - [ ] Implement calculus/misc identifiers in renderer:
-      `\nabla`→∇, `\pm`→±, `\mp`→∓, `\circ`→∘, `\oplus`→⊕,
-      `\otimes`→⊗, `\mapsto`→↦ (Gap 7 fix)
+      `\nabla`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã¢â‚¬Â¡, `\pm`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢Ãƒâ€šÃ‚Â±, `\mp`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å“, `\circ`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã‹Å“, `\oplus`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã…Â Ã¢â‚¬Â¢,
+      `\otimes`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã…Â Ã¢â‚¬â€, `\mapsto`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Â Ã‚Â¦ (Gap 7 fix)
 - [ ] Implement decorator control expressions in renderer:
-      `\floor{x}`→⌊x⌋, `\ceil{x}`→⌈x⌉, `\bar{x}`→x̄, `\hat{x}`→x̂,
-      `\tilde{x}`→x̃, `\inner{x,y}`→⟨x,y⟩, `\binom{n,r}`→ⁿCᵣ
+      `\floor{x}`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã…â€™Ã…Â xÃƒÂ¢Ã…â€™Ã¢â‚¬Â¹, `\ceil{x}`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã…â€™Ã‹â€ xÃƒÂ¢Ã…â€™Ã¢â‚¬Â°, `\bar{x}`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢xÃƒÅ’Ã¢â‚¬Å¾, `\hat{x}`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢xÃƒÅ’Ã¢â‚¬Å¡,
+      `\tilde{x}`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢xÃƒÅ’Ã†â€™, `\inner{x,y}`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã…Â¸Ã‚Â¨x,yÃƒÂ¢Ã…Â¸Ã‚Â©, `\binom{n,r}`ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‚ÂÃ‚Â¿CÃƒÂ¡Ã‚ÂµÃ‚Â£
 - [ ] Implement `\S{...}` and `\P{...}` as summation and product renderers
       (Sigma and Pi used as control expression names)
 - [ ] Implement `\lim{...}` renderer
-- [ ] Add `BlackboardBoldIdentifier` renderer: N→ℕ, Z→ℤ, Q→ℚ, R→ℝ,
-      C→ℂ, H→ℍ, P→ℙ, d→∂ (for `\\d`)
+- [ ] Add `BlackboardBoldIdentifier` renderer: NÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Â¢, ZÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¤, QÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã…Â¡, RÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â,
+      CÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Å¡, HÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â, PÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â€žÂ¢, dÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¡ (for `\\d`)
 - [ ] Add Hebrew entries to `GLYPH_TABLE`: ha->aleph, hb->beth, hg->gimel, hd->dalet
 - [ ] Add Cyrillic, Armenian, Georgian, Persian entries to `GLYPH_TABLE` when needed
-      (no grammar changes required â€” table entries only)
+      (no grammar changes required ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â table entries only)
 - [ ] Verify `Identifier` choice list order: `BlackboardBold` -> `SkewedBackslash`
       -> `Backslash` -> `RightSkewLatin` -> `LeftSkewLatin` -> `Plain`
 
@@ -1844,7 +2247,7 @@ const BLACKBOARD_TABLE: Record<string, string> = {
       list, walk AST, tag `Identifier` nodes as metavariable or concrete
 - [ ] Add prime derivative postfix suffix: `f` followed by one or more `'`
       characters -> `DerivativeNode(base, order)` where order = count of primes
-- [ ] Add ellipsis primary: `...` -> `EllipsisNode`, renders as `â€¦`
+- [ ] Add ellipsis primary: `...` -> `EllipsisNode`, renders as `ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦`
 - [ ] Add `\eval{expr, var=val}` control expression renderer: renders as
       `expr|_{var=val}` with a vertical bar and subscript
 - [ ] Add `\0` and `\Id` to `GLYPH_TABLE`: `\0` -> bold 0, `\Id` -> bold I
@@ -1852,13 +2255,13 @@ const BLACKBOARD_TABLE: Record<string, string> = {
 - [ ] Extend error messages to name the specific grammar rule that failed
 
 **Completion criteria:**
-- `[a]` parses as `VectorNameNode`, renders as `a⃗`
+- `[a]` parses as `VectorNameNode`, renders as `aÃƒÂ¢Ã†â€™Ã¢â‚¬â€`
 - `[a_i]` parses as a 1-element row vector, not a name decorator
-- `[[a, b], [c, d]]` renders as a 2×2 matrix grid
-- `(a, b, c)` renders as a 3×1 column vector
+- `[[a, b], [c, d]]` renders as a 2ÃƒÆ’Ã¢â‚¬â€2 matrix grid
+- `(a, b, c)` renders as a 3ÃƒÆ’Ã¢â‚¬â€1 column vector
 - `(a,)` and standalone `()` produce parse errors
 - `A[k]` parses as `IndexExpression`, renders as `A` with subscript `k`
-- `u.v` parses as `BinaryExpression(.)`, renders as `u · v`
+- `u.v` parses as `BinaryExpression(.)`, renders as `u Ãƒâ€šÃ‚Â· v`
 - `3.v` parses as `3.0` implicitly multiplied by `v` (documented edge case)
 - `+{k=0, n, A[k]}` parses as `ControlExpression` with `name: "+"`,
   not as binary `+` applied to `{...}`; space variant `+ {k=0, n, A[k]}`
@@ -1873,28 +2276,28 @@ const BLACKBOARD_TABLE: Record<string, string> = {
   `A \sub B`
 - Set operators parse and render: `A \union B`, `\comp A`, `x \in S`
 - Logic operators parse and render: `p \and q`, `\not p`, `p \imp q`
-- Hebrew identifiers render correct glyphs: `\ha` → ℵ
-- `\ha_0` renders as ℵ with subscript 0 (aleph-null)
+- Hebrew identifiers render correct glyphs: `\ha` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ
+- `\ha_0` renders as ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ with subscript 0 (aleph-null)
 - All new constructs produce correct parse errors on malformed input
 
 **Demo:** Extend the Phase 1 demo page with additional test inputs:
 
 | Input | Expected visual |
 |-------|-----------------|
-| `[a]` | a with arrow over it (a⃗) |
-| `[[a, b], [c, d]]` | 2×2 matrix |
-| `(a, b, c)` | 3×1 column vector |
+| `[a]` | a with arrow over it (aÃƒÂ¢Ã†â€™Ã¢â‚¬â€) |
+| `[[a, b], [c, d]]` | 2ÃƒÆ’Ã¢â‚¬â€2 matrix |
+| `(a, b, c)` | 3ÃƒÆ’Ã¢â‚¬â€1 column vector |
 | `A[k]` | A with subscript k |
-| `u.v` | u · v |
+| `u.v` | u Ãƒâ€šÃ‚Â· v |
 | `+{k=0, n, A[k]}` | rollout sum with index bounds |
 | `*{k=0, n, A[k]}` | rollout product with index bounds |
 | `\piecewise{x, x>=0; -x, x<0}` | absolute value piecewise |
 | `x_i^2` | x with subscript i and superscript 2 |
-| `a <= b` | a ≤ b |
-| `A \union B` | A ∪ B |
-| `x \in \\R` | x ∈ ℝ |
-| `p \and q` | p ∧ q |
-| `\ha_0` | ℵ with subscript 0 (aleph-null) |
+| `a <= b` | a ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â¤ b |
+| `A \union B` | A ÃƒÂ¢Ã‹â€ Ã‚Âª B |
+| `x \in \\R` | x ÃƒÂ¢Ã‹â€ Ã‹â€  ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â |
+| `p \and q` | p ÃƒÂ¢Ã‹â€ Ã‚Â§ q |
+| `\ha_0` | ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ with subscript 0 (aleph-null) |
 
 Additionally, load an expression with declared metavariables and show
 that the metavariable identifiers render with distinct styling compared
@@ -1933,10 +2336,10 @@ for implementation.
 *What Phase 2 adds to the renderer (GLYPH_TABLE and control expressions):*
 
 - All Greek single-letter and multi-letter symbols via GLYPH_TABLE
-- Hebrew letters: `\ha` ℵ, `\hb` ℶ, `\hg` ℷ, `\hd` ℸ
+- Hebrew letters: `\ha` ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Âµ, `\hb` ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¶, `\hg` ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â·, `\hd` ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¸
 - All set, logic, calculus, geometry, and miscellaneous operators via GLYPH_TABLE
-- Blackboard bold: `\\N` ℕ, `\\Z` ℤ, `\\Q` ℚ, `\\R` ℝ, `\\C` ℂ, `\\H` ℍ, `\\P` ℙ, `\\d` ∂
-- Control expression renderers: `\S{...}` Σ, `\P{...}` Π, `\lim{...}`, `\floor{...}`,
+- Blackboard bold: `\\N` ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Â¢, `\\Z` ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¤, `\\Q` ÃƒÂ¢Ã¢â‚¬Å¾Ã…Â¡, `\\R` ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â, `\\C` ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â‚¬Å¡, `\\H` ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â, `\\P` ÃƒÂ¢Ã¢â‚¬Å¾Ã¢â€žÂ¢, `\\d` ÃƒÂ¢Ã‹â€ Ã¢â‚¬Å¡
+- Control expression renderers: `\S{...}` ÃƒÅ½Ã‚Â£, `\P{...}` ÃƒÅ½Ã‚Â , `\lim{...}`, `\floor{...}`,
   `\ceil{...}`, `\bar{...}`, `\hat{...}`, `\tilde{...}`, `\inner{...}`,
   `\binom{...}`, `\eval{...}`, `\ubrace{...}`, `\obrace{...}`, `\ul{...}`, `\cancel{...}`
 - Matrix, piecewise, SubSuperscript, VectorName, AbsoluteValue/Norm renderers
@@ -1951,11 +2354,11 @@ for implementation.
 | Gap 3 — `x!` missing | FactorialSuffix added to Postfix |
 | Gap 4 — `n=0` named param | No change — parses as relational expression |
 | Gap 5 — BlackboardBold missing | BlackboardBoldIdentifier rule added |
-| Gap 6 — Expression not updated | Expression → Relational → Additive |
+| Gap 6 — Expression not updated | Expression ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Relational ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Additive |
 | Gap 7 — `\mapsto` missing | Added to GLYPH_TABLE and concrete tasks |
 | Conflict 1 — `~` vs `~=` | `~=` tried before `~` |
 | Conflict 2 — `<<`/`>>` vs `<`/`>` | Longest-first ordering |
-| Conflicts 3–5 | Not real conflicts — greedy regex handles automatically |
+| Conflicts 3ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“5 | Not real conflicts — greedy regex handles automatically |
 | Conflict 6 | Resolved by glyph lookup architecture |
 | Conflict 7 | Resolved by glyph lookup architecture |
 | Conflict 8 — `!=` vs `!` | FactorialSuffix uses `/^!(?!=)/` negative lookahead |
@@ -1977,7 +2380,7 @@ for implementation.
    whether it is an ordered pair or a vector based on context. The parser
    cannot and does not distinguish them.
 
-5. **`\inf` = ∞ (infinity), `\infimum` = inf (infimum).** These are distinct
+5. **`\inf` = ÃƒÂ¢Ã‹â€ Ã…Â¾ (infinity), `\infimum` = inf (infimum).** These are distinct
    symbols with distinct raw names. No conflict.
 
 *Phase 2 is ready for implementation.* All grammar rules are defined,
@@ -2100,7 +2503,7 @@ identical to before export.
 
 ---
 
-#### Phase 6 — Binary Format ⚠️ *skipped*
+#### Phase 6 — Binary Format ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â *skipped*
 
 > **This phase was skipped due to planning constraints and implementation
 > cost exceeding the current business target. The goals and tasks below
@@ -2123,8 +2526,8 @@ with the CSV/DSL format.
       binary file~~ *skipped*
 - [ ] ~~Implement binary reader: deserialize binary file back to in-memory
       table + graph~~ *skipped*
-- [ ] ~~Implement lossless round-trip test: CSV → in-memory → binary →
-      in-memory → CSV, compare before and after~~ *skipped*
+- [ ] ~~Implement lossless round-trip test: CSV ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ in-memory ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ binary ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
+      in-memory ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ CSV, compare before and after~~ *skipped*
 - [ ] ~~Add binary file support to the file open UI (detect by file
       extension or magic bytes)~~ *skipped*
 - [ ] ~~Document the binary format specification in `codebase_analysis.md`~~
@@ -2161,11 +2564,11 @@ available to specify the format unambiguously from byte level upward.
 
 ---
 
-#### Phase 7 — Search, Indexing & Tooling ✅ *complete*
+#### Phase 7 — Search, Indexing & Tooling ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ *complete*
 
 ---
 
-#### Phase 8 — Spreadsheet Shell Layout & Refactoring ✅ *complete*
+#### Phase 8 — Spreadsheet Shell Layout & Refactoring ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ *complete*
 
 **Goal:** Restructure the UI from a scrolling document into a fixed
 spreadsheet shell where all chrome (menu bar, formula bar, toolbar, tab bar,
@@ -2195,18 +2598,18 @@ per file in the model layer. Add row drag-to-reorder and insert-at-index.
 - Tabs switch the active table without scrolling the page
 - Rows can be dragged to reorder; drag target shows a blue top border
 - Insert (+) button adds a row directly below the clicked row
-- Status bar shows `TableName — N rows × M cols` for the active table
+- Status bar shows `TableName — N rows ÃƒÆ’Ã¢â‚¬â€ M cols` for the active table
 - All existing tests pass without modification
 
 **Demo:** Load a CSV file. The table appears in the workspace with fixed
 chrome above and below. Scroll the table — headers stay visible. Click
 tabs to switch tables. Drag a row handle to reorder. Click + on a row to
 insert below it. Edit a math cell — the formula bar shows the live preview.
-Click ⬇ Export in the toolbar to download the active table.
+Click ÃƒÂ¢Ã‚Â¬Ã¢â‚¬Â¡ Export in the toolbar to download the active table.
 
 ---
 
-#### Phase 9 — Geometry Syntax Plugin ✅ *complete*
+#### Phase 9 — Geometry Syntax Plugin ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ *complete*
 
 **Goal:** Implement a geometry syntax plugin that can represent and render
 geometric diagrams symbolically. A geometry cell in a knowledge table
@@ -2389,7 +2792,7 @@ hidden surfaces, shading, or 3D depth from 2D projections.
 - `System(3,Euclidean)` with 3D coordinates renders a projected diagram
 - `Graph(y=sin(x))` renders a curve
 - Parse errors display inline without crashing the table
-- All existing Phase 1–8 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“8 tests pass without modification
 
 **Demo:** Load a CSV with a `geometry` column. Cells contain geometry
 source like `Triangle(A,B,C)\nSegment(A,B)=5\nAngle(A,B,C)=60\deg`.
@@ -2399,7 +2802,7 @@ renders a right triangle with coordinates.
 
 ---
 
-#### Phase 10 — Physics Free-Body Syntax Plugin ✅ *complete*
+#### Phase 10 — Physics Free-Body Syntax Plugin ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ *complete*
 
 **Goal:** Implement a physics syntax plugin for free-body diagrams and
 physical system descriptions. A physics cell describes bodies, forces,
@@ -2504,7 +2907,7 @@ damper rectangle). Reference frame axes are drawn as labelled arrows.
 - `Fixed(A)` renders a pin joint symbol at A
 - `Spring(A,B)=k` renders a spring between A and B
 - A complete free-body diagram with multiple forces renders correctly
-- All existing Phase 1–9 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“9 tests pass without modification
 
 **Demo:** Load `physics-sample.csv`. The first cell renders a block on a
 surface with a weight force arrow (red, downward), normal force (red, upward),
@@ -2514,7 +2917,7 @@ a spring-mass system with a spring zigzag between the fixed wall and the mass.
 
 ---
 
-#### Phase 11 — Chemistry Reaction Syntax Plugin 📐 *planned*
+#### Phase 11 — Chemistry Reaction Syntax Plugin ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â *planned*
 
 **Goal:** Implement a chemistry syntax plugin for chemical reactions,
 compound structures, and stoichiometric equations.
@@ -2629,7 +3032,7 @@ vertices. Functional groups use standard abbreviations.
 - `Compound(NaCl,(s))` renders with state subscript
 - `DeltaH(reaction)=-286kJ/mol` renders as a thermodynamic annotation
 - Structural formula with atoms and bonds renders as a bond-line diagram
-- All existing Phase 1–10 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“10 tests pass without modification
 
 **Demo:** Load a CSV with a `chemistry` column. Cells contain reaction
 equations. The Haber process cell renders as a full equilibrium reaction
@@ -2638,7 +3041,7 @@ cell renders ethanol as a bond-line diagram.
 
 ---
 
-#### Phase 12 — Control File & Map Views 📐 *planned*
+#### Phase 12 — Control File & Map Views ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â *planned*
 
 **Goal:** Introduce a `control.json` file that declares how a folder of CSV
 files should be loaded and rendered. Standard tables continue to render as
@@ -2781,7 +3184,7 @@ Four structurally distinct map types, each with its own renderer:
 | `flow` | Directed graph, possibly cyclic | Directional (LR or TB), force-directed | Reaction pathway, metabolism map, flowchart, dependency graph |
 | `spatial` | Containment hierarchy + adjacency | Fixed spatial positions, containment boxes | Anatomy diagram, system architecture, UML package diagram |
 | `relation` | General directed graph | Force-directed or hierarchical by relation type | UML class diagram, ER diagram, concept map, knowledge graph |
-| `sequence` | Ordered actors × ordered messages | 2D timeline: actors as vertical lifelines, messages as horizontal arrows | UML sequence diagram, signal timing diagram |
+| `sequence` | Ordered actors ÃƒÆ’Ã¢â‚¬â€ ordered messages | 2D timeline: actors as vertical lifelines, messages as horizontal arrows | UML sequence diagram, signal timing diagram |
 
 `flow`, `spatial`, and `relation` all use nodes + edges CSV files.
 `sequence` uses actors + messages CSV files (different file roles).
@@ -2947,8 +3350,8 @@ No existing fields or methods change.
 
 The tab strip currently shows one tab per loaded CSV table. With the
 control file, tabs are driven by the control file entries instead:
-- `table` entries → standard spreadsheet tab (existing behaviour)
-- `flow`/`spatial`/`relation`/`sequence` entries → diagram tab
+- `table` entries ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ standard spreadsheet tab (existing behaviour)
+- `flow`/`spatial`/`relation`/`sequence` entries ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ diagram tab
 
 Clicking a diagram tab renders the diagram in `#workspace` instead of
 a spreadsheet. The formula bar and toolbar are hidden or repurposed
@@ -2978,11 +3381,11 @@ WorkspaceView (interface)
   unmount(): ViewState
   update(data): void
 
-TableView          implements WorkspaceView   ← already exists, refactored to conform
-FlowDiagramView    implements WorkspaceView   ← Phase 12
-SpatialView        implements WorkspaceView   ← Phase 12
-RelationView       implements WorkspaceView   ← Phase 12
-SequenceView       implements WorkspaceView   ← Phase 12
+TableView          implements WorkspaceView   ÃƒÂ¢Ã¢â‚¬Â Ã‚Â already exists, refactored to conform
+FlowDiagramView    implements WorkspaceView   ÃƒÂ¢Ã¢â‚¬Â Ã‚Â Phase 12
+SpatialView        implements WorkspaceView   ÃƒÂ¢Ã¢â‚¬Â Ã‚Â Phase 12
+RelationView       implements WorkspaceView   ÃƒÂ¢Ã¢â‚¬Â Ã‚Â Phase 12
+SequenceView       implements WorkspaceView   ÃƒÂ¢Ã¢â‚¬Â Ã‚Â Phase 12
 ```
 
 The controller holds `activeView: WorkspaceView`. Tab switching:
@@ -3090,8 +3493,8 @@ remembered — otherwise every tab switch re-runs the layout from scratch.
 - The same CSV file appears as both a table tab and a diagram node source
   simultaneously — editing a cell in the table tab is reflected in the
   diagram tab on next render
-- Absent `control.json` → all CSVs load as standard tables (backward compat)
-- All existing Phase 1–11 tests pass without modification
+- Absent `control.json` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ all CSVs load as standard tables (backward compat)
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“11 tests pass without modification
 
 **Demo:** Drop a folder containing `control.json`, `glycolysis-nodes.csv`,
 `glycolysis-edges.csv`, and `theorems.csv`. The tab strip shows three tabs:
@@ -3104,7 +3507,7 @@ diagram tab and the node label has updated.
 
 ---
 
-#### Phase 13 — Graph as a First-Class Model 📐 *planned*
+#### Phase 13 — Graph as a First-Class Model ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â *planned*
 
 **Goal:** Introduce `Graph` as a co-equal model class alongside `Table`.
 A `.graph.json` file loads into a `Graph` object in the `KnowledgeBase`,
@@ -3132,14 +3535,14 @@ The correct architecture:
 
 ```
 KnowledgeBase
-  tables: Table[]     ← loaded from CSV files
-  graphs: Graph[]     ← loaded from .graph.json files   (NEW)
-  assocGraph: AssociationGraph   ← shared, connects both
+  tables: Table[]     ÃƒÂ¢Ã¢â‚¬Â Ã‚Â loaded from CSV files
+  graphs: Graph[]     ÃƒÂ¢Ã¢â‚¬Â Ã‚Â loaded from .graph.json files   (NEW)
+  assocGraph: AssociationGraph   ÃƒÂ¢Ã¢â‚¬Â Ã‚Â shared, connects both
 ```
 
 The view layer dispatches by model type:
-- `Table` → `TableView` (spreadsheet)
-- `Graph` → `FlowDiagramView` (diagram)
+- `Table` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `TableView` (spreadsheet)
+- `Graph` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `FlowDiagramView` (diagram)
 
 The plugin system is shared: a node's label, a node's formula property,
 an edge's label — all are `TypedValue` objects rendered by the same
@@ -3361,12 +3764,12 @@ type EditAction =
 ##### View dispatch
 
 `main.ts` tab strip construction:
-- For each `Table` in `kb.tables`: create a table tab → `TableView`
-- For each `Graph` in `kb.graphs`: create a graph tab → `FlowDiagramView`
+- For each `Table` in `kb.tables`: create a table tab ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `TableView`
+- For each `Graph` in `kb.graphs`: create a graph tab ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `FlowDiagramView`
 
 `FlowDiagramView` is updated to accept a `Graph` model object directly
 instead of a `ResolvedDiagram`. The rendering logic (Tarjan SCC, circular
-layout, Bézier arcs) is unchanged — only the data source changes.
+layout, BÃƒÆ’Ã‚Â©zier arcs) is unchanged — only the data source changes.
 
 ---
 
@@ -3418,7 +3821,7 @@ The nodes CSV files (`glycolysis-nodes.csv`, `krebs-nodes.csv`) are unchanged.
   produce `Graph` objects via `resolveControlDiagram` instead of
   `ResolvedDiagram` objects
 - `kb.diagrams` is removed; `kb.graphs` replaces it
-- All existing Phase 1–12 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“12 tests pass without modification
 
 **Demo:** Drop `glycolysis.graph.json` directly (no `control.json` needed).
 A diagram tab appears and renders the glycolysis pathway. Drop
@@ -3428,7 +3831,7 @@ Edit a node label in the graph tab — the change is undoable with Ctrl+Z.
 
 ---
 
-#### Phase 14 — Source Code Editor 📐 *planned*
+#### Phase 14 — Source Code Editor ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â *planned*
 
 **Goal:** Add a document-level source code editor panel where the user can
 type raw source text in any supported syntax and see it parsed and rendered
@@ -3559,11 +3962,196 @@ a `Graph` model object directly. The "Apply" button calls
 - Ctrl+Z inside the editor undoes text edits; Ctrl+Z outside undoes model edits
 - Syntax highlighting is visible for all supported types
 - Focus state shows blue border; unfocused shows thin black border
-- All existing Phase 1–13 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“13 tests pass without modification
 
 ---
 
-#### Phase 15 — Test Resource Rectification 📐 *planned*
+#### Phase 15 - Architecture Refactoring: Terminology & Source Separation - *complete*
+
+**Goal:** Establish a precise shared terminology for all UI surfaces and
+reorganise the source tree so that each directory groups code by the UI
+surface it belongs to rather than by the abstraction level it operates at.
+
+All tasks completed. `src/view/` and `src/plugins/` no longer exist.
+The four new directories are `src/knowledge-pane/`, `src/source-editor/`,
+`src/shell/`, and `src/cell-renderers/`. The `Plugin` interface was renamed
+to `CellRenderer` with a backward-compatible type alias. All import paths
+updated across `src/` and `test/`.
+
+---
+
+#### Phase 15.B - Document Model, Navigation Tree & Tab Lifecycle - *complete*
+
+**Goal:** Implement the Document model described in Part I.B, wire it into
+the loading pipeline, render it in the Knowledge Pane, and add a
+directory-style navigation tree sidebar that drives tab opening on demand.
+
+---
+
+##### What was built
+
+**Document model** (`src/model/Document.ts`)
+
+Three new model classes, all additive - `Table` and `Graph` are unchanged:
+
+- `Document { name, sections: Section[] }` - orchestrates one reference
+  sheet. Knows nothing about rendering.
+- `Section { id, title, block: TableBlock | GraphBlock, referenceMapping? }` -
+  one named block within a document.
+- `TableBlock | GraphBlock` - discriminated union; `kind` is the discriminant.
+  Each block holds a direct reference to the already-loaded `Table` or `Graph`.
+- `ReferenceMapping { chartSection, nodeIdColumn, labelColumn }` - the
+  numbered-label / legend pattern declared in the document.
+
+`KnowledgeBase` gains `documents: Document[]` and `addDocument(doc)`.
+`addDocument` only pushes to the array - it does NOT re-register the
+document's tables/graphs (they are already in `kb.tables`/`kb.graphs`
+from the earlier `loadCSV`/`loadGraph` calls). Re-registering caused
+duplicates that broke the standalone deduplication logic.
+
+**`.doc.json` parser** (`src/data/doc.ts`)
+
+`parseDocJSON(fileName, json, tableMap, graphMap): Document` resolves
+file references against pre-loaded maps. Sections whose referenced file
+is not found are skipped with a console warning. The graph map is keyed
+by `sourceFile` (the original filename), not by `graph.name`, because
+`control.json` names graphs by entry `id` rather than filename.
+
+**`sourceFile` field on `Graph`** (`src/model/Graph.ts`)
+
+`Graph` gained a `sourceFile: string | null` field. Both `loadGraph` in
+the controller and the `"graph"` entry path in `resolveAllDiagrams` set
+this field to the original filename (e.g. `"glycolysis.graph.json"`).
+This is the stable key used to match a graph to a doc section reference.
+
+**`DocumentView`** (`src/knowledge-pane/document-view.ts`)
+
+Implements `WorkspaceView`. Renders a `Document` as a vertical stack of
+collapsible sections. Each section mounts a `TableView` or `FlowDiagramView`
+as a child. Collapse state is saved/restored via `unmount()`/`mount()`.
+Section elements carry `data-section-id` attributes for scroll-to-section
+navigation from the nav tree.
+
+**Loading pipeline** (`src/shell/app-shell.ts`)
+
+The loading pipeline was restructured around a shared `loadDocResults()`
+helper used by both `loadControlBatch` and `loadPlainBatch`:
+
+1. Load all graphs and tables first (from `control.json` entries or raw files).
+2. Ensure every CSV/graph referenced by any `.doc.json` is in the KB -
+   load any that are missing (files present in the drop but not in `control.json`).
+3. Build `tableMap` keyed by `t.name + ".csv"` and `graphMap` keyed by
+   `g.sourceFile` (not `g.name + ".graph.json"`).
+4. Parse each `.doc.json` and call `controller.loadDocument(doc)`.
+
+The root bug was that `loadControlBatch` never received `docResults` at
+all - it was only passed to `loadPlainBatch`. Fixed by passing `docResults`
+to `loadControlBatch` and calling `loadDocResults` from both paths.
+
+**Tab lifecycle - lazy open model** (`src/knowledge-pane/workspace-controller.ts`)
+
+The tab strip was redesigned from "register everything as a tab on load"
+to a lazy open-on-demand model:
+
+- `registerView(id, factory, data)` - stores a view factory without
+  creating a tab button. Called for every document, graph, and table at load time.
+- `openTab(id)` - creates the tab button and mounts the view on first call;
+  activates the existing tab on subsequent calls.
+- `closeTab(id)` - removes the tab button, unmounts the view, activates
+  an adjacent tab.
+- Tab buttons have a close span. Clicking it calls `closeTab`.
+- `openFirst()` - opens the first registered view (called after loading).
+
+The nav tree calls `openTab`; the workspace controller handles the rest.
+
+**Navigation tree** (`src/shell/navigation-tree-view.ts`)
+
+A directory-style left sidebar panel. Structure:
+
+```
+Folder: Biochemistry Reference      <- document folder (collapsible)
+    Table: Glycolysis Compounds     <- section leaf (table)
+    Graph: Glycolysis Pathway       <- section leaf (graph)
+Folder: Mathematics Reference
+    Table: Calculus
+    Table: Linear Algebra
+Folder: Standalone                  <- group for items not in any document
+    Table: theorems
+    Graph: glycolysis-map
+```
+
+Clicking a folder label calls `openTab(doc.name)`. Clicking a section
+leaf calls `openTab(doc.name)` then scrolls to the section via
+`data-section-id`. Clicking a standalone item calls `openTab(item.name)`.
+Collapse state is preserved across `refresh()` calls using a Set keyed
+by `"doc:" + doc.name` or `"standalone"`.
+
+`refresh()` is called after every file load. It reads `kb.documents`,
+`kb.graphs`, and `kb.tables` directly from the `KnowledgeBase`.
+
+**Source Editor apply fix** (`src/source-editor/source-editor-view.ts`,
+`src/knowledge-pane/table-view.ts`)
+
+The Apply button previously had two code paths: a direct `controller.editCell`
+path (via `activeCellCtx`) and a `commitActive` path (via `onCellApply`).
+The direct path bypassed `TableView.commit()`, so the cell DOM was never
+updated - the model changed but the cell still showed the old value.
+
+Fix: removed the `activeCellCtx` path entirely. `onCellApply` is now
+registered on `SourceEditorView` at the moment a cell is activated
+(`activateCell` calls `setOnCellApply(() => this.commitActive())`), and
+cleared when the cell is committed or cancelled. The callback always
+points to the `TableView` that owns the currently active cell, regardless
+of tab order. The previous bug where `onCellApply` pointed to the wrong
+`TableView` (the last-created one, not the active one) is also fixed.
+
+---
+
+##### Key design decisions confirmed in implementation
+
+- `addDocument` does not re-register tables/graphs. The document's tables
+  and graphs are already in `kb.tables`/`kb.graphs`. Re-adding them caused
+  duplicates that broke the standalone deduplication logic.
+
+- Graph map keyed by `sourceFile`, not `graph.name`. `control.json` assigns
+  graph names from entry `id` fields, not filenames. The only stable
+  filename-based key is `sourceFile`.
+
+- `loadDocResults` is a shared helper. Both `loadControlBatch` and
+  `loadPlainBatch` call it. The previous architecture had doc loading only
+  in `loadPlainBatch`, which meant docs were silently skipped whenever
+  `control.json` was present.
+
+- Nav tree drives tab opening; tabs are closeable. The tab strip is no
+  longer a mirror of the loaded KB. It shows only what the user has
+  explicitly opened. The nav tree is the primary navigation surface.
+
+---
+
+##### Files added or significantly changed
+
+| File | Change |
+|---|---|
+| `src/model/Document.ts` | New: Document, Section, TableBlock, GraphBlock, ReferenceMapping |
+| `src/model/Graph.ts` | Added sourceFile field |
+| `src/model/KnowledgeBase.ts` | Added documents, addDocument (no re-registration) |
+| `src/model/index.ts` | Exports new Document model types |
+| `src/data/doc.ts` | New: .doc.json parser, graph map keyed by sourceFile |
+| `src/knowledge-pane/document-view.ts` | New: DocumentView |
+| `src/knowledge-pane/workspace-view.ts` | WorkspaceData gains document; viewFactory dispatches on Document |
+| `src/knowledge-pane/workspace-controller.ts` | Rewritten: lazy registerView/openTab/closeTab/openFirst; closeable tabs |
+| `src/shell/app-shell.ts` | loadDocResults helper; loadControlBatch receives docResults |
+| `src/shell/navigation-tree-view.ts` | New: directory-style nav tree |
+| `src/controller/index.ts` | loadDocument; loadGraph and resolveAllDiagrams set sourceFile |
+| `src/source-editor/source-editor-view.ts` | Removed activeCellCtx; setOnCellApply accepts null |
+| `src/knowledge-pane/table-view.ts` | activateCell registers onCellApply; commit/cancel clear it |
+| `index.html` | Added nav-tree-panel, nav-tree, btn-toggle-nav |
+| `style.css` | Nav tree panel CSS; closeable tab CSS |
+| `public/` | Added mathematics.doc.json, biochemistry.doc.json, hardware.doc.json and their CSVs |
+
+---
+
+#### Phase 16 - Test Resource Rectification - *planned*
 
 **Goal:** Rectify all CSV files in `testresources/` so they load and render
 correctly in the application. These files are the primary real-world
@@ -3734,11 +4322,11 @@ graph, the tab strip, and the search engine.
 - Chemistry cells render as reaction equations
 - All concept names include both English and Swedish (where applicable)
 - Metabolic pathway data is accessible as graph tabs (`.graph.json` files)
-- All existing Phase 1–13 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“13 tests pass without modification
 
 ---
 
-#### Phase 16 — File System Access & Save Strategy 📐 *planned*
+#### Phase 17 - File System Access and Save Strategy - *planned*
 
 **Goal:** Upgrade the file open/save lifecycle from download-only to
 direct filesystem access where the browser supports it, using a
@@ -3917,9 +4505,9 @@ returns null handles. The rest of the app is unchanged — it only sees
 - **Save As button**: always calls `fileSystem.saveAs()` — prompts for
   location on native browsers, triggers download on fallback.
 - **Status indicator**: when `canSaveInPlace` is false, a small indicator
-  in the status bar shows "⇓ Download mode" so the user knows saves
+  in the status bar shows "ÃƒÂ¢Ã¢â‚¬Â¡Ã¢â‚¬Å“ Download mode" so the user knows saves
   produce downloads rather than in-place writes.
-- **Dirty indicator**: a `●` dot in the tab title or status bar when
+- **Dirty indicator**: a `ÃƒÂ¢Ã¢â‚¬â€Ã‚Â` dot in the tab title or status bar when
   the in-memory model differs from the last saved state.
 
 ---
@@ -3948,7 +4536,7 @@ returns null handles. The rest of the app is unchanged — it only sees
 - [ ] Wire Ctrl+S to `saveAllModified()` in `main.ts`
 - [ ] Add Save As button to toolbar, wired to `fileSystem.saveAs()`
 - [ ] Add dirty indicator to tab titles and status bar
-- [ ] Add "⇓ Download mode" indicator when `canSaveInPlace` is false
+- [ ] Add "ÃƒÂ¢Ã¢â‚¬Â¡Ã¢â‚¬Å“ Download mode" indicator when `canSaveInPlace` is false
 - [ ] Add tests for `NativeFileSystemStrategy` (mock `showOpenFilePicker`
       and `showSaveFilePicker`)
 - [ ] Add tests for `DownloadFallbackStrategy`
@@ -3966,18 +4554,18 @@ returns null handles. The rest of the app is unchanged — it only sees
 - `HAS_FILE_SYSTEM_ACCESS` is the single point of capability detection,
   evaluated once at module load time
 - Dirty indicator appears when unsaved changes exist
-- All existing Phase 1–12 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“12 tests pass without modification
 
 **Demo:** Open `theorems.csv` in Chrome. Edit a cell. Press Ctrl+S —
 no download dialog appears; the file is written in place. Open the file
 in a text editor — the edit is present. Open the same file in Firefox.
 Edit a cell. Press Ctrl+S — a download is triggered. The status bar
-shows "⇓ Download mode". The Save As button always prompts for a
+shows "ÃƒÂ¢Ã¢â‚¬Â¡Ã¢â‚¬Å“ Download mode". The Save As button always prompts for a
 location regardless of browser.
 
 ---
 
-#### Phase 17 — Semantic Layer: Ordered Knowledge Topology 📐 *planned*
+#### Phase 18 - Semantic Layer: Ordered Knowledge Topology - *planned*
 
 ##### New model classes (additive — no existing classes modified)
 
@@ -4037,11 +4625,11 @@ edges: Map<string, SemanticEdge>   — keyed by edge id
 
 With query methods:
 ```
-getNode(id) → SemanticNode | undefined
-getEdgesFrom(nodeId) → SemanticEdge[]
-getEdgesTo(nodeId) → SemanticEdge[]
-getEdgesByLabel(label) → SemanticEdge[]
-getNodesByProperty(key, value) → SemanticNode[]
+getNode(id) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SemanticNode | undefined
+getEdgesFrom(nodeId) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SemanticEdge[]
+getEdgesTo(nodeId) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SemanticEdge[]
+getEdgesByLabel(label) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SemanticEdge[]
+getNodesByProperty(key, value) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ SemanticNode[]
 ```
 
 `KnowledgeBase` gains one new field: `readonly semantic = new SemanticGraph()`.
@@ -4060,7 +4648,7 @@ stores both identically.
 ##### Sidecar file format
 
 Semantic metadata is stored in a JSON sidecar file alongside the CSV files.
-Convention: `theorems.csv` → `theorems.meta.json`.
+Convention: `theorems.csv` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `theorems.meta.json`.
 
 The sidecar format is a **generic node-edge graph**. It has no hardcoded
 keys for concepts, collections, items, or families. The structure is
@@ -4236,7 +4824,7 @@ model is generic, the panel is configured rather than hardcoded:
 - Nodes without a `sourceEntityId` are pure semantic nodes (e.g. a
   collection or ordering system) and have no flat-table link
 
-The flat table editor (Phases 3–8) is unchanged. The semantic graph
+The flat table editor (Phases 3ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“8) is unchanged. The semantic graph
 panel is an additional view layer on top.
 
 ##### What is explicitly deferred to Phase 14
@@ -4257,7 +4845,7 @@ panel is an additional view layer on top.
 - [ ] Add the five primitive query methods to `SemanticGraph`:
       `getNode`, `getEdgesFrom`, `getEdgesTo`, `getEdgesByLabel`,
       `getNodesByProperty`
-- [ ] Add sidecar JSON loader to `src/data/`: `parseMetaJSON(json)` →
+- [ ] Add sidecar JSON loader to `src/data/`: `parseMetaJSON(json)` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
       reads `nodes[]` and `edges[]` arrays, populates a `SemanticGraph`
 - [ ] Wire sidecar loading in `AppController`: if a `.meta.json` file
       is dropped alongside a `.csv`, load it into `kb.semantic`
@@ -4279,7 +4867,7 @@ panel is an additional view layer on top.
 - The semantic panel renders a tree driven by the configured edge label
 - Clicking a node with a `sourceEntityId` highlights its row in the
   flat table
-- All existing Phase 1–18 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“18 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. The semantic panel
 shows a tree built from `"child-of"` edges: `Differential Calculus >
@@ -4291,7 +4879,7 @@ completely different tree structure from the same generic model.
 
 ---
 
-#### Phase 18 — Stable Entity Identity & Semantic Editing 📐 *planned*
+#### Phase 19 - Stable Entity Identity and Semantic Editing - *planned*
 
 ##### Background and motivation
 
@@ -4317,10 +4905,10 @@ entry rather than breaking the link.
 EntityRegistry
   entries: Map<uuid, { tableName: string; entityId: string }>
 
-  register(tableName, entityId) → uuid   — creates new entry
-  resolve(uuid) → { tableName, entityId } | null
+  register(tableName, entityId) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ uuid   — creates new entry
+  resolve(uuid) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ { tableName, entityId } | null
   updateEntityId(uuid, newEntityId)        — called on cell rename
-  getUUID(tableName, entityId) → uuid | null
+  getUUID(tableName, entityId) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ uuid | null
 ```
 
 `KnowledgeBase` gains `readonly registry = new EntityRegistry()`.
@@ -4335,14 +4923,14 @@ the semantic layer fully stable against renames.
 
 Phase 13 is read-only for the semantic layer. Phase 14 makes it editable:
 
-- **Create node** — right-click a row in the flat table → "Add to
-  semantic graph" → assigns a UUID, creates a `SemanticNode` with
+- **Create node** — right-click a row in the flat table ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ "Add to
+  semantic graph" ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ assigns a UUID, creates a `SemanticNode` with
   `sourceEntityId` pointing to the row, opens a property editor
 - **Edit node properties** — add, edit, or remove arbitrary key-value
   pairs on any `SemanticNode` in the property editor
 - **Create edge** — drag from one node to another in the semantic panel
-  → enter label and optional properties
-- **Edit edge properties** — click an edge → edit label and property
+  ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ enter label and optional properties
+- **Edit edge properties** — click an edge ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ edit label and property
   key-value pairs
 - **Delete node or edge** — select and delete; edges connected to a
   deleted node are also removed
@@ -4359,7 +4947,7 @@ Ctrl+Z / Ctrl+Y undo/redo works across both flat and semantic edits.
 The existing `AssociationGraph` uses display-name strings as node
 identifiers. Phase 16 adds a UUID resolution pass at CSV load time:
 
-1. CSV is parsed → rows loaded into flat model as before
+1. CSV is parsed ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ rows loaded into flat model as before
 2. Registry is loaded from sidecar (or created fresh if absent)
 3. Each row's `entityId` string is looked up in the registry; if not
    found, a new UUID is auto-assigned and registered
@@ -4404,19 +4992,19 @@ the user saves a sidecar.
 - All semantic edits are undoable with Ctrl+Z
 - Exporting a sidecar and reloading it restores the full semantic layer
   including all UUIDs
-- All existing Phase 1–17 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“17 tests pass without modification
 
 **Demo:** Load `theorems.csv` + `theorems.meta.json`. Rename
 "Fundamental Theorem of Calculus" to "FTC" in the flat table — the
 semantic panel still shows the node correctly linked to its row.
-Right-click a row → "Add to semantic graph" → set properties
+Right-click a row ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ "Add to semantic graph" ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ set properties
 `{ type: "Theorem" }`. Drag from the new node to an existing collection
 node, set label `"member"`, property `{ position: "6" }`. Export the
 sidecar. Reload — the node, edge, and properties are all preserved.
 
 ---
 
-#### Phase 19 — Native Format: Replacing CSV as Canonical Storage 📐 *planned*
+#### Phase 20 - Native Format: Replacing CSV as Canonical Storage - *planned*
 
 ##### Background and motivation
 
@@ -4495,8 +5083,8 @@ layer on top of them.
 
 - `src/data/bk-format.ts` — `parseBKJSON(json)` and `exportBKJSON(kb)`
 - `src/data/csv.ts` — unchanged; becomes one of two import paths
-- File type detection in `AppController.loadFile(file)`: `.bk.json` →
-  `parseBKJSON`, `.csv` → `parseCSV` + optional `.meta.json` sidecar
+- File type detection in `AppController.loadFile(file)`: `.bk.json` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
+  `parseBKJSON`, `.csv` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ `parseCSV` + optional `.meta.json` sidecar
 
 ##### Concrete tasks
 - [ ] Design and document the full `.bk.json` schema (all fields,
@@ -4509,19 +5097,19 @@ layer on top of them.
       per-table CSV export for full-knowledge-base saves)
 - [ ] Update session persistence (`session.ts`) to store the file type
       alongside the file name
-- [ ] Add lossless round-trip test: load CSV → export `.bk.json` →
-      reload → compare flat model and semantic layer
+- [ ] Add lossless round-trip test: load CSV ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ export `.bk.json` ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
+      reload ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ compare flat model and semantic layer
 - [ ] Update sample data: provide `sample.bk.json` as the primary demo
       file alongside the existing CSV files
 - [ ] Add tests for `parseBKJSON` and `exportBKJSON`
 
 **Completion criteria:**
-- A `.bk.json` file round-trips losslessly: load → export → reload
+- A `.bk.json` file round-trips losslessly: load ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ export ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ reload
   produces an identical `KnowledgeBase`
 - CSV files still load correctly via the existing path
 - The semantic layer (concepts, collections, items, families) survives
   the round-trip without any sidecar file
-- All existing Phase 1–18 tests pass without modification
+- All existing Phase 1ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“18 tests pass without modification
 
 **Demo:** Load `sample.bk.json` directly. The flat table, association
 graph, and collection browser all populate from a single file. Edit a
@@ -4535,54 +5123,54 @@ path.
 ### System Architecture (Phase 1)
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     Browser                         │
-│                                                     │
-│  ┌──────────┐    ┌────────────┐    ┌─────────────┐  │
-│  │  Input   │───▶│  Parser    │───▶│  Renderer   │  │
-│  │ (string) │    │            │    │             │  │
-│  └──────────┘    │ PEGParser  │    │ render()    │  │
-│                  │ + grammar  │    │ renderMath()│  │
-│                  └─────┬──────┘    └──────┬──────┘  │
-│                        │                  │         │
-│                        ▼                  ▼         │
-│                  ┌──────────┐      ┌─────────────┐  │
-│                  │   AST    │      │  DOM output │  │
-│                  │ (nodes)  │      │  (#result)  │  │
-│                  └──────────┘      └─────────────┘  │
-└─────────────────────────────────────────────────────┘
+ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                     Browser                         ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                                                     ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â    ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â    ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  Input   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¶ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  Parser    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¶ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  Renderer   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ (string) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡            ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡             ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ PEGParser  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ render()    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ + grammar  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ renderMath()ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                        ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡         ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                        ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                  ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼         ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                  ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â      ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   AST    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  DOM output ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ (nodes)  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  (#result)  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“
 ```
 
 #### Target architecture (future phases)
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                          Browser                             │
-│                                                              │
-│  ┌─────────────┐     ┌──────────────────────────────────┐   │
-│  │  File I/O   │────▶│           Table Engine           │   │
-│  │ CSV / binary│     │  rows, columns, sort, hierarchy  │   │
-│  └─────────────┘     └────────────────┬─────────────────┘   │
-│                                       │                      │
-│                                       ▼                      │
-│                      ┌────────────────────────────────┐      │
-│                      │         Plugin System          │      │
-│                      │                                │      │
-│                      │  ┌──────────┐  ┌───────────┐  │      │
-│                      │  │ Math syntax │  │ Plain text│  │      │
-│                      │  │ plugin   │  │ plugin    │  │      │
-│                      │  └──────────┘  └───────────┘  │      │
-│                      │  ┌──────────┐  ┌───────────┐  │      │
-│                      │  │ Diagram  │  │  (future) │  │      │
-│                      │  │ plugin   │  │  plugins  │  │      │
-│                      │  └──────────┘  └───────────┘  │      │
-│                      └────────────────────────────────┘      │
-│                                       │                      │
-│                                       ▼                      │
-│                             ┌──────────────────┐             │
-│                             │   DOM / UI       │             │
-│                             └──────────────────┘             │
-└──────────────────────────────────────────────────────────────┘
+ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                          Browser                             ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                                                              ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â     ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  File I/O   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¶ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡           Table Engine           ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ CSV / binaryÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡     ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  rows, columns, sort, hierarchy  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“     ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                                       ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                                       ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡         Plugin System          ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                                ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â  ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ Math syntax ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ Plain textÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ plugin   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ plugin    ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â  ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ Diagram  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  (future) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡ plugin   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  plugins  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“  ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                                       ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                                       ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                             ÃƒÂ¢Ã¢â‚¬ÂÃ…â€™ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‚Â             ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                             ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   DOM / UI       ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡             ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡                             ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“             ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ‹Å“
 ```
 
 ---
@@ -4591,19 +5179,19 @@ path.
 
 ```
 Developer machine
-│
-├── npm run dev
-│     └── Vite dev server (localhost:5173)
-│           ├── Serves index.html
-│           ├── Transpiles src/main.ts on-the-fly (no tsc emit)
-│           └── Hot-reloads on file save
-│
-└── npm run build
-      ├── tsc (type-check only, noEmit: true)
-      └── Vite bundles → dist/
-            ├── index.html
-            ├── assets/main-[hash].js
-            └── assets/style-[hash].css
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ npm run dev
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡     ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Vite dev server (localhost:5173)
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡           ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Serves index.html
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡           ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Transpiles src/main.ts on-the-fly (no tsc emit)
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡           ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Hot-reloads on file save
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡
+ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ npm run build
+      ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ tsc (type-check only, noEmit: true)
+      ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Vite bundles ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ dist/
+            ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ index.html
+            ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ assets/main-[hash].js
+            ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ assets/style-[hash].css
 ```
 
 The production build in `dist/` is a fully static site — no server required.
@@ -4615,37 +5203,41 @@ It can be hosted on any static file host (GitHub Pages, S3, Netlify, etc.).
 
 ```
 Webapp/
-├── docs/                        ← all documentation (this folder)
-├── public/                      ← static assets served as-is
-├── src/                         ← all TypeScript source
-│   ├── engine/                  ← general-purpose PEG engine
-│   ├── model/                   ← business model (1 class per file)
-│   │   ├── Cell.ts
-│   │   ├── Column.ts
-│   │   ├── Row.ts
-│   │   ├── Table.ts
-│   │   ├── Association.ts
-│   │   ├── RelationType.ts
-│   │   ├── AssociationGraph.ts
-│   │   ├── EditHistory.ts       ← EditHistory class + EditAction type
-│   │   ├── KnowledgeBase.ts
-│   │   └── index.ts             ← barrel re-export only
-│   ├── controller/              ← AppController
-│   ├── view/                    ← TableView, GraphFilterView, SearchView, session
-│   ├── plugins/                 ← math, text, geometry, physics plugins + registry
-│   │   ├── math/
-│   │   ├── text/
-│   │   ├── geometry/            ← geometry syntax plugin (types, grammar, render)
-│   │   └── physics/             ← physics free-body plugin (types, grammar, render)
-│   ├── data/                    ← CSV parser, types
-│   ├── search/                  ← search engine
-│   ├── ui/                      ← legacy UI functions (backward compat for tests)
-│   └── main.ts                  ← app entry point (MVC wiring)
-├── test/                        ← mirrors src structure
-├── index.html                   ← spreadsheet shell (menu, formula, toolbar, tabs, workspace, status)
-├── native-math.css              ← math rendering styles
-├── style.css                    ← app shell + spreadsheet layout styles
-├── package.json
-├── tsconfig.json
-└── .prettierrc
+|-- docs/                     <- all documentation
+|-- public/                   <- static assets served as-is
+|-- src/                      <- all TypeScript source
+|   |-- knowledge-pane/       <- Knowledge Pane views + WorkspaceController
+|   |   |-- table-view.ts
+|   |   |-- flow-diagram-view.ts
+|   |   |-- workspace-controller.ts
+|   |   `-- workspace-view.ts
+|   |-- source-editor/        <- Source Editor sidebar
+|   |   |-- source-editor-view.ts
+|   |   `-- highlighter.ts
+|   |-- cell-renderers/       <- Cell Renderers (math, chemistry, geometry, physics, text)
+|   |   |-- math/
+|   |   |-- chemistry/
+|   |   |-- geometry/
+|   |   |-- physics/
+|   |   |-- text/
+|   |   |-- interface.ts      <- CellRenderer interface
+|   |   `-- registry.ts       <- renderCell() dispatch
+|   |-- shell/                <- Shell chrome + global event wiring
+|   |   |-- app-shell.ts
+|   |   |-- graph-filter-view.ts
+|   |   |-- search-view.ts
+|   |   `-- session.ts
+|   |-- model/                <- business model (1 class per file)
+|   |-- controller/           <- AppController
+|   |-- engine/               <- general-purpose PEG engine
+|   |-- data/                 <- CSV parser, control file parser
+|   |-- search/               <- search engine
+|   `-- main.ts               <- app entry point (startup wiring only)
+|-- test/                     <- mirrors src structure
+|-- index.html
+|-- native-math.css
+|-- style.css
+|-- package.json
+|-- tsconfig.json
+`-- .prettierrc
 ```

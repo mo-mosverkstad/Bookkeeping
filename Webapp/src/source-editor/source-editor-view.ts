@@ -11,9 +11,9 @@
  */
 
 import type { AppController } from "../controller/index.ts";
-import { highlight } from "../plugins/highlighter.ts";
-import type { SyntaxType } from "../plugins/highlighter.ts";
-import { renderCell } from "../plugins/registry.ts";
+import { highlight } from "./highlighter.ts";
+import type { SyntaxType } from "./highlighter.ts";
+import { renderCell } from "../cell-renderers/registry.ts";
 
 // ── Local undo/redo stack ─────────────────────────────────────────────────────
 
@@ -69,8 +69,6 @@ export class SourceEditorView {
     /** Set to true while the editor textarea is focused — suppresses global undo/redo */
     private _focused = false;
     private onCellApply: ((value: string, type: string) => void) | null = null;
-    /** Active cell context — set when a cell is activated, cleared on commit/cancel */
-    private activeCellCtx: { tableIdx: number; rowIdx: number; colIdx: number } | null = null;
 
     get focused(): boolean { return this._focused; }
 
@@ -344,13 +342,7 @@ export class SourceEditorView {
             return;
         }
 
-        // Cell-level type: commit directly via controller using stored cell context
-        if (this.activeCellCtx) {
-            const { tableIdx, rowIdx, colIdx } = this.activeCellCtx;
-            this.controller.editCell(tableIdx, rowIdx, colIdx, text);
-            this.activeCellCtx = null;
-        } else if (this.onCellApply) {
-            // Fallback: use the registered callback (e.g. commitActive path)
+        if (this.onCellApply) {
             this.onCellApply(text, type);
         } else {
             this.errorEl.textContent = "No active cell — click a cell first, then edit here and Apply.";
@@ -373,10 +365,9 @@ export class SourceEditorView {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /** Load text into the editor (e.g. from the active cell or model). */
-    setText(text: string, type: SyntaxType = "math", cellCtx?: { tableIdx: number; rowIdx: number; colIdx: number }): void {
+    setText(text: string, type: SyntaxType = "math"): void {
         this.textarea.value = text;
         this.typeSelect.value = type;
-        this.activeCellCtx = cellCtx ?? null;
         this.localHistory.clear();
         this.lastSnapshot = this.snapshot();
         this.syncHighlight();
@@ -407,7 +398,7 @@ export class SourceEditorView {
     }
 
     /** Register a callback for when Apply is pressed on a cell-level type. */
-    setOnCellApply(cb: (value: string, type: string) => void): void {
+    setOnCellApply(cb: ((value: string, type: string) => void) | null): void {
         this.onCellApply = cb;
     }
 }

@@ -1,13 +1,9 @@
 /**
  * WorkspaceController — owns the tab strip and workspace view lifecycle.
  *
- * Responsibilities:
- *   - Register tabs (id → WorkspaceView + WorkspaceData)
- *   - Activate a tab: unmount current (saving state), mount next (restoring state)
- *   - Expose the active TableView for toolbar actions (add row, export)
- *
- * main.ts registers tabs and calls activateFirst(). All tab switching logic
- * lives here, not in main.ts.
+ * Tabs are opened on demand (from the nav tree) and can be closed with ✕.
+ * registerView() stores a view factory without opening a tab.
+ * openTab() opens (or activates if already open) a registered view.
  */
 
 import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
@@ -19,8 +15,14 @@ interface TabEntry {
     btn: HTMLButtonElement;
 }
 
+interface ViewEntry {
+    factory: () => WorkspaceView;
+    data: WorkspaceData;
+}
+
 export class WorkspaceController {
     private tabs = new Map<string, TabEntry>();
+    private registry = new Map<string, ViewEntry>();
     private savedStates = new Map<string, ViewState>();
     private activeId: string | null = null;
     private readonly tabStrip: HTMLElement;
@@ -42,17 +44,85 @@ export class WorkspaceController {
         this.onToolbarChange = cb;
     }
 
+    /** Register a view factory without opening a tab. */
+    registerView(id: string, factory: () => WorkspaceView, data: WorkspaceData): void {
+        this.registry.set(id, { factory, data });
+    }
+
+    /** Open a registered view as a tab (or activate it if already open). */
+    openTab(id: string): void {
+        if (this.tabs.has(id)) {
+            this.activateTab(id);
+            return;
+        }
+        const entry = this.registry.get(id);
+        if (!entry) return;
+        const view = entry.factory();
+        this.addTab(id, view, entry.data);
+        this.activateTab(id);
+    }
+
+    /** @deprecated Use registerView + openTab. Kept for control-file path. */
     registerTab(id: string, view: WorkspaceView, data: WorkspaceData): void {
+        this.registry.set(id, { factory: () => view, data });
+        this.addTab(id, view, data);
+    }
+
+    private addTab(id: string, view: WorkspaceView, data: WorkspaceData): void {
         const btn = document.createElement("button");
         btn.className = "tab-btn";
-        btn.textContent = id;
+
+        const labelSpan = document.createElement("span");
+        labelSpan.textContent = id;
+        btn.appendChild(labelSpan);
+
+        const closeBtn = document.createElement("span");
+        closeBtn.className = "tab-close";
+        closeBtn.textContent = "✕";
+        closeBtn.title = "Close tab";
+        closeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.closeTab(id);
+        });
+        btn.appendChild(closeBtn);
+
         btn.addEventListener("click", () => this.activateTab(id));
         this.tabStrip.appendChild(btn);
         this.tabs.set(id, { view, data, btn });
     }
 
+    closeTab(id: string): void {
+        const entry = this.tabs.get(id);
+        if (!entry) return;
+
+        if (this.activeId === id) {
+            // Activate an adjacent tab before closing
+            const ids = [...this.tabs.keys()];
+            const idx = ids.indexOf(id);
+            const nextId = ids[idx + 1] ?? ids[idx - 1] ?? null;
+            entry.view.unmount();
+            entry.btn.remove();
+            this.tabs.delete(id);
+            this.activeId = null;
+            if (nextId) {
+                this.activateTab(nextId);
+            } else {
+                this.container.innerHTML = "Select an item from the navigation tree";
+                this.container.className = "drop-hint";
+                this.container.parentElement?.classList.remove("workspace-diagram");
+            }
+        } else {
+            entry.btn.remove();
+            this.tabs.delete(id);
+        }
+    }
+
     activateTab(id: string): void {
-        // Save state of currently active view
+        if (!this.tabs.has(id)) {
+            this.openTab(id);
+            return;
+        }
+
         if (this.activeId) {
             const current = this.tabs.get(this.activeId);
             if (current) this.savedStates.set(this.activeId, current.view.unmount());
@@ -61,25 +131,21 @@ export class WorkspaceController {
         const next = this.tabs.get(id);
         if (!next) return;
 
-        // Update tab button styles
         this.tabs.forEach(({ btn }) => btn.classList.remove("tab-active"));
         next.btn.classList.add("tab-active");
 
-        // Mount the new view with any saved state
         this.container.innerHTML = "";
-        this.container.className = "";  // clear drop-hint and any other state classes
+        this.container.className = "";
         next.view.mount(this.container, next.data, this.savedStates.get(id));
         this.activeId = id;
         this.onStatus(id);
         this.onToolbarChange?.(next.view.getToolbarActions(), next.view);
 
-        // Give the view a callback to refresh the toolbar after selection changes
         const viewWithRefresh = next.view as { setToolbarRefreshCallback?: (cb: () => void) => void };
         viewWithRefresh.setToolbarRefreshCallback?.(() => {
             this.onToolbarChange?.(next.view.getToolbarActions(), next.view);
         });
 
-        // Diagrams handle pan/zoom internally — suppress workspace scrollbars
         const isDiagram = next.data.graph !== undefined;
         this.container.parentElement?.classList.toggle("workspace-diagram", isDiagram);
     }
@@ -89,12 +155,19 @@ export class WorkspaceController {
         if (first !== undefined) this.activateTab(first);
     }
 
+    /** Open the first registered view (used after loading files). */
+    openFirst(): void {
+        const first = this.registry.keys().next().value;
+        if (first !== undefined) this.openTab(first);
+    }
+
     clear(): void {
         if (this.activeId) {
             const current = this.tabs.get(this.activeId);
             current?.view.unmount();
         }
         this.tabs.clear();
+        this.registry.clear();
         this.savedStates.clear();
         this.activeId = null;
         this.tabStrip.innerHTML = "";
@@ -103,12 +176,10 @@ export class WorkspaceController {
         this.container.parentElement?.classList.remove("workspace-diagram");
     }
 
-    /** Returns the active view if it is a TableView, otherwise null. */
     getActiveTableView(): TableView | null {
         if (!this.activeId) return null;
         const entry = this.tabs.get(this.activeId);
         if (!entry) return null;
-        // TableView implements WorkspaceView — check by duck-typing the method
         const view = entry.view as TableView;
         return typeof view.getActiveTableIdx === "function" ? view : null;
     }

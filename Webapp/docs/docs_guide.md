@@ -93,57 +93,61 @@ Contents:
 
 ---
 
-## Source Structure (after Phase 13 — View Layer Refactoring)
+## Source Structure (after Phase 15.B)
 
 ```
 src/
-├── engine/          # General-purpose PEG engine
-├── model/           # Business model (1 class per file)
+├── engine/              # General-purpose PEG engine
+├── model/               # Business model (1 class per file)
 │   ├── Cell.ts
 │   ├── Column.ts
 │   ├── Row.ts
 │   ├── Table.ts
+│   ├── Graph.ts         # Graph model (nodes, edges, sourceFile)
+│   ├── GraphNode.ts
+│   ├── GraphEdge.ts
+│   ├── TypedValue.ts
+│   ├── Document.ts      # Document, Section, TableBlock, GraphBlock
 │   ├── Association.ts
 │   ├── RelationType.ts
 │   ├── AssociationGraph.ts
-│   ├── EditHistory.ts   # EditHistory class + EditAction type (incl. moveRow)
-│   ├── KnowledgeBase.ts
+│   ├── EditHistory.ts
+│   ├── KnowledgeBase.ts # tables, graphs, documents
 │   └── index.ts         # Barrel re-export only
-├── controller/      # Orchestration (AppController)
-├── view/            # Presentation (TableView, GraphFilterView, SearchView, session)
-├── plugins/         # Syntax plugins
-│   ├── interface.ts     # Plugin contract
-│   ├── registry.ts      # Plugin dispatch + renderCell
-│   ├── math/            # Math syntax plugin
-│   │   ├── types.ts     # MathNode union
-│   │   ├── grammar.ts   # PEG grammar + exported parser
-│   │   ├── render.ts    # AST → HTML
-│   │   ├── el.ts        # DOM helper
-│   │   └── index.ts     # Plugin entry point
-│   ├── geometry/        # Geometry syntax plugin
-│   │   ├── types.ts     # GeoStatement union + all node interfaces
-│   │   ├── grammar.ts   # PEG grammar + exported parser + parseGeometry()
-│   │   ├── render.ts    # AST → SVG
-│   │   ├── el.ts        # SVG element helpers (shared with physics)
-│   │   └── index.ts     # Plugin entry point
-│   ├── physics/         # Physics free-body plugin
-│   │   ├── types.ts     # PhysicsProgram + all node interfaces
-│   │   ├── grammar.ts   # PEG grammar + line partitioner + parsePhysics()
-│   │   ├── render.ts    # Extends geometry SVG renderer
-│   │   └── index.ts     # Plugin entry point
-│   ├── chemistry/       # Chemistry reaction syntax plugin
-│   │   ├── types.ts     # ChemistryProgram + all node interfaces
-│   │   ├── grammar.ts   # PEG grammar + exported parser + parseChemistry()
-│   │   ├── render.ts    # HTML renderer
-│   │   └── index.ts     # Plugin entry point
-│   └── text/            # Plain text plugin (fallback)
-├── data/            # Data persistence (CSV parser, types)
-├── search/          # Search engine
-└── main.ts          # App entry point (MVC wiring)
+├── controller/          # Orchestration (AppController)
+├── knowledge-pane/      # Central knowledge display surface
+│   ├── table-view.ts        # Spreadsheet view of a Table
+│   ├── flow-diagram-view.ts # SVG diagram view of a Graph
+│   ├── document-view.ts     # Stacked-section view of a Document
+│   ├── workspace-controller.ts  # Tab strip + lazy open/close lifecycle
+│   └── workspace-view.ts    # WorkspaceView interface + viewFactory
+├── source-editor/       # Right sidebar source editor
+│   ├── source-editor-view.ts
+│   └── highlighter.ts
+├── shell/               # App chrome and global event wiring
+│   ├── app-shell.ts         # File loading, keyboard, toolbar wiring
+│   ├── navigation-tree-view.ts  # Left sidebar directory tree
+│   ├── graph-filter-view.ts
+│   ├── search-view.ts
+│   └── session.ts
+├── cell-renderers/      # Stateless cell rendering plugins
+│   ├── interface.ts         # CellRenderer interface (Plugin alias kept)
+│   ├── registry.ts          # renderCell dispatch
+│   ├── math/
+│   ├── geometry/
+│   ├── physics/
+│   ├── chemistry/
+│   └── text/
+├── data/                # File parsers (CSV, control.json, .doc.json)
+│   ├── csv.ts
+│   ├── control.ts
+│   └── doc.ts
+├── search/              # Search engine
+└── main.ts              # App entry point (wiring only)
 
-test/                # Mirrors src structure
+test/                    # Mirrors src structure
 ├── engine/
-├── plugins/
+├── cell-renderers/
 │   ├── math/
 │   ├── geometry/
 │   └── physics/
@@ -151,15 +155,28 @@ test/                # Mirrors src structure
 └── ui/
 ```
 
-**`index.html` shell structure (Phase 8+):**
+**`index.html` shell structure (Phase 15.B):**
 ```
-#menu-bar      ← fixed: app title, file open, session banner
-#formula-bar   ← fixed: fx label, textarea source editor (multiline, Alt+Enter)
-#toolbar       ← fixed: row actions | graph filter | search
-#tab-bar       ← fixed: one tab per loaded CSV
-#workspace     ← scrollable: active table lives here (cells always rendered)
-#status-bar    ← fixed: TableName — N rows × M cols
+#menu-bar        <- fixed: app title, file open, session banner
+#toolbar         <- fixed: dynamic actions | export | sidebar toggle | nav toggle | filter | search
+#tab-bar         <- fixed: open tabs only (lazy, closeable with x button)
+#content-area    <- flex row:
+  #nav-tree-panel  <- left: directory tree (collapsible)
+  #workspace       <- centre: active view (table / diagram / document)
+  #sidebar         <- right: source editor (collapsible)
+#status-bar      <- fixed: active tab name + load summary
 ```
+
+**Navigation model (Phase 15.B):**
+- The nav tree is the primary navigation surface. It shows all loaded
+  documents (as collapsible folders with their sections), and a
+  Standalone folder for tables/graphs not owned by any document.
+- Clicking any item in the nav tree calls `openTab(id)` on the
+  `WorkspaceController`. If the tab is already open it is activated;
+  otherwise a new tab is created from the registered view factory.
+- Tabs are closeable. Closing a tab does not unload the data from the
+  `KnowledgeBase` - the item remains in the nav tree and can be
+  reopened at any time.
 
 ---
 

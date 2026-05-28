@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderMath } from "../../../src/plugins/math/render.ts";
-import { parser } from "../../../src/plugins/math/grammar.ts";
-import type { MathNode } from "../../../src/plugins/math/types.ts";
+import { renderMath } from "../../../src/cell-renderers/math/render.ts";
+import { parser } from "../../../src/cell-renderers/math/grammar.ts";
+import type { MathNode } from "../../../src/cell-renderers/math/types.ts";
 
 function renderInput(input: string): HTMLElement { return renderMath(parser.parse("Expression", input) as MathNode); }
 function html(input: string): string { return renderInput(input).innerHTML; }

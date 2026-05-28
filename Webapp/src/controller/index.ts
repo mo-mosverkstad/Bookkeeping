@@ -1,11 +1,12 @@
 import { KnowledgeBase, Table, Row, EditHistory, Graph, TypedValue } from "../model/index.ts";
+import type { Document } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
 import { parseControlFile, resolveNodes, resolveEdges, resolveActors, resolveMessages } from "../data/control.ts";
 import type { ControlFile, FlowDecl, SequenceDecl, NodeSource, GraphFileDecl } from "../data/control.ts";
 import { searchText, searchByIdentifier, getNeighbourhood, crossTableJoin } from "../search/index.ts";
 import type { SearchHit, NeighbourHit, JoinHit } from "../search/index.ts";
-import type { WorkspaceController } from "../view/workspace-controller.ts";
-import type { GraphFilterView } from "../view/graph-filter-view.ts";
+import type { WorkspaceController } from "../knowledge-pane/workspace-controller.ts";
+import type { GraphFilterView } from "../shell/graph-filter-view.ts";
 
 export class AppController {
     private knowledgeBase = new KnowledgeBase();
@@ -41,7 +42,13 @@ export class AppController {
         const json = JSON.parse(jsonText) as unknown;
         const name = fileName.replace(/\.graph\.json$/, "");
         const graph = Graph.fromGraphJSON(name, json);
+        graph.sourceFile = fileName;
         this.knowledgeBase.addGraph(graph);
+    }
+
+    /** Load a pre-parsed Document into the KnowledgeBase. */
+    loadDocument(doc: Document): void {
+        this.knowledgeBase.addDocument(doc);
     }
 
     getGraphs(): Graph[] {
@@ -341,6 +348,7 @@ export class AppController {
                 if (!text) continue;
                 const json = JSON.parse(text) as unknown;
                 const graph = Graph.fromGraphJSON(decl.id, json);
+                graph.sourceFile = decl.file;
                 this.knowledgeBase.addGraph(graph);
                 continue;
             }

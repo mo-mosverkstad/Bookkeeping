@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { parser } from "../../../src/plugins/math/grammar.ts";
-import type { MathNode } from "../../../src/plugins/math/types.ts";
+import { parser } from "../../../src/cell-renderers/math/grammar.ts";
+import type { MathNode } from "../../../src/cell-renderers/math/types.ts";
 
 function parse(input: string): MathNode { return parser.parse("Expression", input) as MathNode; }
 function num(value: number) { return { type: "NumberLiteral", value }; }

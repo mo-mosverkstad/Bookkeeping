@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "name": "Biochemistry Reference",
+  "sections": [
+    {
+      "id": "glycolysis-chart",
+      "title": "Glycolysis Pathway",
+      "block": {
+        "type": "graph",
+        "file": "glycolysis.graph.json",
+        "labelStyle": "default"
+      }
+    },
+    {
+      "id": "glycolysis-compounds",
+      "title": "Glycolysis Compounds",
+      "block": {
+        "type": "table",
+        "file": "glycolysis-compounds.csv"
+      }
+    },
+    {
+      "id": "krebs-chart",
+      "title": "Krebs Cycle",
+      "block": {
+        "type": "graph",
+        "file": "krebs.graph.json",
+        "labelStyle": "default"
+      }
+    },
+    {
+      "id": "metabolism-overview",
+      "title": "Full Metabolism Overview",
+      "block": {
+        "type": "graph",
+        "file": "metabolism.graph.json",
+        "labelStyle": "default"
+      }
+    }
+  ]
+}

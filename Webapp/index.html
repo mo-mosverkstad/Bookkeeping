@@ -16,7 +16,7 @@
       <span class="app-title">Bookkeeping</span>
       <label class="menu-btn" title="Open files">
         Open
-        <input type="file" id="file-input" accept=".csv,.json,.graph.json" multiple hidden />
+        <input type="file" id="file-input" accept=".csv,.json" multiple hidden />
       </label>
       <div id="session-banner" class="session-banner" hidden></div>
     </div>
@@ -28,6 +28,7 @@
       <div id="static-toolbar" class="toolbar-group">
         <button id="btn-export-csv" title="Export active table as CSV">Export</button>
         <button id="btn-toggle-sidebar" title="Toggle source editor sidebar">&#9664; Editor</button>
+        <button id="btn-toggle-nav" title="Toggle navigation tree">&#9776; Nav</button>
       </div>
       <div class="toolbar-sep"></div>
       <div id="filter-toolbar" class="toolbar-group">
@@ -44,17 +45,23 @@
       <div id="tab-strip"></div>
     </div>
 
-    <!-- 4. Content area: workspace + sidebar (flex row) -->
+    <!-- 4. Content area: nav-tree + workspace + sidebar (flex row) -->
     <div id="content-area">
 
-      <!-- 4a. Workspace: scrollable table/diagram area -->
+      <!-- 4a. Navigation tree: hierarchical structure of loaded content -->
+      <div id="nav-tree-panel">
+        <div id="nav-tree-header">Contents</div>
+        <div id="nav-tree"></div>
+      </div>
+
+      <!-- 4b. Workspace: scrollable table/diagram area -->
       <div id="workspace">
         <div id="table-container" class="drop-hint">
           Drop .csv or .graph.json files here or use Open above
         </div>
       </div>
 
-      <!-- 4b. Source editor sidebar -->
+      <!-- 4c. Source editor sidebar -->
       <div id="sidebar">
         <div id="source-editor-container"></div>
         <pre id="error-message" class="error-message"></pre>

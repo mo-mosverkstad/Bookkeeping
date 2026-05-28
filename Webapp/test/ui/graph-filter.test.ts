@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { AppController } from "../../src/controller/index.ts";
-import { GraphFilterView } from "../../src/view/graph-filter-view.ts";
+import { GraphFilterView } from "../../src/shell/graph-filter-view.ts";
 
 function makeSetup() {
     const ctrl = new AppController();

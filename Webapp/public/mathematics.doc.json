@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "name": "Mathematics Reference",
+  "sections": [
+    {
+      "id": "calculus",
+      "title": "Calculus",
+      "block": {
+        "type": "table",
+        "file": "math-calculus.csv"
+      }
+    },
+    {
+      "id": "linear-algebra",
+      "title": "Linear Algebra",
+      "block": {
+        "type": "table",
+        "file": "math-linear-algebra.csv"
+      }
+    }
+  ]
+}

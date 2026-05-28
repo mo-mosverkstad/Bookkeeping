@@ -1,6 +1,6 @@
-import type { Plugin } from "../interface.ts";
+import type { CellRenderer } from "../interface.ts";
 
-export const textPlugin: Plugin = {
+export const textPlugin: CellRenderer = {
     type_id: "text",
     version: "1.0.0",
     parse(text: string): unknown { return text; },

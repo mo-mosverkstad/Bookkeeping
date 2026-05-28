@@ -5680,3 +5680,406 @@ tbody.addEventListener("dragleave", (e) => {
 ```
 
 `e.relatedTarget` is the element the cursor moved to. If it's still inside `tbody`, the cursor just moved between rows — the indicator should stay.
+
+
+---
+
+## Phase 15 - Architecture Refactoring: Terminology & Source Separation
+
+Phase 15 was a pure reorganisation — no logic changed, no new features added.
+The `src/view/` and `src/plugins/` directories were replaced by four new
+directories grouped by the UI surface each file serves:
+
+| Old path | New path |
+|---|---|
+| `src/view/table-view.ts` | `src/knowledge-pane/table-view.ts` |
+| `src/view/flow-diagram-view.ts` | `src/knowledge-pane/flow-diagram-view.ts` |
+| `src/view/workspace-controller.ts` | `src/knowledge-pane/workspace-controller.ts` |
+| `src/view/workspace-view.ts` | `src/knowledge-pane/workspace-view.ts` |
+| `src/view/source-editor-view.ts` | `src/source-editor/source-editor-view.ts` |
+| `src/plugins/highlighter.ts` | `src/source-editor/highlighter.ts` |
+| `src/view/app-shell.ts` | `src/shell/app-shell.ts` |
+| `src/view/session.ts` | `src/shell/session.ts` |
+| `src/view/graph-filter-view.ts` | `src/shell/graph-filter-view.ts` |
+| `src/view/search-view.ts` | `src/shell/search-view.ts` |
+| `src/plugins/math/` | `src/cell-renderers/math/` |
+| `src/plugins/interface.ts` | `src/cell-renderers/interface.ts` |
+| `src/plugins/registry.ts` | `src/cell-renderers/registry.ts` |
+
+The `Plugin` interface in `src/cell-renderers/interface.ts` was renamed to
+`CellRenderer`. A `type Plugin = CellRenderer` alias was kept for backward
+compatibility with any code that still used the old name.
+
+---
+
+## Phase 15.B - Document Model, Navigation Tree & Tab Lifecycle
+
+This phase implements the Document model described in Part I.B of `study.md`,
+wires it into the loading pipeline, and adds a directory-style navigation tree
+that drives lazy tab opening.
+
+---
+
+### New model: `src/model/Document.ts`
+
+Three new classes, all additive. `Table` and `Graph` are unchanged.
+
+**`Document`**
+
+```ts
+class Document {
+    readonly name: string;
+    readonly sections: Section[];
+    getSection(id): Section | undefined
+    getTableSections(): Section[]
+    getGraphSections(): Section[]
+}
+```
+
+Orchestrates one reference sheet. Knows nothing about rendering. The only
+coordination layer between tables and graphs.
+
+**`Section`**
+
+```ts
+class Section {
+    readonly id: string;
+    readonly title: string;
+    readonly block: TableBlock | GraphBlock;
+    readonly referenceMapping: ReferenceMapping | null;
+}
+```
+
+One named block within a document. The `block` field is a discriminated union
+keyed by `kind: "table" | "graph"`.
+
+**`TableBlock` / `GraphBlock`**
+
+```ts
+interface TableBlock { kind: "table"; file: string; table: Table; }
+interface GraphBlock { kind: "graph"; file: string; graph: Graph; labelStyle?: "default" | "numbered"; }
+```
+
+Each block holds a direct reference to the already-loaded model object. The
+`file` field is the original filename, kept for display and debugging.
+
+**`ReferenceMapping`**
+
+```ts
+interface ReferenceMapping {
+    chartSection: string;   // id of the Section containing the GraphBlock
+    nodeIdColumn: string;   // column in this table whose values are node IDs
+    labelColumn: string;    // column whose values are display labels
+}
+```
+
+Implements the numbered-label / legend pattern: the chart shows numbers,
+the table shows descriptions. Declared in the document; the graph and table
+files know nothing about each other.
+
+---
+
+### `sourceFile` field on `Graph` (`src/model/Graph.ts`)
+
+```ts
+class Graph {
+    ...
+    sourceFile: string | null = null;
+}
+```
+
+Set to the original filename (e.g. `"glycolysis.graph.json"`) by both
+`loadGraph` in the controller and the `"graph"` entry path in
+`resolveAllDiagrams`. This is the stable key used to match a graph to a
+doc section reference.
+
+**Why this field is necessary:** `control.json` names graphs by entry `id`
+(e.g. `"glycolysis-map"`), not by filename. So `graph.name` is
+`"glycolysis-map"` but the doc references `"glycolysis.graph.json"`. The
+only way to match them is to record the original filename separately.
+
+---
+
+### `KnowledgeBase` changes (`src/model/KnowledgeBase.ts`)
+
+```ts
+class KnowledgeBase {
+    readonly documents: Document[] = [];   // NEW
+
+    addDocument(doc: Document): void {
+        this.documents.push(doc);
+        // Does NOT re-register the doc's tables/graphs.
+        // They are already in kb.tables/kb.graphs from loadCSV/loadGraph.
+    }
+}
+```
+
+**Why `addDocument` must not re-register:** The document's tables and graphs
+are already in `kb.tables`/`kb.graphs` from the earlier `loadCSV`/`loadGraph`
+calls. Re-adding them caused duplicates. The standalone deduplication logic
+in `registerAllTabs` and `NavigationTreeView.refresh()` uses name/sourceFile
+matching — duplicates caused items to be incorrectly excluded from the
+standalone group.
+
+---
+
+### `.doc.json` parser (`src/data/doc.ts`)
+
+```ts
+function parseDocJSON(
+    fileName: string,
+    json: unknown,
+    tableMap: Map<string, Table>,    // keyed by "name.csv"
+    graphMap: Map<string, Graph>,    // keyed by sourceFile (e.g. "glycolysis.graph.json")
+): Document
+```
+
+Resolves file references against pre-loaded maps. Sections whose referenced
+file is not found are skipped with a `console.warn` — partial loading is
+allowed when some files are missing.
+
+**Graph map key:** The map is keyed by `g.sourceFile` (the original filename),
+not by `g.name + ".graph.json"`. This is the critical fix that makes doc
+loading work when `control.json` is present — `control.json` assigns graph
+names from entry `id` fields, so `graph.name` is not the filename.
+
+---
+
+### `DocumentView` (`src/knowledge-pane/document-view.ts`)
+
+Implements `WorkspaceView`. Renders a `Document` as a vertical stack of
+collapsible sections.
+
+**Mount/unmount lifecycle:**
+
+```ts
+mount(container, data, savedState?): void
+    // Renders all sections. Restores collapse state and scrollTop from savedState.
+
+unmount(): ViewState
+    // Unmounts all child views (TableView/FlowDiagramView).
+    // Returns { collapsedSections: string[], scrollTop: number }.
+```
+
+**Section rendering:**
+
+Each section gets a collapsible header (`document-section-header`) and a
+body (`document-section-body`). The header carries a `data-section-id`
+attribute used by the nav tree for scroll-to-section navigation.
+
+For table blocks: creates a `TableView`, calls `tv.mount(childContainer, { table })`.
+For graph blocks: creates a `FlowDiagramView`, calls `fv.mount(childContainer, { graph })`.
+
+Child views are stored in `this.mounted[]` so `unmount()` can call
+`view.unmount()` on each to save their state.
+
+---
+
+### Loading pipeline (`src/shell/app-shell.ts`)
+
+The key architectural change is the `loadDocResults()` shared helper:
+
+```ts
+private loadDocResults(
+    docResults: { name: string; text: string }[],
+    csvResults:  { name: string; text: string }[],
+    graphResults: { name: string; text: string }[],
+): void {
+    if (docResults.length === 0) return;
+    const kb = this.controller.getKnowledgeBase();
+
+    // 1. Load any CSV not yet in KB
+    for (const { name, text } of csvResults)
+        if (!kb.tables.find(t => t.name + ".csv" === name))
+            this.controller.loadCSV(name, text);
+
+    // 2. Load any graph not yet in KB (keyed by sourceFile)
+    for (const { name, text } of graphResults)
+        if (!kb.graphs.find(g => g.sourceFile === name))
+            this.controller.loadGraph(name, text);
+
+    // 3. Build lookup maps
+    const tableMap = new Map(kb.tables.map(t => [t.name + ".csv", t]));
+    const graphMap = new Map(kb.graphs.filter(g => g.sourceFile).map(g => [g.sourceFile!, g]));
+
+    // 4. Parse and load each doc
+    for (const { name, text } of docResults) {
+        const doc = parseDocJSON(name, JSON.parse(text), tableMap, graphMap);
+        this.controller.loadDocument(doc);
+    }
+}
+```
+
+Both `loadControlBatch` and `loadPlainBatch` call this helper. The previous
+bug was that `loadControlBatch` never received `docResults` at all — it was
+only passed to `loadPlainBatch`. This meant docs were silently skipped
+whenever `control.json` was present in the file drop.
+
+**File classification:**
+
+```ts
+const isDocJson   = (n: string) => n.endsWith(".doc.json") || n.endsWith(".doc");
+const isGraphJson = (n: string) => n.endsWith(".graph.json") ||
+    (n.endsWith(".json") && !isDocJson(n) && n !== "control.json");
+```
+
+The `.doc` fallback handles Windows hiding known extensions in the file picker.
+
+---
+
+### Lazy tab lifecycle (`src/knowledge-pane/workspace-controller.ts`)
+
+The tab strip was redesigned from "register everything as a tab on load" to
+a lazy open-on-demand model.
+
+**`registerView(id, factory, data)`**
+
+Stores a view factory without creating a tab button. Called for every
+document, graph, and table at load time. The factory is a closure that
+creates the view on first open:
+
+```ts
+this.workspace.registerView(
+    doc.name,
+    () => viewFactory(doc, this.controller, this.sourceEditor),
+    { document: doc },
+);
+```
+
+**`openTab(id)`**
+
+Creates the tab button and mounts the view on first call. On subsequent
+calls, activates the existing tab. This is what the nav tree calls when
+the user clicks an item.
+
+**`closeTab(id)`**
+
+Removes the tab button, unmounts the view, activates an adjacent tab.
+If no tabs remain, shows the drop hint.
+
+**`openFirst()`**
+
+Opens the first registered view. Called after loading files so the user
+sees something immediately.
+
+**Closeable tab buttons:**
+
+```ts
+const closeBtn = document.createElement("span");
+closeBtn.className = "tab-close";
+closeBtn.textContent = "✕";
+closeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    this.closeTab(id);
+});
+btn.appendChild(closeBtn);
+```
+
+The `e.stopPropagation()` prevents the close click from also activating
+the tab.
+
+---
+
+### Navigation tree (`src/shell/navigation-tree-view.ts`)
+
+A directory-style left sidebar. The tree is rebuilt from scratch on every
+`refresh()` call.
+
+**Structure:**
+
+```
+📁 Biochemistry Reference    <- document folder
+    ▤ Glycolysis Compounds   <- section leaf (table)
+    ◈ Glycolysis Pathway     <- section leaf (graph)
+📁 Standalone                <- group for items not in any document
+    ▤ theorems
+    ◈ glycolysis-map
+```
+
+**Deduplication:** The `renderFolder` method tracks which table names and
+graph sourceFiles belong to documents. The standalone group only shows
+items not already inside a document folder.
+
+**Collapse state:** A `Set<string>` keyed by `"doc:" + doc.name` or
+`"standalone"` persists collapse state across `refresh()` calls. This
+means collapsing a folder survives file reloads.
+
+**Click handlers:**
+
+- Folder label → `workspace.openTab(doc.name)`
+- Section leaf → `workspace.openTab(doc.name)` then scroll to
+  `[data-section-id="${section.id}"]` via `requestAnimationFrame`
+- Standalone item → `workspace.openTab(item.name)`
+
+All use `openTab` (not `activateTab`) so clicking a nav item opens a new
+tab if not already open, or focuses the existing tab if it is.
+
+---
+
+### Source Editor apply fix
+
+**Root cause:** `SourceEditorView.apply()` had two code paths:
+
+1. `activeCellCtx` path — called `controller.editCell()` directly, then
+   set `activeCellCtx = null`. This bypassed `TableView.commit()`, so the
+   cell DOM was never updated. The model changed but the cell still showed
+   the old value until the next full re-render.
+
+2. `onCellApply` path — called `commitActive()` on the `TableView`, which
+   correctly: removed `cell-active` class, called `showRendered(td, value)`,
+   cleared the editor, and committed to the model.
+
+Additionally, `onCellApply` was set once per `TableView` creation in
+`viewFactory`. With lazy tab opening, whichever tab was opened last owned
+the callback. Clicking a cell in an earlier-opened tab set `activeCell` on
+that view, but `onCellApply` pointed to a different view's `commitActive`
+where `activeCell` was null — so Apply showed "No active cell" error.
+
+**Fix:**
+
+Removed the `activeCellCtx` path entirely. `onCellApply` is now registered
+on `SourceEditorView` at the moment a cell is activated:
+
+```ts
+// In TableView.activateCell():
+this.sourceEditor?.setOnCellApply(() => this.commitActive());
+```
+
+And cleared when the cell is committed or cancelled:
+
+```ts
+// In the commit/cancel closures:
+this.sourceEditor?.setOnCellApply(null);
+```
+
+The callback always points to the `TableView` that owns the currently
+active cell, regardless of tab order. `setOnCellApply` now accepts
+`((value, type) => void) | null`.
+
+**Lesson:** Per-cell-activation registration is the correct pattern for
+callbacks that must point to the currently active context. Global
+registration (once per view creation) breaks when multiple views share
+the same singleton editor.
+
+---
+
+### `viewFactory` dispatch on Document (`src/knowledge-pane/workspace-view.ts`)
+
+```ts
+export function viewFactory(
+    model: Table | Graph | Document,
+    controller: AppController,
+    sourceEditor?: SourceEditorView,
+): WorkspaceView {
+    if (model instanceof DocumentClass) {
+        return new DocumentView(controller, sourceEditor);
+    }
+    if (model instanceof TableClass) { ... }
+    // Graph fallback
+    return new FlowDiagramView((model as GraphClass).viewType, controller);
+}
+```
+
+`WorkspaceData` gained `document?: Document`. The `isDiagram` check in
+`WorkspaceController.activateTab` uses `next.data.graph !== undefined` —
+documents are not diagrams, so they get normal scrollable workspace layout.

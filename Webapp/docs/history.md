@@ -2658,3 +2658,289 @@ newlines.
 renderer.
 
 **Files changed:** `src/plugins/text/index.ts`
+
+---
+
+## Phase 15 - Architecture Refactoring: Terminology & Source Separation
+
+---
+
+### Motivation
+
+Two problems had accumulated across 14 phases:
+
+1. **Fuzzy vocabulary.** Terms like "main view", "plugin", "editor", and
+   "view" were used inconsistently across code, comments, and conversation.
+
+2. **Wrong grouping axis.** `src/view/` contained three completely different
+   things — Knowledge Pane views, the Source Editor, and the Shell. They
+   were grouped together only because they all produce DOM, not because they
+   serve the same UI surface.
+
+---
+
+### Changes
+
+**Deleted directories:**
+- `src/view/` — split into three new directories
+- `src/plugins/` — renamed to `src/cell-renderers/`
+
+**New directories:**
+
+| Directory | Contents |
+|---|---|
+| `src/knowledge-pane/` | `table-view.ts`, `flow-diagram-view.ts`, `workspace-controller.ts`, `workspace-view.ts` |
+| `src/source-editor/` | `source-editor-view.ts`, `highlighter.ts` |
+| `src/shell/` | `app-shell.ts`, `session.ts`, `graph-filter-view.ts`, `search-view.ts` |
+| `src/cell-renderers/` | `interface.ts`, `registry.ts`, `math/`, `chemistry/`, `geometry/`, `physics/`, `text/` |
+
+**Renamed:**
+- `Plugin` interface → `CellRenderer` in `src/cell-renderers/interface.ts`
+- `type Plugin = CellRenderer` alias kept for backward compatibility
+
+**Changed:**
+- All import paths across `src/` and `test/` updated to reflect new locations
+- `highlighter.ts` moved from `src/plugins/` to `src/source-editor/` — it
+  is used exclusively by the Source Editor, not by cell renderers
+
+**No logic changes.** All rendering, parsing, and model code is identical.
+All tests pass without modification.
+
+---
+
+### Design decisions
+
+1. **Group by UI surface served, not by abstraction level.** The math plugin
+   and the source editor both involve parsing and rendering, but they serve
+   completely different surfaces. Grouping them together obscured this.
+
+2. **`CellRenderer` is the correct name.** The old name `Plugin` was vague.
+   A cell renderer is a stateless function that takes a raw string value and
+   a type identifier and returns an `HTMLElement`. The name makes this clear.
+
+3. **Backward-compatible alias.** `type Plugin = CellRenderer` ensures any
+   code that still uses the old name compiles without change.
+
+---
+
+## Phase 15.B - Document Model, Navigation Tree & Tab Lifecycle
+
+---
+
+### What was added
+
+**`src/model/Document.ts`** — new file
+
+Three new model classes:
+- `Document { name, sections: Section[] }` — orchestrates one reference sheet
+- `Section { id, title, block: TableBlock | GraphBlock, referenceMapping? }` — one named block
+- `TableBlock | GraphBlock` — discriminated union; each holds a direct reference to the loaded model object
+- `ReferenceMapping { chartSection, nodeIdColumn, labelColumn }` — the numbered-label / legend pattern
+
+**`src/model/Graph.ts`** — added `sourceFile: string | null = null`
+
+Set to the original filename (e.g. `"glycolysis.graph.json"`) by both
+`loadGraph` in the controller and the `"graph"` entry path in
+`resolveAllDiagrams`. Required because `control.json` names graphs by
+entry `id`, not by filename — `graph.name` is not the filename.
+
+**`src/model/KnowledgeBase.ts`** — added `documents: Document[]` and `addDocument(doc)`
+
+`addDocument` only pushes to the array. It does NOT re-register the
+document's tables/graphs — they are already in `kb.tables`/`kb.graphs`
+from the earlier `loadCSV`/`loadGraph` calls.
+
+**`src/model/index.ts`** — exports `Document`, `Section`, `Block`, `TableBlock`, `GraphBlock`, `ReferenceMapping`
+
+**`src/data/doc.ts`** — new file
+
+`parseDocJSON(fileName, json, tableMap, graphMap): Document`
+- `tableMap` keyed by `t.name + ".csv"`
+- `graphMap` keyed by `g.sourceFile` (not `g.name + ".graph.json"`)
+- Sections whose referenced file is not found are skipped with `console.warn`
+
+**`src/knowledge-pane/document-view.ts`** — new file
+
+`DocumentView implements WorkspaceView`. Renders a `Document` as a vertical
+stack of collapsible sections. Each section mounts a `TableView` or
+`FlowDiagramView` as a child. Collapse state saved/restored via
+`unmount()`/`mount()`. Section elements carry `data-section-id` attributes
+for scroll-to-section navigation.
+
+**`src/shell/navigation-tree-view.ts`** — new file
+
+`NavigationTreeView` — directory-style left sidebar. Documents render as
+collapsible `📁` folders with their sections as leaf items. Standalone
+tables/graphs (not owned by any document) appear under a `📁 Standalone`
+folder. Collapse state preserved across `refresh()` calls via a
+`Set<string>` keyed by `"doc:" + doc.name` or `"standalone"`. All click
+handlers call `workspace.openTab()`.
+
+**`public/mathematics.doc.json`**, **`public/biochemistry.doc.json`**,
+**`public/hardware.doc.json`** — new sample document files
+
+**`public/math-calculus.csv`**, **`public/math-linear-algebra.csv`**,
+**`public/glycolysis-compounds.csv`**, **`public/hardware-boolean.csv`**,
+**`public/hardware-gates.csv`** — new sample CSV files for the documents
+
+---
+
+### What was changed
+
+**`src/knowledge-pane/workspace-controller.ts`** — rewritten
+
+Redesigned from "register everything as a tab on load" to a lazy
+open-on-demand model:
+- `registerView(id, factory, data)` — stores a view factory without creating a tab button
+- `openTab(id)` — creates the tab button and mounts the view on first call; activates existing tab on subsequent calls
+- `closeTab(id)` — removes the tab button, unmounts the view, activates adjacent tab
+- `openFirst()` — opens the first registered view
+- Tab buttons now have a `✕` close span
+
+**`src/knowledge-pane/workspace-view.ts`**
+- `WorkspaceData` gained `document?: Document`
+- `viewFactory` now dispatches on `Document` → `DocumentView` in addition to `Table` and `Graph`
+- `setOnCellApply` wiring removed from `viewFactory` (moved to per-cell-activation)
+
+**`src/shell/app-shell.ts`**
+- Added `loadDocResults()` shared helper — used by both `loadControlBatch` and `loadPlainBatch`
+- `loadControlBatch` now receives and processes `docResults` (was the root bug — docs were silently skipped when `control.json` was present)
+- `registerAllTabs` uses `registerView` + `openFirst` instead of `registerTab` + `activateFirst`
+- Standalone deduplication uses `g.sourceFile` instead of `g.name + ".graph.json"`
+
+**`src/controller/index.ts`**
+- Added `loadDocument(doc: Document)` — delegates to `kb.addDocument()`
+- `loadGraph` now sets `graph.sourceFile = fileName`
+- `resolveAllDiagrams` now sets `graph.sourceFile = decl.file` for `"graph"` entries
+
+**`src/source-editor/source-editor-view.ts`**
+- Removed `activeCellCtx` field and the direct `controller.editCell` path in `apply()`
+- `setOnCellApply` now accepts `((value, type) => void) | null`
+- `setText` no longer accepts a `cellCtx` parameter
+
+**`src/knowledge-pane/table-view.ts`**
+- `activateCell` now calls `this.sourceEditor?.setOnCellApply(() => this.commitActive())` when a cell is activated
+- `commit` and `cancel` closures now call `this.sourceEditor?.setOnCellApply(null)` to clear the callback
+- `setText` call no longer passes `cellCtx`
+
+**`index.html`**
+- Added `#nav-tree-panel` (left of workspace), `#nav-tree-header`, `#nav-tree`
+- Added `#btn-toggle-nav` button in static toolbar
+
+**`style.css`**
+- Added nav tree panel CSS (220px, collapsible with `nav-collapsed` class)
+- Added folder/leaf item styles (`.nav-folder-header`, `.nav-folder-children`, `.nav-leaf`)
+- Added `.tab-close` button styles (red on hover)
+
+---
+
+### Bugs found and fixed
+
+**Bug 1 — Documents never appeared in nav tree (root cause: `loadControlBatch` never received `docResults`)**
+
+Symptom: Nav tree showed `docs: 0` even when `.doc.json` files were included
+in the file drop. Console showed `[registerAllTabs] docs: 0 tables: 3 graphs: 3`.
+
+Root cause: `loadFiles` correctly classified `.doc.json` files into
+`docResults`. However, when `control.json` was present in the drop,
+`loadControlBatch` was called — and `docResults` was never passed to it.
+Only `loadPlainBatch` received `docResults`. Since the public test data
+includes `control.json`, docs were always skipped.
+
+Fix: Added `docResults` parameter to `loadControlBatch`. Extracted
+`loadDocResults()` as a shared helper called by both batch functions.
+
+**Bug 2 — Graph sections inside documents showed 0 sections (root cause: graph map keyed by wrong field)**
+
+Symptom: After fixing Bug 1, documents appeared in the nav tree but with
+0 sections. Console showed warnings like `"glycolysis.graph.json" not loaded,
+skipping section "glycolysis-chart"`.
+
+Root cause: `loadDocResults` built the graph map as
+`new Map(kb.graphs.map(g => [g.name + ".graph.json", g]))`. But
+`control.json` names graphs by entry `id` (e.g. `"glycolysis-map"`), not
+by filename. So `graph.name` was `"glycolysis-map"` and the map key was
+`"glycolysis-map.graph.json"` — which never matched the doc's reference
+`"glycolysis.graph.json"`.
+
+Fix: Added `sourceFile: string | null` field to `Graph`. Set it in both
+`loadGraph` and `resolveAllDiagrams`. Built the graph map using
+`g.sourceFile` as the key instead of `g.name + ".graph.json"`.
+
+**Bug 3 — `addDocument` caused duplicate tables/graphs**
+
+Symptom: After loading, `kb.tables` contained each table twice. The
+standalone deduplication logic incorrectly excluded some items.
+
+Root cause: `addDocument` called `this.addTable(section.block.table)` and
+`this.addGraph(section.block.graph)` for each section. But those tables
+and graphs were already in `kb.tables`/`kb.graphs` from the earlier
+`loadCSV`/`loadGraph` calls. Re-adding them caused duplicates.
+
+Fix: Removed the re-registration calls from `addDocument`. It now only
+pushes to `this.documents`.
+
+**Bug 4 — Apply button showed "No active cell" error even with a cell focused**
+
+Symptom: Clicking a cell, editing in the source editor, then clicking Apply
+showed "No active cell — click a cell first, then edit here and Apply."
+
+Root cause: `onCellApply` was set once per `TableView` creation in
+`viewFactory`. With lazy tab opening, whichever tab was opened last owned
+the callback. Clicking a cell in an earlier-opened tab set `activeCell` on
+that view, but `onCellApply` pointed to a different view's `commitActive`
+where `activeCell` was null.
+
+Fix: Removed the global `setOnCellApply` wiring from `viewFactory`.
+`activateCell` in `TableView` now calls
+`this.sourceEditor?.setOnCellApply(() => this.commitActive())` when a cell
+is activated, and the commit/cancel closures call
+`this.sourceEditor?.setOnCellApply(null)` to clear it. The callback always
+points to the `TableView` that owns the currently active cell.
+
+**Bug 5 — Apply updated the model but the cell DOM showed the old value**
+
+Symptom: After clicking Apply, the model was updated (confirmed by
+re-clicking the cell) but the cell still showed the old rendered value
+until the next full re-render.
+
+Root cause: `SourceEditorView.apply()` had two code paths. The
+`activeCellCtx` path called `controller.editCell()` directly, then set
+`activeCellCtx = null`. This bypassed `TableView.commit()`, so
+`showRendered(td, value)` was never called and `cell-active` was never
+removed from the `td`.
+
+Fix: Removed the `activeCellCtx` path entirely. Apply now always goes
+through `onCellApply → commitActive()`, which correctly: removes
+`cell-active`, calls `showRendered(td, value)`, clears the editor, and
+commits to the model.
+
+---
+
+### Design decisions
+
+1. **`addDocument` must not re-register tables/graphs.** The document's
+   tables and graphs are already in `kb.tables`/`kb.graphs`. Re-adding
+   them caused duplicates that broke the standalone deduplication logic.
+   The document is the coordination layer only — it does not own the data.
+
+2. **Graph map keyed by `sourceFile`, not `graph.name`.** `control.json`
+   assigns graph names from entry `id` fields, not filenames. The only
+   stable filename-based key is `sourceFile`. This field must be set by
+   every code path that loads a graph.
+
+3. **`loadDocResults` is a shared helper.** Both `loadControlBatch` and
+   `loadPlainBatch` must process `.doc.json` files. Extracting the logic
+   into a shared helper eliminates the duplication and ensures both paths
+   behave identically.
+
+4. **Nav tree drives tab opening; tabs are closeable.** The tab strip is
+   no longer a mirror of the loaded KB. It shows only what the user has
+   explicitly opened. The nav tree is the primary navigation surface.
+   Closing a tab does not unload the data — the item remains in the nav
+   tree and can be reopened at any time.
+
+5. **`onCellApply` registered per-cell-activation, not per-view-creation.**
+   Per-cell-activation registration ensures the callback always points to
+   the `TableView` that owns the currently active cell, regardless of how
+   many tabs are open or in what order they were opened.

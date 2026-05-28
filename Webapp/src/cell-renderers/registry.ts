@@ -1,4 +1,4 @@
-import type { Plugin } from "./interface.ts";
+import type { CellRenderer } from "./interface.ts";
 import { mathPlugin } from "./math/index.ts";
 import { textPlugin } from "./text/index.ts";
 import { geometryPlugin } from "./geometry/index.ts";
@@ -15,7 +15,7 @@ function escapeHTML(message: string): string {
         .replace(/ /g, "&nbsp;");
 }
 
-const plugins: Record<string, Plugin> = {
+const renderers: Record<string, CellRenderer> = {
     math: mathPlugin,
     text: textPlugin,
     geometry: geometryPlugin,
@@ -23,15 +23,15 @@ const plugins: Record<string, Plugin> = {
     chemistry: chemistryPlugin,
 };
 
-export function getPlugin(typeId: string): Plugin {
-    return plugins[typeId] ?? textPlugin;
+export function getPlugin(typeId: string): CellRenderer {
+    return renderers[typeId] ?? textPlugin;
 }
 
 export function renderCell(typeId: string, text: string): HTMLElement {
-    const plugin = getPlugin(typeId);
+    const renderer = getPlugin(typeId);
     try {
-        const ast = plugin.parse(text);
-        return plugin.render(ast);
+        const ast = renderer.parse(text);
+        return renderer.render(ast);
     } catch (e) {
         const span = document.createElement("span");
         span.className = "cell-error";

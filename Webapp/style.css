@@ -259,6 +259,15 @@ body {
   bottom: -2px;
   padding-bottom: 5px;
 }
+.tab-close {
+  margin-left: 6px;
+  font-size: 0.78em;
+  color: #94a3b8;
+  line-height: 1;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+.tab-close:hover { color: #ef4444; background: #fee2e2; }
 
 /* ── 4. Content area: workspace + sidebar (flex row) ─────────────────────── */
 #content-area {
@@ -620,3 +629,163 @@ body {
 .hl-comma      { color: #64748b; }
 .hl-type-id    { color: #7c3aed; }
 .hl-view-type  { color: #0369a1; }
+
+/* ── Document view ────────────────────────────────────────────────────────── */
+.document-view {
+  padding: 0 0 2em 0;
+}
+
+.document-title {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: #1e293b;
+  padding: 0.6em 1em 0.4em;
+  border-bottom: 2px solid #e2e8f0;
+  margin: 0;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.document-section {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.document-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.4em 1em;
+  background: #f1f5f9;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.document-section-header:hover { background: #e2e8f0; }
+
+.document-section-toggle {
+  font-size: 0.75em;
+  color: #64748b;
+  width: 1em;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.document-section-title {
+  font-weight: 600;
+  font-size: 0.9em;
+  color: #334155;
+}
+
+.document-section-body {
+  padding: 0;
+}
+
+.document-section-content {
+  overflow: auto;
+}
+
+/* ── Navigation tree panel ────────────────────────────────────────────────── */
+#nav-tree-panel {
+  flex-shrink: 0;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #e2e8f0;
+  background: #f8fafc;
+  overflow: hidden;
+  transition: width 0.15s ease;
+}
+#nav-tree-panel.nav-collapsed {
+  width: 0;
+  border-right: none;
+}
+#nav-tree-header {
+  flex-shrink: 0;
+  padding: 0.4em 0.75em;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+#nav-tree {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.2em 0;
+}
+.nav-tree-empty {
+  padding: 0.5em 0.75em;
+  font-size: 0.82em;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Folder (document group) */
+.nav-folder-header {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.3em 0.5em;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.84em;
+  font-weight: 600;
+  color: #1e293b;
+}
+.nav-folder-header:hover { background: #e2e8f0; }
+.nav-folder-arrow {
+  font-size: 0.6em;
+  color: #94a3b8;
+  width: 1em;
+  text-align: center;
+  flex-shrink: 0;
+}
+.nav-folder-icon { flex-shrink: 0; }
+.nav-folder-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.nav-folder-label-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.nav-folder-children {
+  border-left: 2px solid #e2e8f0;
+  margin-left: 1.1em;
+}
+.nav-folder-standalone .nav-folder-header { color: #64748b; font-weight: 500; }
+
+/* Leaf item (section / standalone table or graph) */
+.nav-leaf {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.22em 0.5em 0.22em 0.6em;
+  cursor: pointer;
+  font-size: 0.82em;
+  color: #334155;
+  user-select: none;
+}
+.nav-leaf:hover { background: #e2e8f0; }
+.nav-leaf-icon { color: #64748b; flex-shrink: 0; font-size: 0.85em; }
+.nav-leaf-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nav toggle button active state */
+#btn-toggle-nav.nav-open {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}

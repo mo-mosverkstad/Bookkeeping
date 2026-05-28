@@ -1,9 +1,9 @@
-import type { Plugin } from "../interface.ts";
+import type { CellRenderer } from "../interface.ts";
 import { parseGeometry } from "./grammar.ts";
 import { renderGeometry } from "./render.ts";
 import type { GeometryProgram } from "./types.ts";
 
-export const geometryPlugin: Plugin = {
+export const geometryPlugin: CellRenderer = {
     type_id: "geometry",
     version: "1.0.0",
     parse(text: string): unknown { return parseGeometry(text); },

@@ -1,10 +1,12 @@
 import type { Table } from "./Table.ts";
 import type { Graph } from "./Graph.ts";
+import type { Document } from "./Document.ts";
 import { AssociationGraph } from "./AssociationGraph.ts";
 
 export class KnowledgeBase {
     readonly tables: Table[] = [];
     readonly graphs: Graph[] = [];
+    readonly documents: Document[] = [];
     readonly graph = new AssociationGraph();
 
     addTable(table: Table): void {
@@ -21,9 +23,14 @@ export class KnowledgeBase {
         this.graphs.push(graph);
     }
 
+    addDocument(doc: Document): void {
+        this.documents.push(doc);
+    }
+
     clear(): void {
         this.tables.length = 0;
         this.graphs.length = 0;
+        this.documents.length = 0;
         this.graph.clear();
     }
 

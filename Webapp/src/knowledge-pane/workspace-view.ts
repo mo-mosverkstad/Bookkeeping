@@ -1,5 +1,6 @@
 import type { Table } from "../model/Table.ts";
 import type { Graph } from "../model/Graph.ts";
+import type { Document } from "../model/Document.ts";
 import { Table as TableClass } from "../model/Table.ts";
 
 export type ViewState = unknown;
@@ -28,20 +29,27 @@ export interface WorkspaceView {
 export interface WorkspaceData {
     table?: Table;
     graph?: Graph;
+    document?: Document;
 }
 
-// ── viewFactory — dispatches on model type, not on control file string ────────
+// ── viewFactory — dispatches on model type ────────────────────────────────────
 
 import { TableView } from "./table-view.ts";
 import { FlowDiagramView } from "./flow-diagram-view.ts";
+import { DocumentView } from "./document-view.ts";
 import type { AppController } from "../controller/index.ts";
-import type { SourceEditorView } from "./source-editor-view.ts";
+import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
+import { Document as DocumentClass } from "../model/Document.ts";
+import { Graph as GraphClass } from "../model/Graph.ts";
 
 export function viewFactory(
-    model: Table | Graph,
+    model: Table | Graph | Document,
     controller: AppController,
     sourceEditor?: SourceEditorView,
 ): WorkspaceView {
+    if (model instanceof DocumentClass) {
+        return new DocumentView(controller, sourceEditor);
+    }
     if (model instanceof TableClass) {
         const view = new TableView(document.createElement("div"));
         view.setController(controller);
@@ -49,16 +57,9 @@ export function viewFactory(
         if (handler) view.setEntityClickHandler(handler);
         if (sourceEditor) {
             view.setSourceEditor(sourceEditor);
-            sourceEditor.setOnCellApply((value, _type) => {
-                const tv = view;
-                if (tv.getActiveTableIdx() >= 0) {
-                    // commitActive reads getValue() from the source editor
-                    tv.commitActive();
-                }
-            });
         }
         return view;
     }
-    const g = model as Graph;
+    const g = model as GraphClass;
     return new FlowDiagramView(g.viewType, controller);
 }

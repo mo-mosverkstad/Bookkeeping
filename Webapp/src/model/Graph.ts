@@ -3,7 +3,7 @@ import { GraphNode } from "./GraphNode.ts";
 import { GraphEdge } from "./GraphEdge.ts";
 import type { NodeStyle, EdgeStyle } from "../data/control.ts";
 
-export type GraphViewType = "flow" | "spatial" | "relation" | "sequence";
+export type GraphViewType = "flow" | "spatial" | "relation" | "sequence" | "network";
 
 // ── JSON serialisation shapes ─────────────────────────────────────────────────
 
@@ -43,6 +43,8 @@ export class Graph {
     nodeStyles: Record<string, NodeStyle>;
     edgeStyles: Record<string, EdgeStyle>;
     layout: Record<string, { x: number; y: number }>;
+    /** Original filename this graph was loaded from (e.g. "glycolysis.graph.json"). */
+    sourceFile: string | null = null;
     /** Monotonically increasing counter — never resets, never reuses values. */
     private edgeSeq: number;
 

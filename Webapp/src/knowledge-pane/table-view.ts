@@ -1,8 +1,8 @@
-import { renderCell } from "../plugins/registry.ts";
+import { renderCell } from "../cell-renderers/registry.ts";
 import type { Table, Row } from "../model/index.ts";
 import type { AppController } from "../controller/index.ts";
 import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
-import type { SourceEditorView } from "./source-editor-view.ts";
+import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
 
 interface TableState {
     scrollTop: number;
@@ -21,13 +21,10 @@ export class TableView implements WorkspaceView {
     private currentTables: Table[] = [];
     /** The real index of the mounted table in kb.tables[]. Used for all controller calls. */
     private kbTableIdx = 0;
-    private suppressBlur = false;
     private sortCol = -1;
     private sortAsc = true;
     /** Row objects currently checked for multi-row drag. */
     private selectedRows = new Set<Row>();
-    /** The table whose rows are currently selected. */
-    private selectionTable: Table | null = null;
 
     private activeCell: {
         td: HTMLElement;
@@ -181,10 +178,8 @@ export class TableView implements WorkspaceView {
                     const liveCount = currentRows.filter(r => this.selectedRows.has(r)).length;
                     if (liveCount < currentRows.length) {
                         currentRows.forEach(r => this.selectedRows.add(r));
-                        this.selectionTable = table;
                     } else {
                         this.selectedRows.clear();
-                        this.selectionTable = null;
                     }
                     render();
                 });
@@ -243,10 +238,8 @@ export class TableView implements WorkspaceView {
                     cb.addEventListener("change", () => {
                         if (cb.checked) {
                             this.selectedRows.add(row);
-                            this.selectionTable = table;
                         } else {
                             this.selectedRows.delete(row);
-                            if (this.selectedRows.size === 0) this.selectionTable = null;
                         }
                         tr.classList.toggle("row-selected", cb.checked);
                         updateHeaderCb();
@@ -490,12 +483,14 @@ export class TableView implements WorkspaceView {
     ): void {
         td.classList.add("cell-active");
 
-        this.sourceEditor?.setText(originalValue, typeId as import("../plugins/highlighter.ts").SyntaxType, { tableIdx, rowIdx, colIdx });
+        this.sourceEditor?.setText(originalValue, typeId as import("../source-editor/highlighter.ts").SyntaxType);
+        this.sourceEditor?.setOnCellApply(() => this.commitActive());
         requestAnimationFrame(() => { this.sourceEditor?.focusTextarea(); });
 
         const commit = (value: string) => {
             this.activeCell = null;
             td.classList.remove("cell-active");
+            this.sourceEditor?.setOnCellApply(null);
             this.sourceEditor?.clear();
             onCommit(value);
             this.showRendered(td, value, typeId);
@@ -504,6 +499,7 @@ export class TableView implements WorkspaceView {
         const cancel = () => {
             this.activeCell = null;
             td.classList.remove("cell-active");
+            this.sourceEditor?.setOnCellApply(null);
             this.sourceEditor?.clear();
             this.showRendered(td, originalValue, typeId);
         };
@@ -513,7 +509,8 @@ export class TableView implements WorkspaceView {
 
     commitActive(): void {
         if (!this.activeCell) return;
-        this.activeCell.commit(this.sourceEditor?.getValue() ?? this.activeCell.originalValue);
+        const value = this.sourceEditor?.getValue() ?? this.activeCell.originalValue;
+        this.activeCell.commit(value);
     }
 
     cancelActive(): void { this.activeCell?.cancel(); }
@@ -522,7 +519,6 @@ export class TableView implements WorkspaceView {
     clearSelection(): void {
         if (this.selectedRows.size === 0) return;
         this.selectedRows.clear();
-        this.selectionTable = null;
         this.dragRows = [];
         this.renderActiveTable();
     }

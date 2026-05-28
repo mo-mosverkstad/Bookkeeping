@@ -3,18 +3,20 @@
  */
 
 import { AppController } from "../controller/index.ts";
-import { WorkspaceController } from "./workspace-controller.ts";
-import { viewFactory } from "./workspace-view.ts";
-import type { WorkspaceView } from "./workspace-view.ts";
-import { SourceEditorView } from "./source-editor-view.ts";
+import { WorkspaceController } from "../knowledge-pane/workspace-controller.ts";
+import { viewFactory } from "../knowledge-pane/workspace-view.ts";
+import { SourceEditorView } from "../source-editor/source-editor-view.ts";
+import { NavigationTreeView } from "./navigation-tree-view.ts";
 import { saveSession, loadSession } from "./session.ts";
 import { parseCSV } from "../data/csv.ts";
+import { parseDocJSON } from "../data/doc.ts";
 import type { ControlFile } from "../data/control.ts";
 
 export class AppShell {
     private readonly controller: AppController;
     private readonly workspace: WorkspaceController;
     private readonly sourceEditor: SourceEditorView;
+    private readonly navTree: NavigationTreeView;
     private readonly elements: {
         fileInput: HTMLInputElement;
         workspaceEl: HTMLElement;
@@ -23,6 +25,8 @@ export class AppShell {
         dynamicToolbar: HTMLElement;
         btnExport: HTMLElement;
         btnToggleSidebar: HTMLElement;
+        btnToggleNav: HTMLElement;
+        navTreePanel: HTMLElement;
         sidebarEl: HTMLElement;
         statusText: HTMLElement;
     };
@@ -31,6 +35,7 @@ export class AppShell {
         controller: AppController,
         workspace: WorkspaceController,
         sourceEditor: SourceEditorView,
+        navTree: NavigationTreeView,
         elements: {
             fileInput: HTMLInputElement;
             workspaceEl: HTMLElement;
@@ -39,6 +44,8 @@ export class AppShell {
             dynamicToolbar: HTMLElement;
             btnExport: HTMLElement;
             btnToggleSidebar: HTMLElement;
+            btnToggleNav: HTMLElement;
+            navTreePanel: HTMLElement;
             sidebarEl: HTMLElement;
             statusText: HTMLElement;
         },
@@ -46,6 +53,7 @@ export class AppShell {
         this.controller = controller;
         this.workspace = workspace;
         this.sourceEditor = sourceEditor;
+        this.navTree = navTree;
         this.elements = elements;
     }
 
@@ -54,16 +62,16 @@ export class AppShell {
         this.wireStaticToolbar();
         this.wireDynamicToolbar();
         this.wireSidebar();
+        this.wireNavTree();
         this.wireFileLoading();
         this.wireSessionBanner();
-        this.elements.fileInput.setAttribute("accept", ".csv,.json,.graph.json");
+        this.elements.fileInput.setAttribute("accept", ".csv,.json");
     }
 
     // ── Keyboard ──────────────────────────────────────────────────────────────
 
     private wireKeyboard(): void {
         document.addEventListener("keydown", (e) => {
-            // Source editor handles Ctrl+Z/Y in capture phase when focused
             if (this.sourceEditor.focused) return;
             if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
                 e.preventDefault();
@@ -72,15 +80,12 @@ export class AppShell {
                 e.preventDefault();
                 this.controller.redo();
             } else if (e.key === "Escape") {
-                // Escape clears row selection (source editor not focused — guarded above)
                 this.workspace.getActiveTableView()?.clearSelection();
             }
         });
 
-        // Cancel active cell edit when clicking outside the workspace and sidebar
         document.addEventListener("click", (e) => {
             const target = e.target as Node;
-            // Don't cancel if clicking inside the sidebar (source editor)
             if (this.elements.sidebarEl.contains(target)) return;
             this.workspace.getActiveTableView()?.cancelActive();
         });
@@ -132,14 +137,23 @@ export class AppShell {
     private wireSidebar(): void {
         const btn = this.elements.btnToggleSidebar;
         const sidebar = this.elements.sidebarEl;
-
-        // Sidebar starts open — mark button as open
         btn.classList.add("sidebar-open");
-
         btn.addEventListener("click", () => {
             const collapsed = sidebar.classList.toggle("sidebar-collapsed");
             btn.classList.toggle("sidebar-open", !collapsed);
             btn.textContent = collapsed ? "\u25B6 Editor" : "\u25C0 Editor";
+        });
+    }
+
+    // ── Nav tree toggle ───────────────────────────────────────────────────────
+
+    private wireNavTree(): void {
+        const btn = this.elements.btnToggleNav;
+        const panel = this.elements.navTreePanel;
+        btn.classList.add("nav-open");
+        btn.addEventListener("click", () => {
+            const collapsed = panel.classList.toggle("nav-collapsed");
+            btn.classList.toggle("nav-open", !collapsed);
         });
     }
 
@@ -153,7 +167,6 @@ export class AppShell {
 
         const ws = this.elements.workspaceEl;
         ws.addEventListener("dragover", (e) => {
-            // Only show the file-drop highlight when the drag carries actual files
             if (!e.dataTransfer?.types.includes("Files")) return;
             e.preventDefault();
             ws.classList.add("drag-over");
@@ -161,7 +174,6 @@ export class AppShell {
         ws.addEventListener("dragleave", () => ws.classList.remove("drag-over"));
         ws.addEventListener("drop", (e) => {
             ws.classList.remove("drag-over");
-            // Ignore row-reorder drags and any drop that carries no files
             if (!e.dataTransfer?.files.length) return;
             e.preventDefault();
             this.loadFiles(Array.from(e.dataTransfer.files));
@@ -181,14 +193,18 @@ export class AppShell {
                 this.controller.getKnowledgeBase().clear();
                 this.workspace.clear();
 
+                const isDocJson   = (n: string) => n.endsWith(".doc.json") || n.endsWith(".doc");
+                const isGraphJson = (n: string) => n.endsWith(".graph.json") || (n.endsWith(".json") && !isDocJson(n) && n !== "control.json");
+
                 const controlResult = results.find(r => r.name === "control.json");
+                const docResults    = results.filter(r => isDocJson(r.name));
                 const csvResults    = results.filter(r => r.name.endsWith(".csv"));
-                const graphResults  = results.filter(r => r.name.endsWith(".graph.json"));
+                const graphResults  = results.filter(r => isGraphJson(r.name));
 
                 if (controlResult) {
-                    this.loadControlBatch(controlResult.text, csvResults, graphResults);
+                    this.loadControlBatch(controlResult.text, csvResults, graphResults, docResults);
                 } else {
-                    this.loadPlainBatch(csvResults, graphResults);
+                    this.loadPlainBatch(csvResults, graphResults, docResults);
                 }
 
                 this.elements.errorEl.textContent = "";
@@ -199,10 +215,50 @@ export class AppShell {
         }).catch(e => { this.elements.errorEl.textContent = (e as Error).message; });
     }
 
+    // ── Shared doc-loading helper ─────────────────────────────────────────────
+
+    /**
+     * Load all .doc.json files into the KB.
+     * Ensures every CSV/graph they reference is loaded first.
+     * Uses sourceFile to key the graph map — works regardless of what name
+     * control.json assigned to the graph.
+     */
+    private loadDocResults(
+        docResults: { name: string; text: string }[],
+        csvResults:  { name: string; text: string }[],
+        graphResults: { name: string; text: string }[],
+    ): void {
+        if (docResults.length === 0) return;
+        const kb = this.controller.getKnowledgeBase();
+
+        // Load any CSV not yet in KB
+        for (const { name, text } of csvResults)
+            if (!kb.tables.find(t => t.name + ".csv" === name))
+                this.controller.loadCSV(name, text);
+
+        // Load any graph not yet in KB (keyed by sourceFile)
+        for (const { name, text } of graphResults)
+            if (!kb.graphs.find(g => g.sourceFile === name))
+                this.controller.loadGraph(name, text);
+
+        // Build lookup maps
+        const tableMap = new Map(kb.tables.map(t => [t.name + ".csv", t]));
+        // Key graph map by sourceFile — handles graphs named by control entry id
+        const graphMap = new Map(
+            kb.graphs.filter(g => g.sourceFile).map(g => [g.sourceFile!, g])
+        );
+
+        for (const { name, text } of docResults) {
+            const doc = parseDocJSON(name, JSON.parse(text) as unknown, tableMap, graphMap);
+            this.controller.loadDocument(doc);
+        }
+    }
+
     private loadControlBatch(
         controlText: string,
-        csvResults: { name: string; text: string }[],
+        csvResults:  { name: string; text: string }[],
         graphResults: { name: string; text: string }[],
+        docResults:  { name: string; text: string }[] = [],
     ): void {
         const controlFile: ControlFile = this.controller.loadControlFile(controlText);
 
@@ -220,36 +276,64 @@ export class AppShell {
             }
         }
         this.controller.resolveAllDiagrams(controlFile, csvMap, graphMap);
+
+        this.loadDocResults(docResults, csvResults, graphResults);
         this.registerAllTabs();
         this.elements.statusText.textContent =
             `Loaded control.json with ${controlFile.entries.length} entries`;
     }
 
     private loadPlainBatch(
-        csvResults: { name: string; text: string }[],
+        csvResults:  { name: string; text: string }[],
         graphResults: { name: string; text: string }[],
+        docResults:  { name: string; text: string }[] = [],
     ): void {
         for (const { name, text } of graphResults) this.controller.loadGraph(name, text);
         for (const { name, text } of csvResults)   this.controller.loadCSV(name, text);
+        this.loadDocResults(docResults, csvResults, graphResults);
         this.registerAllTabs();
-        const names = [
-            ...graphResults.map(r => r.name),
-            ...csvResults.map(r => r.name),
-        ];
-        this.elements.statusText.textContent = `Loaded: ${names.join(", ")}`;
+        const kb = this.controller.getKnowledgeBase();
+        this.elements.statusText.textContent =
+            `Loaded ${kb.documents.length} docs, ${kb.tables.length} tables, ${kb.graphs.length} graphs`;
     }
 
     private registerAllTabs(): void {
         const kb = this.controller.getKnowledgeBase();
+
+        for (const doc of kb.documents) {
+            this.workspace.registerView(
+                doc.name,
+                () => viewFactory(doc, this.controller, this.sourceEditor),
+                { document: doc },
+            );
+        }
+
+        const docGraphFiles = new Set(kb.documents.flatMap(d =>
+            d.getGraphSections().map(s => (s.block as import("../model/Document.ts").GraphBlock).graph.sourceFile ?? "")
+        ));
         for (const graph of kb.graphs) {
-            const view = viewFactory(graph, this.controller);
-            this.workspace.registerTab(graph.name, view, { graph });
+            if (docGraphFiles.has(graph.sourceFile ?? graph.name)) continue;
+            this.workspace.registerView(
+                graph.name,
+                () => viewFactory(graph, this.controller),
+                { graph },
+            );
         }
+
+        const docTableNames = new Set(kb.documents.flatMap(d =>
+            d.getTableSections().map(s => (s.block as import("../model/Document.ts").TableBlock).table.name)
+        ));
         for (const table of kb.tables) {
-            const view = viewFactory(table, this.controller, this.sourceEditor);
-            this.workspace.registerTab(table.name, view, { table });
+            if (docTableNames.has(table.name)) continue;
+            this.workspace.registerView(
+                table.name,
+                () => viewFactory(table, this.controller, this.sourceEditor),
+                { table },
+            );
         }
-        this.workspace.activateFirst();
+
+        this.workspace.openFirst();
+        this.navTree.refresh();
     }
 
     // ── Session banner ────────────────────────────────────────────────────────
