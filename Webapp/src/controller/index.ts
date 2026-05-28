@@ -1,4 +1,4 @@
-import { KnowledgeBase, Table, EditHistory, Graph, TypedValue } from "../model/index.ts";
+import { KnowledgeBase, Table, Row, EditHistory, Graph, TypedValue } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
 import { parseControlFile, resolveNodes, resolveEdges, resolveActors, resolveMessages } from "../data/control.ts";
 import type { ControlFile, FlowDecl, SequenceDecl, NodeSource, GraphFileDecl } from "../data/control.ts";
@@ -106,6 +106,40 @@ export class AppController {
         this.showAll();
     }
 
+    /**
+     * Move multiple rows (given by sorted ascending indices) to insertIdx.
+     * Removes them all first, then splices them in at the destination.
+     * Recorded as a single undoable action.
+     */
+    moveRows(tableIdx: number, fromIndices: number[], insertIdx: number): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table || fromIndices.length === 0) return;
+
+        const sorted = [...fromIndices].sort((a, b) => a - b);
+        const first = sorted[0];
+        const last  = sorted[sorted.length - 1];
+        // Drop inside the block — no-op
+        if (insertIdx >= first && insertIdx <= last + 1) return;
+
+        // Remove rows from highest index to lowest so earlier removals
+        // don't shift later indices.
+        const removedRows: Row[] = new Array(sorted.length);
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            removedRows[i] = table.rows.splice(sorted[i], 1)[0];
+        }
+
+        // Compute where to insert: how many of the removed rows were
+        // strictly before insertIdx shifts the destination down.
+        const shift = sorted.filter(idx => idx < insertIdx).length;
+        const dest = insertIdx - shift;
+
+        // Splice all rows in at dest, preserving their relative order.
+        table.rows.splice(dest, 0, ...removedRows);
+
+        this.history.push({ type: "moveRows", tableIdx, fromIndices: sorted, toIdx: dest, rows: removedRows });
+        this.showAll();
+    }
+
     deleteRow(tableIdx: number, rowIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
@@ -167,7 +201,7 @@ export class AppController {
     undo(): void {
         const action = this.history.undo();
         if (!action) return;
-        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow") {
+        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows") {
             const table = this.knowledgeBase.tables[action.tableIdx];
             if (!table) return;
             if (action.type === "cell") {
@@ -179,6 +213,10 @@ export class AppController {
                 table.restoreRowAt(action.rowIdx, action.row);
             } else if (action.type === "moveRow") {
                 table.moveRowFromTo(action.toIdx, action.fromIdx);
+            } else if (action.type === "moveRows") {
+                table.rows.splice(action.toIdx, action.rows.length);
+                for (let i = action.fromIndices.length - 1; i >= 0; i--)
+                    table.rows.splice(action.fromIndices[i], 0, action.rows[i]);
             }
             this.navigateToTable(action.tableIdx);
         } else {
@@ -200,7 +238,7 @@ export class AppController {
     redo(): void {
         const action = this.history.redo();
         if (!action) return;
-        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow") {
+        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows") {
             const table = this.knowledgeBase.tables[action.tableIdx];
             if (!table) return;
             if (action.type === "cell") {
@@ -211,6 +249,11 @@ export class AppController {
                 table.removeRowAt(action.rowIdx);
             } else if (action.type === "moveRow") {
                 table.moveRowFromTo(action.fromIdx, action.toIdx);
+            } else if (action.type === "moveRows") {
+                // Redo: remove from original positions, splice at dest
+                for (let i = action.fromIndices.length - 1; i >= 0; i--)
+                    table.rows.splice(action.fromIndices[i], 1);
+                table.rows.splice(action.toIdx, 0, ...action.rows);
             }
             this.navigateToTable(action.tableIdx);
         } else {
@@ -239,7 +282,18 @@ export class AppController {
         return this.knowledgeBase.graphs[graphIdx]?.toGraphJSON() ?? "";
     }
 
-    // ── Search ────────────────────────────────────────────────────────────────
+    /** Replace an entire table (from source editor Apply). */
+    replaceTable(tableIdx: number, newTable: import("../model/Table.ts").Table): void {
+        if (tableIdx < 0 || tableIdx >= this.knowledgeBase.tables.length) return;
+        this.knowledgeBase.tables[tableIdx] = newTable;
+        this.showAll();
+    }
+
+    /** Replace an entire graph (from source editor Apply). */
+    replaceGraph(graphIdx: number, newGraph: import("../model/Graph.ts").Graph): void {
+        if (graphIdx < 0 || graphIdx >= this.knowledgeBase.graphs.length) return;
+        this.knowledgeBase.graphs[graphIdx] = newGraph;
+    }
 
     searchText(query: string): SearchHit[] {
         return searchText(this.knowledgeBase, query);

@@ -9,10 +9,10 @@ import { GraphFilterView } from "./view/graph-filter-view.ts";
 import { SearchView } from "./view/search-view.ts";
 import { WorkspaceController } from "./view/workspace-controller.ts";
 import { AppShell } from "./view/app-shell.ts";
+import { SourceEditorView } from "./view/source-editor-view.ts";
 
 window.addEventListener("load", () => {
     // ── DOM references ────────────────────────────────────────────────────────
-    const sourceInput          = document.getElementById("cell-source-input") as HTMLTextAreaElement;
     const errorEl              = document.getElementById("error-message")!;
     const fileInput            = document.getElementById("file-input") as HTMLInputElement;
     const workspaceEl          = document.getElementById("workspace")!;
@@ -22,8 +22,11 @@ window.addEventListener("load", () => {
     const searchContainer      = document.getElementById("search-container")!;
     const sessionBanner        = document.getElementById("session-banner") as HTMLElement;
     const btnExport            = document.getElementById("btn-export-csv")!;
+    const btnToggleSidebar     = document.getElementById("btn-toggle-sidebar")!;
     const dynamicToolbar       = document.getElementById("dynamic-toolbar")!;
     const statusText           = document.getElementById("status-text")!;
+    const sidebarEl            = document.getElementById("sidebar")!;
+    const sourceEditorContainer = document.getElementById("source-editor-container")!;
 
     // ── Controller (model layer) ──────────────────────────────────────────────
     const controller = new AppController();
@@ -43,21 +46,24 @@ window.addEventListener("load", () => {
 
     controller.setWorkspaceController(workspace);
 
-    // Entity click handler — stored on controller, applied by viewFactory to each TableView
     controller.setEntityClickHandler((entityId: string) => {
         graphFilterView.showEntityAssociations(entityId);
         searchView.showNeighbourhood(entityId);
     });
 
-    // ── AppShell (startup wiring: keyboard, toolbar, file loading, session) ───
-    const shell = new AppShell(controller, workspace, {
+    // ── Source code editor (sidebar) ──────────────────────────────────────────
+    const sourceEditor = new SourceEditorView(controller, sourceEditorContainer);
+
+    // ── AppShell ──────────────────────────────────────────────────────────────
+    const shell = new AppShell(controller, workspace, sourceEditor, {
         fileInput,
         workspaceEl,
-        sourceInput,
         errorEl,
         sessionBanner,
         dynamicToolbar,
         btnExport,
+        btnToggleSidebar,
+        sidebarEl,
         statusText,
     });
     shell.init();

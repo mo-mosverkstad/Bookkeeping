@@ -3457,44 +3457,51 @@ header, exactly as the cell plugin registry dispatches based on `typeId`.
 
 ##### Design
 
-The editor is a collapsible panel (below the formula bar or as a side panel)
-containing:
+The source editor **replaces the formula bar** and lives as a **collapsible
+sidebar** to the right of the workspace. The layout is:
+
+```
++------------------------------------------+------------------+
+|  workspace (table / diagram)             |  source editor   |
+|                                          |  sidebar         |
+|                                          |  (collapsible)   |
++------------------------------------------+------------------+
+```
+
+When the sidebar is collapsed, the workspace takes full width. A toggle
+button in the toolbar shows/hides the sidebar.
+
+**Replaces the formula bar.** The formula bar (single-line cell editor) is
+removed. The source editor absorbs its role: when a cell is activated in
+`TableView`, the source editor populates with the cell's content and type.
+The Apply button (or Enter) commits the edit back to the cell via
+`controller.editCell`. For document-level edits (table-source, graph-source),
+Apply calls `controller.replaceTable` or `controller.replaceGraph`.
+
+**Contents of the sidebar:**
 
 - A `<textarea>` for raw source input with **syntax highlighting**
-- A type selector dropdown (math, chemistry, geometry, physics, table, graph, ...)
+- A type selector dropdown (math, chemistry, geometry, physics, table-source,
+  graph-source, text)
 - A live preview pane showing the rendered output
 - An error display showing parse errors with line/column information
 - An "Apply" button that commits the parsed result to the model
+- A "Parse" button for manual trigger (fallback for expensive syntaxes)
 
-**Focus state:** When the editor textarea is focused, its border thickens
-and turns blue (`2px solid #3b82f6`). When unfocused, a thin black border
-(`1px solid #1e293b`). This is the standard focus indicator pattern used
-throughout the app.
+**Focus state:** Blue border (`2px solid #3b82f6`) when focused, thin black
+border (`1px solid #1e293b`) when not.
 
-**Syntax highlighting:** Implemented as a lightweight overlay technique
-(transparent `<textarea>` over a `<pre>` with highlighted HTML). The
-highlighter is driven by the active grammar's token patterns — keywords,
-identifiers, operators, literals, and comments each get a distinct colour.
-The highlighter is a separate module per syntax type, not a general-purpose
-highlighter library.
+**Syntax highlighting:** Lightweight overlay technique (transparent
+`<textarea>` over a `<pre>` with highlighted HTML). One highlighter module
+per syntax type, driven by the grammar's token patterns.
 
-**Reactivity:** Parsing is triggered on every keystroke, debounced at 300ms.
-If parsing a particular syntax is computationally expensive and causes
-visible lag, a "Parse & Compile" button is provided as an alternative to
-reactive parsing. The reactive mode is the default; the button mode is a
-fallback. The choice is per-syntax-type, not global.
+**Reactivity:** 300ms debounced parse on every keystroke. "Parse" button
+as fallback for expensive syntaxes. Choice is per-syntax-type.
 
-**Local undo/redo:** The editor maintains its own undo/redo stack,
-independent of the global `EditHistory`. While the editor textarea is
-focused, Ctrl+Z/Y operate on the local stack (text-level undo/redo within
-the editor). When focus leaves the editor, the global undo/redo is restored.
-The local stack is cleared when the editor is closed or when "Apply" is
-clicked (the Apply action is recorded in the global stack as a single
-`replaceTable` or `replaceGraph` action).
-
-This separation is critical: the user should be able to freely edit source
-text and undo typing mistakes without polluting the global history with
-every keystroke.
+**Local undo/redo:** The editor maintains its own undo/redo stack independent
+of the global `EditHistory`. Ctrl+Z/Y inside the editor operates on the local
+stack (text-level). When focus leaves, global undo/redo is restored. The local
+stack is cleared on Apply (which records a single action in the global stack).
 
 ---
 

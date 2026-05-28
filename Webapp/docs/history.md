@@ -2475,3 +2475,186 @@ inserted before the existing planned phases. The existing phases shift:
 | 15 | 17 | Semantic Layer |
 | 16 | 18 | Stable Entity Identity & Semantic Editing |
 | 17 | 19 | Native Format |
+
+---
+
+## Phase 14 — Source Code Editor
+
+---
+
+### Implementation
+
+**Added — `src/plugins/highlighter.ts`**
+
+Lightweight syntax highlighter using the sticky-regex tokeniser pattern.
+Each `SyntaxType` has a list of `TokenRule` objects (`{ name, pattern }`
+where `pattern` has the `y` sticky flag). The `highlight(text, type)`
+function walks the text, tries each rule at the current position, emits
+`<span class="hl-{name}">` for matches, and plain escaped text for
+unmatched characters. Token rule sets defined for: `math`, `chemistry`,
+`geometry`, `physics`, `table-source`, `graph-source`, `text`.
+
+**Added — `src/view/source-editor-view.ts`**
+
+`SourceEditorView` — collapsible panel with:
+
+- **Overlay editor:** transparent `<textarea>` over a `<pre>` that shows
+  highlighted HTML. The `<pre>` mirrors the textarea content with token
+  spans. Scroll position is synced between the two.
+- **Focus-state border:** `se-focused` class added on focus, removed on
+  blur. CSS: `2px solid #3b82f6` when focused, `1px solid #1e293b` when not.
+- **Local undo/redo:** `LocalHistory` class (max 200 snapshots). Snapshots
+  store `{ text, selStart, selEnd }`. The textarea's `keydown` listener
+  runs in **capture phase** so it intercepts Ctrl+Z/Y before the global
+  `document` listener. `AppShell.wireKeyboard` also guards with
+  `if (this.sourceEditor.focused) return` as a safety net.
+- **Reactive parsing:** 300ms debounced parse on every `input` event.
+  "Parse" button for manual trigger. For cell-level types (math, chemistry,
+  geometry, physics), delegates to `renderCell`. For `table-source` and
+  `graph-source`, shows a placeholder until grammars are implemented.
+- **Apply button:** commits parsed result to the model. For cell-level
+  types, directs the user to the formula bar. For `table-source`/
+  `graph-source`, calls `controller.replaceTable`/`replaceGraph` (deferred
+  until parsers are implemented).
+- **Collapse toggle:** hides/shows the body with a ▾/▸ button.
+
+**Added — `controller.replaceTable(tableIdx, newTable)`**
+
+Replaces an entire table in `kb.tables[]`. No undo recorded (the source
+editor has its own local undo stack; the Apply action is a deliberate
+commit, not an incremental edit).
+
+**Added — `controller.replaceGraph(graphIdx, newGraph)`**
+
+Replaces an entire graph in `kb.graphs[]`. Same rationale.
+
+**Changed — `src/view/app-shell.ts`**
+
+- Added `sourceEditor: SourceEditorView` field and constructor parameter
+- `wireKeyboard` guards global undo/redo with
+  `if (this.sourceEditor.focused) return`
+
+**Changed — `src/main.ts`**
+
+- Instantiates `SourceEditorView` with `#source-editor-container`
+- Passes it to `AppShell` constructor
+
+**Changed — `index.html`**
+
+Added `<div id="source-editor-container">` between the formula bar and
+the toolbar.
+
+**Changed — `style.css`**
+
+Added all source editor styles: `.source-editor`, `.se-header`,
+`.se-body`, `.se-editor-pane`, `.se-highlight`, `.se-textarea`,
+`.se-preview-pane`, `.se-preview`, `.se-error`, `.se-focused` (blue
+border), and all `.hl-*` token colour classes.
+
+---
+
+### Design decisions
+
+1. **Overlay technique for syntax highlighting.** The `<textarea>` is
+   transparent (`-webkit-text-fill-color: transparent`) so the user sees
+   the highlighted `<pre>` behind it while typing into the textarea. This
+   avoids `contenteditable` complexity and preserves native textarea
+   behaviour (cursor, selection, IME, accessibility).
+
+2. **Capture-phase keydown for local undo/redo.** The source editor's
+   `keydown` listener is registered with `{ capture: true }` so it fires
+   before the global `document` listener in `AppShell`. This ensures
+   Ctrl+Z inside the editor always triggers local undo, never global undo,
+   without needing to call `e.stopPropagation()` (which would break other
+   listeners).
+
+3. **`table-source` and `graph-source` parsers deferred.** The editor
+   infrastructure (highlighting, local undo, focus state, Apply wiring) is
+   fully implemented. The PEG grammars for these two syntax types are
+   deferred — the editor shows a placeholder and the Apply button is
+   disabled for them until the grammars are defined. This follows the
+   incremental delivery principle: ship the infrastructure, add the
+   grammars when ready.
+
+4. **No undo for `replaceTable`/`replaceGraph`.** The source editor has
+   its own local undo stack. The Apply action is a deliberate commit — the
+   user has already been able to undo their typing locally. Recording it
+   in the global stack would create a confusing double-undo experience.
+
+---
+
+## Phase 14 — Source Code Editor: Bug Fixes
+
+Three bugs were found and fixed after the initial Phase 14 implementation.
+
+---
+
+### Bug fix — `activateCell` scope bug
+
+**Problem:** Clicking a table cell did not populate the source editor.
+Clicking Apply had no effect.
+
+**Root cause:** `activateCell` was a `TableView` method. It called
+`this.sourceEditor?.setText(value, typeId, { tableIdx, rowIdx, colIdx })`
+but `tableIdx`, `rowIdx`, and `colIdx` were closure variables from
+`renderTableRows`, not parameters of `activateCell`. Inside the method
+they were `undefined`. `SourceEditorView.apply()` reads `activeCellCtx`
+(set by `setText`) to know which cell to commit to — with `undefined`
+indices, `controller.editCell(undefined, undefined, undefined, text)` was
+a no-op.
+
+**Fix:** Added `tableIdx`, `rowIdx`, `colIdx` as explicit parameters to
+`activateCell`. The call site in `renderTableRows` passes them explicitly.
+
+**Files changed:** `src/view/table-view.ts`
+
+---
+
+### Bug fix — Invisible text in source editor overlay
+
+**Problem:** Text typed into the source editor was invisible. Only the
+caret was visible.
+
+**Root cause:** `.se-highlight` had `color: transparent`, hiding the
+`<pre>` layer. `.se-textarea` used `-webkit-text-fill-color: transparent`,
+a non-standard property.
+
+**Fix:**
+- `.se-highlight { color: #1e293b }` — visible base colour for the `<pre>`
+- `.se-textarea { color: transparent; caret-color: #1e293b }` — standard
+  CSS to hide raw text while showing the caret
+
+**Files changed:** `style.css`
+
+---
+
+### Bug fix — Enter key behaviour in source editor
+
+**Problem:** Enter in a math cell inserted a newline instead of applying.
+Enter in a text cell applied instead of inserting a newline.
+
+**Root cause:** The `keydown` handler treated all syntax types identically.
+
+**Fix:** Added a `syntaxType` check in the `keydown` handler:
+- Single-line syntaxes (`math`, `chemistry`): Enter = Apply
+- Multi-line syntaxes (`text`, `geometry`, `physics`, `table-source`,
+  `graph-source`): Enter = newline
+- Shift+Enter always inserts a newline
+
+**Files changed:** `src/view/source-editor-view.ts`
+
+---
+
+### Bug fix — Text newlines not rendered in table cells
+
+**Problem:** A text cell containing newlines displayed all lines on one
+line in the table.
+
+**Root cause:** The text plugin's `render` function created a `<span>`
+with `textContent`. The browser's default `white-space: normal` collapses
+newlines.
+
+**Fix:** Added `span.style.whiteSpace = "pre-wrap"` to the text plugin
+renderer.
+
+**Files changed:** `src/plugins/text/index.ts`

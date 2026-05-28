@@ -6,6 +6,7 @@ export const textPlugin: Plugin = {
     parse(text: string): unknown { return text; },
     render(ast: unknown): HTMLElement {
         const span = document.createElement("span");
+        span.style.whiteSpace = "pre-wrap";
         span.textContent = ast as string;
         return span;
     },

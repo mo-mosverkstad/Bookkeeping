@@ -664,7 +664,11 @@ function renderGraph(
         panGroup.setAttribute("transform", `translate(${panX},${panY}) scale(${zoom})`);
     applyTransform();
 
-    svg.addEventListener("mousedown", (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+    svg.addEventListener("mousedown", (e) => {
+        // Prevent text selection during pan drag
+        e.preventDefault();
+        dragging = true; lastX = e.clientX; lastY = e.clientY;
+    });
     svg.addEventListener("mousemove", (e) => {
         if (!dragging) return;
         panX += e.clientX - lastX; panY += e.clientY - lastY;
@@ -674,6 +678,10 @@ function renderGraph(
     });
     svg.addEventListener("mouseup",    () => { dragging = false; });
     svg.addEventListener("mouseleave", () => { dragging = false; });
+    // Prevent browser context menu over the diagram
+    svg.addEventListener("contextmenu", (e) => e.preventDefault());
+    // Prevent text selection on double-click inside the SVG
+    svg.addEventListener("dblclick", (e) => e.preventDefault());
     svg.addEventListener("wheel", (e) => {
         e.preventDefault();
         zoom = Math.max(0.2, Math.min(4, zoom * (e.deltaY < 0 ? 1.1 : 0.9)));

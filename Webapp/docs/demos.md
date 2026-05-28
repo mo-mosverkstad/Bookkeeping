@@ -1307,3 +1307,119 @@ This indicates the cycle was not detected. Check that the edges form a closed lo
 
 ### Nodes overlap in the diagram
 The radius is computed from the total perimeter of all cycle node labels. Very long labels increase the radius. Shorten labels in the CSV or increase the canvas size by resizing the browser window.
+
+---
+
+## Phase 14 — Source Code Editor
+
+---
+
+## How to Run the Demo
+
+```bash
+cd Webapp
+npm run dev
+```
+
+Open `http://localhost:5173` in the Windows browser.
+
+---
+
+## Demo Steps
+
+### 1. Open the source editor sidebar
+
+The sidebar is open by default on the right side of the workspace. If it
+is collapsed, click the **☰ Source** toggle button in the static toolbar
+to expand it.
+
+### 2. Load a CSV file
+
+1. Click **📂 Open** in the menu bar
+2. Navigate to `Webapp/public/sample.csv`
+3. Select and open
+
+The table appears in the workspace. The source editor sidebar is visible
+on the right.
+
+### 3. Populate the source editor by clicking a cell
+
+1. Click any cell in the **Formula** (math) column
+2. The source editor textarea fills with the cell's raw math source
+3. The type selector shows `math`
+4. The live preview pane below the textarea shows the rendered output
+
+### 4. Edit and apply
+
+1. Modify the source in the textarea (e.g. change `x^2` to `x^3 + 1`)
+2. The preview updates live (300ms debounce)
+3. Press **Enter** — the edit is applied to the cell
+4. The table cell updates to show the new rendered output
+
+### 5. Verify Enter behaviour per syntax type
+
+**Math cell (single-line):**
+1. Click a math cell
+2. Edit the source
+3. Press Enter — edit is applied immediately (no newline)
+
+**Text cell (multi-line):**
+1. Click a text cell
+2. Edit the source
+3. Press Enter — a newline is inserted (edit is NOT applied)
+4. Click **Apply** to commit
+
+**Shift+Enter** always inserts a newline regardless of syntax type.
+
+### 6. Verify local undo/redo
+
+1. Click a math cell — source editor populates
+2. Type several characters
+3. Press **Ctrl+Z** inside the editor — text-level undo (local stack)
+4. Press **Ctrl+Y** inside the editor — text-level redo
+5. Click Apply — commits to the model
+6. Click outside the editor, press **Ctrl+Z** — global model undo
+
+Local undo (inside editor) and global undo (outside editor) are independent.
+
+### 7. Verify focus state border
+
+1. Click inside the source editor textarea — blue border appears
+2. Click outside — border returns to thin black
+
+### 8. Verify syntax highlighting
+
+1. Click a math cell — the textarea shows highlighted source:
+   - Numbers in one colour
+   - Operators in another
+   - Identifiers in another
+2. Click a chemistry cell — chemistry-specific highlighting applies
+
+### 9. Collapse and expand the sidebar
+
+1. Click the **☰ Source** toggle button in the toolbar
+2. The sidebar collapses — workspace takes full width
+3. Click again — sidebar expands and restores
+
+---
+
+## Troubleshooting
+
+### Source editor does not populate when clicking a cell
+Check that the sidebar is expanded (not collapsed). If the sidebar is
+visible but the editor is blank, check the browser console for errors.
+
+### Apply has no effect
+Ensure the cell was clicked (not just the table row). The source editor
+must have been populated by a cell click for Apply to know which cell to
+commit to.
+
+### Text in the editor is invisible
+This was a bug fixed in Phase 14. If text is invisible, check that
+`style.css` has `.se-highlight { color: #1e293b }` and
+`.se-textarea { color: transparent; caret-color: #1e293b }`.
+
+### Enter inserts a newline in a math cell instead of applying
+This was a bug fixed in Phase 14. The fix checks `syntaxType` in the
+keydown handler. Ensure `source-editor-view.ts` has the single-line
+syntax check: `["math", "chemistry"].includes(this.syntaxType)`.

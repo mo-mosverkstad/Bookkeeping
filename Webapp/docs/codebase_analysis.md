@@ -5184,3 +5184,499 @@ even cells containing math syntax like `\\sqrt{x}` or `\\int{a,b,f(x)}`.
 
 This phase does not add new plugins. It only makes existing files work
 with the existing application.
+
+---
+
+## Phase 14 — Source Code Editor: Bug Fixes
+
+Three bugs were found and fixed after the initial Phase 14 implementation.
+
+---
+
+### Bug fix — `activateCell` scope bug: source editor not populated on cell click
+
+#### Symptom
+
+Clicking a table cell did not populate the source editor with the cell's
+content. The source editor remained blank or showed stale content from a
+previous cell. Clicking Apply had no effect.
+
+#### Root cause
+
+`activateCell` was a method on `TableView`. Inside `renderTableRows`, the
+click handler called it and also called `sourceEditor.setText(...)` with
+`{ tableIdx, rowIdx, colIdx }` context:
+
+```ts
+td.addEventListener("click", () => {
+    this.activateCell(td, cell.value, col.typeId, (v) => ...);
+    this.sourceEditor?.setText(cell.value, col.typeId, { tableIdx, rowIdx, colIdx });
+});
+```
+
+However, `activateCell` itself also called `this.sourceEditor?.setText(...)`.
+Inside `activateCell`, the variables `tableIdx`, `rowIdx`, and `colIdx` were
+not in scope — they were closure variables from the outer `renderTableRows`
+loop, not parameters of `activateCell`. The `setText` call inside
+`activateCell` received `undefined` for all three indices.
+
+`SourceEditorView.setText` stores the context as `activeCellCtx`. When the
+user clicks Apply, `apply()` reads `this.activeCellCtx` and calls
+`controller.editCell(tableIdx, rowIdx, colIdx, text)`. With `undefined`
+indices, `editCell` was a no-op.
+
+#### Fix
+
+Added `tableIdx`, `rowIdx`, and `colIdx` as explicit parameters to
+`activateCell`:
+
+```ts
+private activateCell(
+    td: HTMLTableCellElement,
+    value: string,
+    typeId: string,
+    tableIdx: number,
+    rowIdx: number,
+    colIdx: number,
+    onCommit: (v: string) => void
+)
+```
+
+The call site in `renderTableRows` passes them explicitly. Inside
+`activateCell`, `setText` is called with the correct context:
+
+```ts
+this.sourceEditor?.setText(value, typeId, { tableIdx, rowIdx, colIdx });
+```
+
+#### Lesson
+
+Closure variables are only in scope at the call site where the closure is
+created. When a method is extracted from a closure, any variables it needs
+must be passed as explicit parameters — they cannot be captured from the
+outer scope. The symptom (Apply being a no-op) was a consequence of
+`activeCellCtx` being `undefined`, which silently made `editCell` a no-op.
+
+---
+
+### Bug fix — Invisible text in source editor overlay
+
+#### Symptom
+
+Text typed into the source editor was invisible. The caret was visible
+but no characters appeared on screen.
+
+#### Root cause
+
+The overlay technique requires:
+- The `<pre>` (highlighted layer) to have a **visible** text colour
+- The `<textarea>` (input layer) to have **transparent** text
+
+The initial CSS had:
+
+```css
+.se-highlight { color: transparent; }          /* WRONG — hides the pre */
+.se-textarea  { -webkit-text-fill-color: transparent; }
+```
+
+Setting `color: transparent` on the `<pre>` made the highlighted text
+invisible. `-webkit-text-fill-color` is a non-standard property that does
+not work consistently across all browsers.
+
+#### Fix
+
+```css
+.se-highlight { color: #1e293b; }              /* visible base colour */
+.se-textarea  { color: transparent;
+                caret-color: #1e293b; }        /* hides raw text, shows caret */
+```
+
+The `<pre>` now has a visible base colour. Token spans override this with
+their own colours. The `<textarea>` uses standard `color: transparent` to
+hide the raw text, and `caret-color: #1e293b` to keep the caret visible.
+
+#### Lesson
+
+In the overlay technique, the `<pre>` is the **visible** layer and the
+`<textarea>` is the **invisible** layer. Getting these backwards makes the
+highlighted layer invisible and the raw text visible — the opposite of the
+intended effect. Use standard `color: transparent` rather than
+`-webkit-text-fill-color` for cross-browser compatibility.
+
+---
+
+### Bug fix — Enter key behaviour in source editor
+
+#### Symptom
+
+In the source editor, pressing Enter in a math cell inserted a newline
+instead of applying the edit. In a text cell, pressing Enter applied the
+edit instead of inserting a newline.
+
+#### Root cause
+
+The `keydown` handler did not distinguish between single-line syntaxes
+(where Enter should commit) and multi-line syntaxes (where Enter should
+insert a newline). All syntaxes used the same handler.
+
+#### Fix
+
+The `keydown` handler now checks `syntaxType`:
+
+```ts
+if (e.key === "Enter" && !e.shiftKey) {
+    const singleLine = ["math", "chemistry"].includes(this.syntaxType);
+    if (singleLine) {
+        e.preventDefault();
+        this.apply();
+        return;
+    }
+    // multi-line syntaxes: fall through to default newline behaviour
+}
+```
+
+**Single-line syntaxes** (math, chemistry): Enter = Apply. These syntaxes
+are always one expression per cell. A newline would produce a parse error.
+
+**Multi-line syntaxes** (text, geometry, physics, table-source,
+graph-source): Enter = newline. These syntaxes are inherently multi-line.
+
+**Shift+Enter** always inserts a newline regardless of syntax type.
+
+#### Lesson
+
+The correct Enter behaviour is syntax-dependent. A single keydown handler
+that treats all syntaxes identically will always be wrong for at least one
+syntax type. The fix is a simple lookup against the current `syntaxType`.
+
+---
+
+### Bug fix — Text newlines not rendered in table cells
+
+#### Symptom
+
+A text cell containing newlines displayed all lines concatenated on one
+line in the table.
+
+#### Root cause
+
+The text plugin's `render` function created a `<span>` with
+`textContent = text`. The browser's default `white-space: normal` on
+`<span>` collapses all whitespace including newlines into a single space.
+
+#### Fix
+
+Added `span.style.whiteSpace = "pre-wrap"` to the text plugin renderer:
+
+```ts
+render(ast) {
+    const span = document.createElement("span");
+    span.textContent = (ast as { text: string }).text;
+    span.style.whiteSpace = "pre-wrap";   // ← added
+    return span;
+},
+```
+
+`pre-wrap` preserves newlines and spaces while still wrapping long lines
+to fit the cell width.
+
+#### Lesson
+
+`textContent` preserves newlines in the DOM string, but the browser
+collapses them visually unless `white-space` is set to a value that
+preserves them. `pre-wrap` is the correct choice for user text: it
+preserves intentional whitespace without preventing line wrapping.
+
+---
+
+## Post-Phase 14 — Row Selection, Multi-Row Drag & Default Action Prevention
+
+---
+
+### Overview
+
+A series of incremental improvements to `TableView` and `AppShell` covering:
+- Preventing browser default actions during table and diagram interaction
+- Fixing the workspace file-drop handler to ignore internal row drags
+- Replacing the drag handle column with a checkbox column for row selection
+- Implementing correct multi-row collective drag-and-drop
+
+---
+
+### Preventing browser default actions
+
+#### Table view
+
+Three places where browser defaults caused visible problems:
+
+**Column header `mousedown` → `preventDefault()`**
+Without this, clicking a header to sort begins a text selection gesture. The header text becomes highlighted blue. `preventDefault()` on `mousedown` suppresses the selection without affecting the `click` event.
+
+**Cell `dblclick` → `preventDefault()`**
+The browser selects the cell's rendered text on double-click. Since the cell switches to edit mode on single-click, the double-click selection is noise. `preventDefault()` suppresses it.
+
+**Drag handle `mousedown` → `preventDefault()`** (later replaced by checkbox column — see below)
+Same reason: prevents text selection when the user starts a drag gesture.
+
+#### Flow diagram view
+
+Three places on the SVG element:
+
+**`mousedown` → `preventDefault()`**
+Without this, panning the diagram (click-drag) begins a text selection over SVG text labels. `preventDefault()` suppresses the selection while still allowing the drag to proceed.
+
+**`dblclick` → `preventDefault()`**
+Double-clicking a node to edit its label would also select the SVG text. `preventDefault()` suppresses the selection.
+
+**`contextmenu` → `preventDefault()`**
+Right-clicking over the diagram shows the browser's native context menu, which is irrelevant here. `preventDefault()` suppresses it.
+
+---
+
+### Fixing the workspace file-drop handler
+
+#### Symptom
+
+Dragging a table row to reorder it caused all loaded files to disappear, as if the app had been reset.
+
+#### Root cause
+
+`AppShell.wireFileLoading` attached unconditional `dragover` and `drop` listeners to `#workspace`. When a table row drag bubbled up to `#workspace`, the `drop` handler fired with `e.dataTransfer.files` being empty (row drags carry no files). The handler still called `loadFiles([])`, which called `kb.clear()` and `workspace.clear()` — wiping everything.
+
+#### Fix
+
+Two guards added to the workspace drag handlers:
+
+```ts
+ws.addEventListener("dragover", (e) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    ws.classList.add("drag-over");
+});
+ws.addEventListener("drop", (e) => {
+    ws.classList.remove("drag-over");
+    if (!e.dataTransfer?.files.length) return;
+    e.preventDefault();
+    this.loadFiles(Array.from(e.dataTransfer.files));
+});
+```
+
+`e.dataTransfer.types` contains `"Files"` only when the drag carries actual filesystem files. Row drags carry `"text/plain"` (the serialised indices). The `files.length` guard is a second layer: even if `types` somehow passes, an empty file list produces no load.
+
+#### Lesson
+
+Any `drop` handler on a container must guard against internal drags. Checking `e.dataTransfer.files.length` before calling any destructive operation is the minimum safe pattern.
+
+---
+
+### Row checkbox column
+
+The `⠿` drag handle column was replaced with a checkbox column. The drag handle was not reliably draggable (users could not easily initiate a drag from it), and it provided no visual feedback about which rows were selected for a collective move.
+
+#### Structure
+
+- **Header `<th>`**: contains a single `<input type="checkbox">` that controls select-all / deselect-all.
+- **Per-row `<td class="row-check-col">`**: contains a `<input type="checkbox">` for that row.
+- The entire `<tr>` is `draggable = true`. Dragging any cell in the row initiates the drag.
+
+#### Header checkbox tri-state
+
+The header checkbox has three visual states:
+
+| State | `checked` | `indeterminate` | Meaning |
+|-------|-----------|-----------------|---------|
+| Empty | `false` | `false` | No rows selected |
+| Dash (−) | `false` | `true` | Some rows selected |
+| Tick (✓) | `true` | `false` | All rows selected |
+
+`indeterminate` is a DOM property (not an HTML attribute) — it must be set in JavaScript:
+```ts
+headerCb.indeterminate = checkedCount > 0 && checkedCount < currentRows.length;
+```
+
+**Click behaviour:**
+- None or partial selected → select all
+- All selected → deselect all
+
+The `click` handler uses `e.preventDefault()` and reads the live count at click time:
+```ts
+headerCb.addEventListener("click", (e) => {
+    e.preventDefault();
+    const liveCount = currentRows.filter(r => this.selectedRows.has(r)).length;
+    if (liveCount < currentRows.length) {
+        currentRows.forEach(r => this.selectedRows.add(r));
+    } else {
+        this.selectedRows.clear();
+    }
+    render();
+});
+```
+
+Reading `liveCount` inside the handler (not from the outer closure) is critical — the outer `checkedCount` is stale by the time the user clicks.
+
+#### Live header update without full re-render
+
+Individual row checkboxes call `updateHeaderCb()` on `change` instead of triggering a full `render()`. This updates only the header checkbox's `checked` and `indeterminate` properties:
+
+```ts
+const updateHeaderCb = () => {
+    const checked = currentRows.filter(r => this.selectedRows.has(r)).length;
+    headerCbRef!.checked = checked === currentRows.length && currentRows.length > 0;
+    headerCbRef!.indeterminate = checked > 0 && checked < currentRows.length;
+};
+```
+
+`headerCbRef` is obtained once after `thead` is built:
+```ts
+headerCbRef = thead.querySelector<HTMLInputElement>("input[type=checkbox]");
+```
+
+This avoids the cost of rebuilding the entire table DOM on every checkbox click.
+
+#### Escape to deselect
+
+`AppShell.wireKeyboard` handles `Escape` to clear the selection:
+```ts
+} else if (e.key === "Escape") {
+    this.workspace.getActiveTableView()?.clearSelection();
+}
+```
+
+The existing `if (this.sourceEditor.focused) return` guard at the top of the handler means Escape does nothing when the source editor is focused — the source editor uses Escape for its own cancel behaviour.
+
+---
+
+### Multi-row drag-and-drop
+
+#### Why storing indices fails
+
+The first implementation stored row indices (`number`) in `selectedRows`. Indices are computed as `table.rows.indexOf(row)` at render time. After any re-render (which happens after every `moveRow` call, after checkbox changes, etc.), the DOM is rebuilt but `selectedRows` still holds the old integers. When `dragstart` fires and reads `this.selectedRows`, it gets integers that may no longer correspond to the correct rows.
+
+#### The fix: store `Row` objects
+
+`selectedRows` is `Set<Row>` — it stores the actual model objects. A `Row` object's identity never changes regardless of where it sits in `table.rows[]`. At drop time, `table.rows.indexOf(r)` resolves the **current live index** of each selected row, which is always correct.
+
+```ts
+private selectedRows = new Set<Row>();
+```
+
+#### `attachDragHandlers` receives `row` as a parameter
+
+The `row` object is available in the render loop. It is passed explicitly to `attachDragHandlers` so `dragstart` can use it directly without any lookup:
+
+```ts
+this.attachDragHandlers(tr, tbody, tableIdx, table, row);
+
+private attachDragHandlers(..., row: Row): void {
+    tr.addEventListener("dragstart", (e) => {
+        if (this.selectedRows.has(row) && this.selectedRows.size > 0) {
+            // Drag all selected rows in their current table order
+            this.dragRows = table.rows.filter(r => this.selectedRows.has(r));
+        } else {
+            this.dragRows = [row];
+        }
+        ...
+    });
+}
+```
+
+`table.rows.filter(r => this.selectedRows.has(r))` produces the selected rows in their **current table order** — not the order they were checked. This is the correct order for the move operation.
+
+#### `drop` resolves live indices
+
+At drop time, `dragRows` holds `Row` objects. Their current positions are resolved immediately before the move:
+
+```ts
+const liveIndices = this.dragRows
+    .map(r => table.rows.indexOf(r))
+    .filter(i => i !== -1)
+    .sort((a, b) => a - b);
+this.controller!.moveRows(tableIdx, liveIndices, insertIdx);
+```
+
+#### Selection persists across drags
+
+The `drop` handler does **not** clear `selectedRows`. The selection stays intact after a drop, so the user can drag the same set of rows again immediately. Selection is only cleared by:
+- Pressing Escape (when source editor is not focused)
+- Unchecking individual row checkboxes
+- Clicking the header checkbox to deselect all
+
+#### `controller.moveRows` — atomic multi-row move
+
+`moveRows` performs the entire operation in one shot on `table.rows`:
+
+```ts
+moveRows(tableIdx, fromIndices, insertIdx): void {
+    // 1. Remove all rows from highest index to lowest
+    const removedRows = new Array(sorted.length);
+    for (let i = sorted.length - 1; i >= 0; i--)
+        removedRows[i] = table.rows.splice(sorted[i], 1)[0];
+
+    // 2. Compute destination: how many removed rows were above insertIdx
+    const shift = sorted.filter(idx => idx < insertIdx).length;
+    const dest = insertIdx - shift;
+
+    // 3. Splice all rows in at dest, preserving relative order
+    table.rows.splice(dest, 0, ...removedRows);
+
+    this.history.push({ type: "moveRows", tableIdx, fromIndices: sorted, toIdx: dest, rows: removedRows });
+    this.showAll();
+}
+```
+
+Removing from highest to lowest index ensures earlier removals don't shift later indices. The `shift` calculation accounts for the fact that each removed row above `insertIdx` moves the effective destination one position earlier.
+
+This is recorded as a single `moveRows` action in `EditHistory`, so Ctrl+Z undoes the entire multi-row move atomically.
+
+#### `moveRows` in `EditHistory`
+
+```ts
+| { type: "moveRows"; tableIdx: number; fromIndices: number[]; toIdx: number; rows: Row[] }
+```
+
+Undo: splice out from `toIdx`, restore each row at its original `fromIndices[i]` position (processed in reverse order to avoid shifting).
+
+Redo: remove from original positions (highest to lowest), splice back at `toIdx`.
+
+#### Custom ghost image
+
+When multiple rows are dragged, a custom ghost element is built showing all dragged rows stacked:
+
+```ts
+const ghost = document.createElement("div");
+for (const r of this.dragRows) {
+    const line = document.createElement("div");
+    line.textContent = r.getCellValue(0);
+    ghost.appendChild(line);
+}
+document.body.appendChild(ghost);
+e.dataTransfer!.setDragImage(ghost, 0, 0);
+requestAnimationFrame(() => ghost.remove());
+```
+
+The ghost is appended to `document.body` at `position:fixed; top:-9999px` so it is off-screen but still in the DOM when `setDragImage` is called. `requestAnimationFrame` removes it after the browser has captured the drag image.
+
+---
+
+### Drop indicator
+
+The blue insertion-point line is a single `<div class="row-drop-indicator">` absolutely positioned relative to the table's container. It is created once and repositioned on every `dragover` event — not recreated. The key fix that made this work was querying for the existing indicator on the **container** (not the `<tbody>`), since the indicator is appended to the container:
+
+```ts
+let indicator = container.querySelector<HTMLElement>(".row-drop-indicator");
+if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.className = "row-drop-indicator";
+    container.appendChild(indicator);
+}
+```
+
+The `dragleave` handler only clears the indicator when the cursor leaves the `<tbody>` entirely:
+```ts
+tbody.addEventListener("dragleave", (e) => {
+    if (!tbody.contains(e.relatedTarget as Node))
+        this.clearDropIndicator(tbody);
+});
+```
+
+`e.relatedTarget` is the element the cursor moved to. If it's still inside `tbody`, the cursor just moved between rows — the indicator should stay.

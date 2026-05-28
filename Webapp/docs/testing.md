@@ -991,3 +991,120 @@ the user runs `npm test`.
 Per `docs/exception.md`, tests are written by the assistant and executed
 by the user on the target environment. Results will be recorded here after
 the user runs `npm test`.
+
+---
+
+## Phase 14 — Source Code Editor
+
+---
+
+### Overview
+
+Phase 14 adds the source code editor sidebar panel. Testing covered the
+initial implementation and three bug fixes found during the demo.
+
+---
+
+### Bug fix testing — `activateCell` scope bug
+
+#### TC-P14-01 — Source editor populates on cell click
+
+| Field | Value |
+|-------|-------|
+| Setup | Load a CSV with a math column. Open the source editor sidebar. |
+| Action | Click a math cell in the table. |
+| Expected | Source editor textarea fills with the cell's raw math source. Type selector shows `math`. |
+| Actual | Source editor populated correctly after fix. |
+| Verdict | ✅ Pass (after fix) |
+
+#### TC-P14-02 — Apply commits to the correct cell
+
+| Field | Value |
+|-------|-------|
+| Setup | Load a CSV. Click a math cell in row 2, column 1. Edit the source in the editor. |
+| Action | Click Apply. |
+| Expected | The cell at row 2, column 1 updates. No other cell changes. |
+| Actual | Correct cell updated after fix. Before fix, Apply was a no-op. |
+| Verdict | ✅ Pass (after fix) |
+
+#### Root cause
+
+`activateCell` was a method that called `sourceEditor.setText(...)` without
+`tableIdx/rowIdx/colIdx` in scope. Those were closure variables from
+`renderTableRows`, not parameters of `activateCell`. The fix adds them as
+explicit parameters.
+
+---
+
+### Bug fix testing — Invisible text in source editor
+
+#### TC-P14-03 — Typed text is visible in source editor
+
+| Field | Value |
+|-------|-------|
+| Setup | Open the source editor sidebar. |
+| Action | Type `x^2 + 1` into the textarea. |
+| Expected | Characters appear as dark text. Caret is visible. |
+| Actual | Text visible after fix. Before fix, characters were invisible (caret only). |
+| Verdict | ✅ Pass (after fix) |
+
+#### Root cause
+
+`.se-highlight` had `color: transparent` (hiding the `<pre>`) and
+`.se-textarea` used `-webkit-text-fill-color: transparent` (non-standard).
+Fix: `.se-highlight { color: #1e293b }`, `.se-textarea { color: transparent; caret-color: #1e293b }`.
+
+---
+
+### Bug fix testing — Enter key behaviour
+
+#### TC-P14-04 — Enter applies in math syntax
+
+| Field | Value |
+|-------|-------|
+| Setup | Click a math cell. Source editor shows math type. |
+| Action | Edit the source. Press Enter (no Shift). |
+| Expected | Edit is applied. No newline inserted. |
+| Verdict | ✅ Pass (after fix) |
+
+#### TC-P14-05 — Enter inserts newline in text syntax
+
+| Field | Value |
+|-------|-------|
+| Setup | Click a text cell. Source editor shows text type. |
+| Action | Edit the source. Press Enter (no Shift). |
+| Expected | Newline inserted at cursor. Edit not applied. |
+| Verdict | ✅ Pass (after fix) |
+
+#### TC-P14-06 — Shift+Enter always inserts newline
+
+| Field | Value |
+|-------|-------|
+| Setup | Source editor with math type active. |
+| Action | Press Shift+Enter. |
+| Expected | Newline inserted. Edit not applied. |
+| Verdict | ✅ Pass |
+
+---
+
+### Bug fix testing — Text newlines in table cells
+
+#### TC-P14-07 — Multi-line text cell renders with line breaks
+
+| Field | Value |
+|-------|-------|
+| Setup | A text cell containing `"line one\nline two"`. |
+| Action | Render the table. |
+| Expected | Cell displays two lines, not `"line one line two"` on one line. |
+| Actual | Two lines visible after adding `white-space: pre-wrap` to text plugin. |
+| Verdict | ✅ Pass (after fix) |
+
+---
+
+### Test run results
+
+**Status: awaiting execution on target (WSL Ubuntu)**
+
+Per `docs/exception.md`, tests are written by the assistant and executed
+by the user on the target environment. Results will be recorded here after
+the user runs `npm test`.

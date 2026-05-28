@@ -21,19 +21,13 @@
       <div id="session-banner" class="session-banner" hidden></div>
     </div>
 
-    <!-- 2. Formula bar: source editor for the active cell -->
-    <div id="formula-bar">
-      <span class="formula-label">fx</span>
-      <textarea id="cell-source-input" rows="1" placeholder="Select a cell to edit..." spellcheck="false"></textarea>
-      <pre class="error-message" id="error-message"></pre>
-    </div>
-
-    <!-- 3. Toolbar: dynamic (view-specific) | static (common) | filter | search -->
+    <!-- 2. Toolbar: dynamic (view-specific) | static (common) | filter | search -->
     <div id="toolbar">
       <div id="dynamic-toolbar" class="toolbar-group"></div>
       <div class="toolbar-sep"></div>
       <div id="static-toolbar" class="toolbar-group">
         <button id="btn-export-csv" title="Export active table as CSV">Export</button>
+        <button id="btn-toggle-sidebar" title="Toggle source editor sidebar">&#9664; Editor</button>
       </div>
       <div class="toolbar-sep"></div>
       <div id="filter-toolbar" class="toolbar-group">
@@ -45,19 +39,30 @@
       </div>
     </div>
 
-    <!-- 4. Tab bar: one tab per loaded table or graph -->
+    <!-- 3. Tab bar: one tab per loaded table or graph -->
     <div id="tab-bar">
       <div id="tab-strip"></div>
     </div>
 
-    <!-- 5. Workspace: only this scrolls -->
-    <div id="workspace">
-      <div id="table-container" class="drop-hint">
-        Drop .csv or .graph.json files here or use Open above
+    <!-- 4. Content area: workspace + sidebar (flex row) -->
+    <div id="content-area">
+
+      <!-- 4a. Workspace: scrollable table/diagram area -->
+      <div id="workspace">
+        <div id="table-container" class="drop-hint">
+          Drop .csv or .graph.json files here or use Open above
+        </div>
       </div>
+
+      <!-- 4b. Source editor sidebar -->
+      <div id="sidebar">
+        <div id="source-editor-container"></div>
+        <pre id="error-message" class="error-message"></pre>
+      </div>
+
     </div>
 
-    <!-- 6. Status bar -->
+    <!-- 5. Status bar -->
     <div id="status-bar">
       <span id="status-text"></span>
     </div>

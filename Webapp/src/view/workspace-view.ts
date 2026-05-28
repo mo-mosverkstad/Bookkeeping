@@ -35,17 +35,28 @@ export interface WorkspaceData {
 import { TableView } from "./table-view.ts";
 import { FlowDiagramView } from "./flow-diagram-view.ts";
 import type { AppController } from "../controller/index.ts";
+import type { SourceEditorView } from "./source-editor-view.ts";
 
 export function viewFactory(
     model: Table | Graph,
     controller: AppController,
-    sourceInput: HTMLTextAreaElement,
+    sourceEditor?: SourceEditorView,
 ): WorkspaceView {
     if (model instanceof TableClass) {
-        const view = new TableView(document.createElement("div"), sourceInput);
+        const view = new TableView(document.createElement("div"));
         view.setController(controller);
         const handler = controller.getEntityClickHandler();
         if (handler) view.setEntityClickHandler(handler);
+        if (sourceEditor) {
+            view.setSourceEditor(sourceEditor);
+            sourceEditor.setOnCellApply((value, _type) => {
+                const tv = view;
+                if (tv.getActiveTableIdx() >= 0) {
+                    // commitActive reads getValue() from the source editor
+                    tv.commitActive();
+                }
+            });
+        }
         return view;
     }
     const g = model as Graph;

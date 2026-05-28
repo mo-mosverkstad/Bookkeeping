@@ -9,10 +9,10 @@ html, body {
   font-size: 13px;
   background: #f1f5f9;
   color: #1e293b;
-  overflow: hidden; /* shell never scrolls — only #workspace does */
+  overflow: hidden;
 }
 
-/* ── Shell layout: stack fixed chrome rows, workspace fills the rest ──────── */
+/* ── Shell layout: fixed chrome rows, content-area fills the rest ─────────── */
 body {
   display: flex;
   flex-direction: column;
@@ -53,58 +53,7 @@ body {
 }
 .menu-btn:hover { background: #475569; }
 
-/* ── 2. Formula bar ───────────────────────────────────────────────────────── */
-#formula-bar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-start;  /* top-align so fx label stays at top when textarea grows */
-  gap: 0.4em;
-  min-height: 2.4em;
-  padding: 0.3em 0.75em;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-  z-index: 10;
-}
-.formula-label {
-  font-style: italic;
-  font-weight: 600;
-  color: #64748b;
-  font-size: 0.95em;
-  width: 1.4em;
-  text-align: center;
-  flex-shrink: 0;
-}
-#formula-bar textarea {
-  flex: 1;
-  padding: 2px 7px;
-  font: inherit;
-  font-family: monospace;
-  font-size: 0.88em;
-  border: 1px solid #cbd5e1;
-  border-radius: 3px;
-  outline: none;
-  background: #fff;
-  min-width: 0;
-  resize: none;          /* no manual resize handle */
-  overflow: hidden;      /* hide scrollbar; height is driven by autoResize() */
-  line-height: 1.4;
-  min-height: 1.6em;
-  max-height: 8em;       /* cap expansion so it doesn't eat the screen */
-  overflow-y: auto;      /* scroll if content exceeds max-height */
-}
-#formula-bar textarea:focus { border-color: #3b82f6; }
-.error-message {
-  color: #ef4444;
-  font-family: monospace;
-  font-size: 0.82em;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-}
-
-/* ── 3. Toolbar ───────────────────────────────────────────────────────────── */
+/* ── 2. Toolbar ───────────────────────────────────────────────────────────── */
 #toolbar {
   flex-shrink: 0;
   display: flex;
@@ -139,6 +88,13 @@ body {
   border-radius: 3px;
 }
 #toolbar button:hover { background: #f1f5f9; }
+
+/* Sidebar toggle button — active state */
+#btn-toggle-sidebar.sidebar-open {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
 
 /* Graph filter inside toolbar */
 .graph-filter {
@@ -194,10 +150,10 @@ body {
 .search-btn:hover { background: #f1f5f9; }
 .search-btn-clear { color: #94a3b8; }
 
-/* Search results dropdown — floats below toolbar */
+/* Floating panels — top offset: menu(2.2em) + toolbar(2.4em) + tab-bar(2em) */
 .search-results {
   position: fixed;
-  top: calc(2.2em + 2.4em + 2.4em); /* menu + formula + toolbar */
+  top: calc(2.2em + 2.4em + 2em);
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
@@ -219,10 +175,9 @@ body {
 .search-result-value { font-family: monospace; font-size: 0.88em; }
 .search-result-value mark { background: #fef08a; border-radius: 2px; }
 
-/* Neighbourhood panel — floats below toolbar */
 .neighbourhood-panel {
   position: fixed;
-  top: calc(2.2em + 2.4em + 2.4em);
+  top: calc(2.2em + 2.4em + 2em);
   background: #eff6ff;
   border: 1px solid #93c5fd;
   border-radius: 4px;
@@ -244,10 +199,9 @@ body {
 .neighbourhood-relation { color: #2563eb; font-style: italic; }
 .neighbourhood-table { font-size: 0.8em; color: #94a3b8; }
 
-/* Association detail — floats below toolbar */
 .association-detail {
   position: fixed;
-  top: calc(2.2em + 2.4em + 2.4em);
+  top: calc(2.2em + 2.4em + 2em);
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
@@ -264,7 +218,7 @@ body {
 .association-detail ul { margin: 0.2em 0; padding-left: 1.2em; }
 .entity-link { color: #2563eb; cursor: pointer; text-decoration: underline; }
 
-/* ── 4. Tab bar ───────────────────────────────────────────────────────────── */
+/* ── 3. Tab bar ───────────────────────────────────────────────────────────── */
 #tab-bar {
   flex-shrink: 0;
   display: flex;
@@ -302,21 +256,29 @@ body {
   border-color: #cbd5e1 !important;
   font-weight: 600;
   position: relative;
-  bottom: -2px; /* overlap the border-bottom of #tab-bar */
+  bottom: -2px;
   padding-bottom: 5px;
 }
 
-/* ── 5. Workspace — the only scrollable region ────────────────────────────── */
+/* ── 4. Content area: workspace + sidebar (flex row) ─────────────────────── */
+#content-area {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── 4a. Workspace ────────────────────────────────────────────────────────── */
 #workspace {
   flex: 1 1 0;
   overflow: auto;
   background: #fff;
   padding: 0;
+  min-width: 0;
 }
-/* Diagram views handle pan/zoom internally -- no scrollbars needed */
 #workspace.workspace-diagram { overflow: hidden; }
 
-/* Drop hint shown before any file is loaded */
 .drop-hint {
   display: flex;
   align-items: center;
@@ -334,6 +296,35 @@ body {
   background: #eff6ff;
   color: #3b82f6;
 }
+
+/* ── 4b. Sidebar (source editor) ──────────────────────────────────────────── */
+#sidebar {
+  flex-shrink: 0;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #e2e8f0;
+  background: #f8fafc;
+  overflow: hidden;
+  transition: width 0.15s ease;
+}
+#sidebar.sidebar-collapsed {
+  width: 0;
+  border-left: none;
+  overflow: hidden;
+}
+
+.error-message {
+  color: #ef4444;
+  font-family: monospace;
+  font-size: 0.82em;
+  margin: 0;
+  padding: 4px 8px;
+  white-space: pre-wrap;
+  background: #fef2f2;
+  border-top: 1px solid #fecaca;
+}
+.error-message:empty { display: none; }
 
 /* ── Knowledge table ──────────────────────────────────────────────────────── */
 .knowledge-table {
@@ -365,7 +356,6 @@ body {
 .knowledge-table tbody tr:hover > td { background: #f8fafc; }
 .knowledge-table td .cell-error { color: #ef4444; font-size: 0.85em; font-family: monospace; }
 
-/* Row number column */
 .col-rownum {
   width: 2.5em;
   text-align: right;
@@ -378,18 +368,28 @@ body {
 }
 
 /* ── Drag-to-reorder ──────────────────────────────────────────────────────── */
-.row-drag-handle {
-  width: 1.4em;
+.row-check-col {
+  width: 2em;
   text-align: center;
-  cursor: grab;
-  color: #cbd5e1;
-  padding: 0 2px !important;
+  padding: 0 4px !important;
   user-select: none;
 }
-.row-drag-handle:hover { color: #94a3b8; }
-.row-drag-handle:active { cursor: grabbing; }
+.row-check-col input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+.knowledge-table tbody tr.row-selected > td { background: #eff6ff; }
 .row-dragging { opacity: 0.35; }
-.row-drag-over td { border-top: 2px solid #3b82f6 !important; }
+
+/* Blue insertion-point line shown while dragging a row */
+.row-drop-indicator {
+  position: absolute;
+  height: 2px;
+  background: #3b82f6;
+  pointer-events: none;
+  z-index: 20;
+  border-radius: 1px;
+}
 
 /* ── Row actions ──────────────────────────────────────────────────────────── */
 .row-actions {
@@ -419,7 +419,7 @@ body {
   background: #eff6ff !important;
 }
 
-/* ── 6. Status bar ────────────────────────────────────────────────────────── */
+/* ── 5. Status bar ────────────────────────────────────────────────────────── */
 #status-bar {
   flex-shrink: 0;
   height: 1.6em;
@@ -433,7 +433,7 @@ body {
   z-index: 10;
 }
 
-/* ── Session banner (inside menu bar) ────────────────────────────────────── */
+/* ── Session banner ───────────────────────────────────────────────────────── */
 .session-banner {
   display: flex;
   align-items: center;
@@ -450,3 +450,173 @@ body {
   border-radius: 3px;
   color: #e2e8f0;
 }
+
+/* ── Source code editor (sidebar) ─────────────────────────────────────────── */
+#source-editor-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.source-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  font-size: 0.88em;
+  overflow: hidden;
+}
+
+.se-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 4px 0.6em;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.se-label {
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.85em;
+}
+
+.se-type-label { color: #64748b; font-size: 0.85em; }
+
+.se-type-select {
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 0.85em;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  flex: 1 1 auto;
+  min-width: 80px;
+}
+
+.se-header button {
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+}
+.se-header button:hover { background: #f1f5f9; }
+
+.se-apply {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8;
+}
+.se-apply:hover { background: #dbeafe !important; }
+
+/* Body: editor on top, preview below (vertical split in sidebar) */
+.se-body {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.se-editor-pane {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  border-bottom: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.se-highlight,
+.se-textarea {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 6px 8px;
+  font: 12px/1.5 "Cascadia Code", "Fira Code", "Consolas", monospace;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  tab-size: 2;
+  overflow: auto;
+  box-sizing: border-box;
+}
+
+.se-highlight {
+  background: #fff;
+  /* token spans carry their own colours; base text is dark */
+  color: #1e293b;
+  pointer-events: none;
+  border: 1px solid #1e293b;
+  z-index: 0;
+}
+
+.se-textarea {
+  background: transparent;
+  /* hide textarea text so the highlight pre shows through */
+  color: transparent;
+  caret-color: #1e293b;
+  resize: none;
+  border: 1px solid #1e293b;
+  outline: none;
+  z-index: 1;
+}
+
+.se-focused .se-highlight,
+.se-focused .se-textarea {
+  border: 2px solid #3b82f6;
+}
+
+.se-preview-pane {
+  flex: 0 0 auto;
+  height: 35%;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid #e2e8f0;
+}
+
+.se-preview {
+  flex: 1 1 0;
+  overflow: auto;
+  padding: 6px 8px;
+  background: #fff;
+}
+
+.se-error {
+  margin: 0;
+  padding: 4px 8px;
+  font-family: monospace;
+  font-size: 0.82em;
+  color: #ef4444;
+  background: #fef2f2;
+  border-top: 1px solid #fecaca;
+  white-space: pre-wrap;
+  max-height: 60px;
+  overflow-y: auto;
+}
+.se-error:empty { display: none; }
+
+/* ── Syntax highlight token colours ──────────────────────────────────────── */
+.hl-keyword    { color: #7c3aed; font-weight: 600; }
+.hl-directive  { color: #0369a1; font-weight: 600; }
+.hl-control    { color: #0369a1; }
+.hl-comment    { color: #94a3b8; font-style: italic; }
+.hl-number     { color: #b45309; }
+.hl-string     { color: #15803d; }
+.hl-operator   { color: #dc2626; }
+.hl-arrow      { color: #dc2626; font-weight: 600; }
+.hl-bracket    { color: #475569; }
+.hl-element    { color: #0f766e; font-weight: 600; }
+.hl-ident      { color: #1e293b; }
+.hl-sep        { color: #64748b; }
+.hl-colon      { color: #64748b; }
+.hl-comma      { color: #64748b; }
+.hl-type-id    { color: #7c3aed; }
+.hl-view-type  { color: #0369a1; }

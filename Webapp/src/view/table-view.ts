@@ -2,6 +2,7 @@ import { renderCell } from "../plugins/registry.ts";
 import type { Table, Row } from "../model/index.ts";
 import type { AppController } from "../controller/index.ts";
 import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
+import type { SourceEditorView } from "./source-editor-view.ts";
 
 interface TableState {
     scrollTop: number;
@@ -12,7 +13,7 @@ interface TableState {
 
 export class TableView implements WorkspaceView {
     private container: HTMLElement;
-    private sourceInput: HTMLTextAreaElement;
+    private sourceEditor: SourceEditorView | null = null;
     private controller: AppController | null = null;
     private onEntityClick: ((entityId: string) => void) | null = null;
     private onStatus: ((msg: string) => void) | null = null;
@@ -23,6 +24,10 @@ export class TableView implements WorkspaceView {
     private suppressBlur = false;
     private sortCol = -1;
     private sortAsc = true;
+    /** Row objects currently checked for multi-row drag. */
+    private selectedRows = new Set<Row>();
+    /** The table whose rows are currently selected. */
+    private selectionTable: Table | null = null;
 
     private activeCell: {
         td: HTMLElement;
@@ -32,51 +37,12 @@ export class TableView implements WorkspaceView {
         cancel: () => void;
     } | null = null;
 
-    constructor(container: HTMLElement, sourceInput: HTMLTextAreaElement) {
+    constructor(container: HTMLElement) {
         this.container = container;
-        this.sourceInput = sourceInput;
-
-        this.sourceInput.addEventListener("input", () => {
-            this.autoResize();
-            if (!this.activeCell) return;
-            this.showRendered(this.activeCell.td, this.sourceInput.value, this.activeCell.typeId);
-        });
-
-        this.sourceInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" && e.altKey) {
-                // Alt+Enter — insert newline, stay focused
-                e.preventDefault();
-                e.stopPropagation();
-                this.suppressBlur = true;
-                const el = this.sourceInput;
-                const start = el.selectionStart ?? el.value.length;
-                const end   = el.selectionEnd   ?? el.value.length;
-                el.value = el.value.slice(0, start) + "\n" + el.value.slice(end);
-                el.selectionStart = el.selectionEnd = start + 1;
-                this.autoResize();
-                if (this.activeCell)
-                    this.showRendered(this.activeCell.td, el.value, this.activeCell.typeId);
-                // Re-focus in next tick in case the browser moved focus away
-                requestAnimationFrame(() => {
-                    this.suppressBlur = false;
-                    el.focus();
-                });
-            } else if (e.key === "Enter" && !e.altKey) {
-                e.preventDefault();
-                this.activeCell?.commit(this.sourceInput.value);
-            } else if (e.key === "Escape") {
-                e.preventDefault();
-                this.activeCell?.cancel();
-            }
-        });
-
-        this.sourceInput.addEventListener("blur", () => {
-            if (this.suppressBlur) return;
-            if (this.activeCell) this.activeCell.commit(this.sourceInput.value);
-        });
     }
 
     setController(controller: AppController): void { this.controller = controller; }
+    setSourceEditor(se: SourceEditorView): void { this.sourceEditor = se; }
     setEntityClickHandler(handler: (entityId: string) => void): void { this.onEntityClick = handler; }
     setStatusCallback(cb: (msg: string) => void): void { this.onStatus = cb; }
     getActiveTableIdx(): number { return this.kbTableIdx; }
@@ -200,10 +166,35 @@ export class TableView implements WorkspaceView {
 
             const thead = document.createElement("thead");
             const headerRow = document.createElement("tr");
-            if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // drag handle
+            if (tableIdx >= 0) {
+                const thCb = document.createElement("th");
+                thCb.className = "row-check-col";
+                const headerCb = document.createElement("input");
+                headerCb.type = "checkbox";
+                headerCb.title = "Select / deselect all rows";
+                const checkedCount = currentRows.filter(r => this.selectedRows.has(r)).length;
+                headerCb.checked = checkedCount === currentRows.length && currentRows.length > 0;
+                headerCb.indeterminate = checkedCount > 0 && checkedCount < currentRows.length;
+                headerCb.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    // Read live count at click time, not stale closure value
+                    const liveCount = currentRows.filter(r => this.selectedRows.has(r)).length;
+                    if (liveCount < currentRows.length) {
+                        currentRows.forEach(r => this.selectedRows.add(r));
+                        this.selectionTable = table;
+                    } else {
+                        this.selectedRows.clear();
+                        this.selectionTable = null;
+                    }
+                    render();
+                });
+                thCb.appendChild(headerCb);
+                headerRow.appendChild(thCb);
+            }
             table.columns.forEach((col, i) => {
                 const th = document.createElement("th");
                 th.textContent = col.name + (i === this.sortCol ? (this.sortAsc ? " ▲" : " ▼") : "");
+                th.addEventListener("mousedown", (e) => e.preventDefault()); // no text selection on header click
                 th.addEventListener("click", () => {
                     if (this.sortCol === i) this.sortAsc = !this.sortAsc;
                     else { this.sortCol = i; this.sortAsc = true; }
@@ -220,19 +211,51 @@ export class TableView implements WorkspaceView {
             tableEl.appendChild(thead);
 
             const tbody = document.createElement("tbody");
+            // Keep a reference to the header checkbox so individual row
+            // checkboxes can update it live without a full re-render.
+            let headerCbRef: HTMLInputElement | null = null;
+            if (tableIdx >= 0) {
+                headerCbRef = thead.querySelector<HTMLInputElement>("input[type=checkbox]");
+            }
+
+            const updateHeaderCb = () => {
+                if (!headerCbRef) return;
+                const checked = currentRows.filter(r => this.selectedRows.has(r)).length;
+                headerCbRef.checked = checked === currentRows.length && currentRows.length > 0;
+                headerCbRef.indeterminate = checked > 0 && checked < currentRows.length;
+            };
+
             for (const row of currentRows) {
                 const rowIdx = table.rows.indexOf(row);
                 const tr = document.createElement("tr");
                 tr.dataset.rowIdx = String(rowIdx);
 
                 if (tableIdx >= 0) {
-                    const dragTd = document.createElement("td");
-                    dragTd.className = "row-drag-handle";
-                    dragTd.textContent = "⠿";
-                    dragTd.title = "Drag to reorder";
-                    tr.appendChild(dragTd);
+                    const cbTd = document.createElement("td");
+                    cbTd.className = "row-check-col";
+                    const cb = document.createElement("input");
+                    cb.type = "checkbox";
+                    cb.checked = this.selectedRows.has(row);
+                    cb.addEventListener("mousedown", (e) => e.stopPropagation());
+                    cbTd.addEventListener("mousedown", (e) => {
+                        if ((e.target as HTMLElement).tagName === "INPUT") e.preventDefault();
+                    });
+                    cb.addEventListener("change", () => {
+                        if (cb.checked) {
+                            this.selectedRows.add(row);
+                            this.selectionTable = table;
+                        } else {
+                            this.selectedRows.delete(row);
+                            if (this.selectedRows.size === 0) this.selectionTable = null;
+                        }
+                        tr.classList.toggle("row-selected", cb.checked);
+                        updateHeaderCb();
+                    });
+                    cbTd.appendChild(cb);
+                    tr.appendChild(cbTd);
                     tr.draggable = true;
-                    this.attachDragHandlers(tr, tbody, tableIdx, table);
+                    tr.classList.toggle("row-selected", this.selectedRows.has(row));
+                    this.attachDragHandlers(tr, tbody, tableIdx, table, row);
                 }
 
                 row.cells.forEach((cell, colIdx) => {
@@ -257,10 +280,12 @@ export class TableView implements WorkspaceView {
                             e.stopPropagation();
                             if (this.activeCell?.td === td) return;
                             this.cancelActive();
-                            this.activateCell(td, cell.value, cell.typeId, (newValue) => {
+                            this.activateCell(td, cell.value, cell.typeId, tableIdx, rowIdx, colIdx, (newValue) => {
                                 this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
                             });
                         });
+                        // Prevent the browser from selecting cell text on double-click
+                        td.addEventListener("dblclick", (e) => e.preventDefault());
                     }
 
                     tr.appendChild(td);
@@ -292,6 +317,7 @@ export class TableView implements WorkspaceView {
                 tbody.appendChild(tr);
             }
             tableEl.appendChild(tbody);
+            if (tableIdx >= 0) this.attachTbodyDragHandlers(tbody, tableIdx, table);
         };
 
         render();
@@ -300,25 +326,155 @@ export class TableView implements WorkspaceView {
 
     // ── Drag-to-reorder ───────────────────────────────────────────────────────
 
-    private dragSrcIdx: number | null = null;
+    /**
+     * The Row objects being dragged. Set on dragstart, cleared on dragend.
+     * Using Row objects (not indices) means the set is never stale after re-renders.
+     */
+    private dragRows: Row[] = [];
 
-    private attachDragHandlers(tr: HTMLTableRowElement, tbody: HTMLElement, tableIdx: number, table: Table): void {
+    private attachDragHandlers(tr: HTMLTableRowElement, tbody: HTMLElement, tableIdx: number, table: Table, row: Row): void {
         tr.addEventListener("dragstart", (e) => {
-            this.dragSrcIdx = Number(tr.dataset.rowIdx);
-            tr.classList.add("row-dragging");
+            // `row` is the Row object for this tr, passed from the render loop.
+            // If it's in the selection, drag the whole selection; otherwise just this row.
+            if (this.selectedRows.has(row) && this.selectedRows.size > 0) {
+                this.dragRows = table.rows.filter(r => this.selectedRows.has(r));
+            } else {
+                this.dragRows = [row];
+            }
+
             e.dataTransfer!.effectAllowed = "move";
+            // Store count so drop handler knows multi vs single
+            e.dataTransfer!.setData("text/plain", String(this.dragRows.length));
+
+            // Custom ghost: show all dragged rows stacked
+            if (this.dragRows.length > 1) {
+                const ghost = document.createElement("div");
+                ghost.style.cssText = [
+                    "position:fixed;top:-9999px;left:0;",
+                    "background:#fff;border:1px solid #cbd5e1;",
+                    "border-radius:4px;padding:2px 0;",
+                    "font:13px system-ui,sans-serif;color:#1e293b;",
+                    "box-shadow:0 2px 8px rgba(0,0,0,0.15);",
+                    "pointer-events:none;",
+                ].join("");
+                for (const r of this.dragRows) {
+                    const idx = table.rows.indexOf(r);
+                    const srcTr = tbody.querySelector<HTMLTableRowElement>(`tr[data-row-idx="${idx}"]`);
+                    const line = document.createElement("div");
+                    line.style.cssText = "padding:3px 10px;border-bottom:1px solid #f1f5f9;white-space:nowrap;";
+                    const firstCell = srcTr?.querySelectorAll("td")[1];
+                    line.textContent = firstCell?.textContent?.trim() ?? r.getCellValue(0);
+                    ghost.appendChild(line);
+                }
+                document.body.appendChild(ghost);
+                e.dataTransfer!.setDragImage(ghost, 0, 0);
+                requestAnimationFrame(() => ghost.remove());
+            }
+
+            // Dim all dragged rows
+            for (const r of this.dragRows) {
+                const idx = table.rows.indexOf(r);
+                tbody.querySelector<HTMLTableRowElement>(`tr[data-row-idx="${idx}"]`)
+                    ?.classList.add("row-dragging");
+            }
         });
-        tr.addEventListener("dragend", () => tr.classList.remove("row-dragging"));
-        tr.addEventListener("dragover", (e) => { e.preventDefault(); tr.classList.add("row-drag-over"); });
-        tr.addEventListener("dragleave", () => tr.classList.remove("row-drag-over"));
-        tr.addEventListener("drop", (e) => {
+
+        tr.addEventListener("dragend", () => {
+            tbody.querySelectorAll(".row-dragging").forEach(el => el.classList.remove("row-dragging"));
+            this.clearDropIndicator(tbody);
+            this.dragRows = [];
+        });
+    }
+
+    private attachTbodyDragHandlers(tbody: HTMLElement, tableIdx: number, table: Table): void {
+        tbody.addEventListener("dragover", (e) => {
             e.preventDefault();
-            tr.classList.remove("row-drag-over");
-            const toIdx = Number(tr.dataset.rowIdx);
-            if (this.dragSrcIdx !== null && this.dragSrcIdx !== toIdx)
-                this.controller!.moveRow(tableIdx, this.dragSrcIdx, toIdx);
-            this.dragSrcIdx = null;
+            e.dataTransfer!.dropEffect = "move";
+            this.showDropIndicator(tbody, this.getInsertIdx(e, tbody, table), table);
         });
+        tbody.addEventListener("dragleave", (e) => {
+            if (!tbody.contains(e.relatedTarget as Node))
+                this.clearDropIndicator(tbody);
+        });
+        tbody.addEventListener("drop", (e) => {
+            e.preventDefault();
+            this.clearDropIndicator(tbody);
+            if (this.dragRows.length === 0) return;
+
+            const insertIdx = this.getInsertIdx(e, tbody, table);
+
+            if (this.dragRows.length === 1) {
+                // Single-row move
+                const from = table.rows.indexOf(this.dragRows[0]);
+                if (from === -1) { this.dragRows = []; return; }
+                const to = insertIdx > from ? insertIdx - 1 : insertIdx;
+                if (from !== to) this.controller!.moveRow(tableIdx, from, to);
+            } else {
+                // Multi-row move: resolve live indices NOW (at drop time)
+                const liveIndices = this.dragRows
+                    .map(r => table.rows.indexOf(r))
+                    .filter(i => i !== -1)
+                    .sort((a, b) => a - b);
+                if (liveIndices.length > 0)
+                    this.controller!.moveRows(tableIdx, liveIndices, insertIdx);
+            }
+
+            this.dragRows = [];
+        });
+    }
+
+
+    /**
+     * Determine the insertion index (0 = before first row, n = after last row)
+     * based on the cursor's vertical position within the tbody.
+     */
+    private getInsertIdx(e: DragEvent, tbody: HTMLElement, table: Table): number {
+        const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>("tr"));
+        for (let i = 0; i < rows.length; i++) {
+            const rect = rows[i].getBoundingClientRect();
+            if (e.clientY < rect.top + rect.height / 2) return i;
+        }
+        return table.rows.length;
+    }
+
+    /** Reposition (or create) the blue drop-indicator line inside the tbody. */
+    private showDropIndicator(tbody: HTMLElement, insertIdx: number, table: Table): void {
+        const container = tbody.closest("table")!.parentElement!;
+        container.style.position = "relative";
+
+        let indicator = container.querySelector<HTMLElement>(".row-drop-indicator");
+        if (!indicator) {
+            indicator = document.createElement("div");
+            indicator.className = "row-drop-indicator";
+            container.appendChild(indicator);
+        }
+
+        const rows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>("tr"));
+        const containerRect = container.getBoundingClientRect();
+        const tableEl = tbody.closest("table")!;
+        const tableRect = tableEl.getBoundingClientRect();
+
+        let targetY: number;
+        if (rows.length === 0) {
+            targetY = 0;
+        } else if (insertIdx === 0) {
+            targetY = rows[0].getBoundingClientRect().top - containerRect.top;
+        } else if (insertIdx >= rows.length) {
+            const last = rows[rows.length - 1].getBoundingClientRect();
+            targetY = last.bottom - containerRect.top;
+        } else {
+            targetY = rows[insertIdx].getBoundingClientRect().top - containerRect.top;
+        }
+
+        indicator.style.top   = `${targetY}px`;
+        indicator.style.left  = `${tableRect.left - containerRect.left}px`;
+        indicator.style.width = `${tableRect.width}px`;
+    }
+
+    private clearDropIndicator(tbody: HTMLElement): void {
+        tbody.closest("table")?.parentElement
+            ?.querySelectorAll(".row-drop-indicator")
+            .forEach(el => el.remove());
     }
 
     // ── Cell activation — formula bar becomes the editor ─────────────────────
@@ -327,24 +483,20 @@ export class TableView implements WorkspaceView {
         td: HTMLElement,
         originalValue: string,
         typeId: string,
+        tableIdx: number,
+        rowIdx: number,
+        colIdx: number,
         onCommit: (value: string) => void,
     ): void {
         td.classList.add("cell-active");
 
-        this.sourceInput.value = originalValue;
-        this.sourceInput.placeholder = typeId;
-        this.autoResize();
-        requestAnimationFrame(() => {
-            this.sourceInput.focus();
-            this.sourceInput.select();
-        });
+        this.sourceEditor?.setText(originalValue, typeId as import("../plugins/highlighter.ts").SyntaxType, { tableIdx, rowIdx, colIdx });
+        requestAnimationFrame(() => { this.sourceEditor?.focusTextarea(); });
 
         const commit = (value: string) => {
             this.activeCell = null;
             td.classList.remove("cell-active");
-            this.sourceInput.value = "";
-            this.sourceInput.placeholder = "Select a cell to edit…";
-            this.resetResize();
+            this.sourceEditor?.clear();
             onCommit(value);
             this.showRendered(td, value, typeId);
         };
@@ -352,9 +504,7 @@ export class TableView implements WorkspaceView {
         const cancel = () => {
             this.activeCell = null;
             td.classList.remove("cell-active");
-            this.sourceInput.value = "";
-            this.sourceInput.placeholder = "Select a cell to edit…";
-            this.resetResize();
+            this.sourceEditor?.clear();
             this.showRendered(td, originalValue, typeId);
         };
 
@@ -363,22 +513,22 @@ export class TableView implements WorkspaceView {
 
     commitActive(): void {
         if (!this.activeCell) return;
-        this.activeCell.commit(this.sourceInput.value);
+        this.activeCell.commit(this.sourceEditor?.getValue() ?? this.activeCell.originalValue);
     }
 
     cancelActive(): void { this.activeCell?.cancel(); }
 
+    /** Clear all row checkbox selections and re-render. */
+    clearSelection(): void {
+        if (this.selectedRows.size === 0) return;
+        this.selectedRows.clear();
+        this.selectionTable = null;
+        this.dragRows = [];
+        this.renderActiveTable();
+    }
+
     // ── Auto-resize textarea to fit content ───────────────────────────────────
 
-    private autoResize(): void {
-        const el = this.sourceInput;
-        el.style.height = "auto";
-        el.style.height = el.scrollHeight + "px";
-    }
-
-    private resetResize(): void {
-        this.sourceInput.style.height = "";
-    }
 
     private showRendered(td: HTMLElement, value: string, typeId: string): void {
         td.innerHTML = "";

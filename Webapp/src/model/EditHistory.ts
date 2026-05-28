@@ -7,6 +7,7 @@ export type EditAction =
     | { type: "addRow"; tableIdx: number; row: Row }
     | { type: "deleteRow"; tableIdx: number; rowIdx: number; row: Row }
     | { type: "moveRow"; tableIdx: number; fromIdx: number; toIdx: number }
+    | { type: "moveRows"; tableIdx: number; fromIndices: number[]; toIdx: number; rows: Row[] }
     | { type: "addNode"; graphIdx: number; node: GraphNode }
     | { type: "removeNode"; graphIdx: number; nodeId: string; node: GraphNode }
     | { type: "addEdge"; graphIdx: number; edge: GraphEdge }

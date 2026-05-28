@@ -1,18 +1,12 @@
 /**
  * AppShell — owns all application-level event wiring and file loading.
- *
- * Responsibilities:
- *   - Keyboard shortcuts (undo/redo, cancel active cell)
- *   - Static toolbar: Export (common to all views)
- *   - Dynamic toolbar: rebuilt on each tab switch from the active view's actions
- *   - File input and drag-drop loading
- *   - Session banner
  */
 
 import { AppController } from "../controller/index.ts";
 import { WorkspaceController } from "./workspace-controller.ts";
 import { viewFactory } from "./workspace-view.ts";
 import type { WorkspaceView } from "./workspace-view.ts";
+import { SourceEditorView } from "./source-editor-view.ts";
 import { saveSession, loadSession } from "./session.ts";
 import { parseCSV } from "../data/csv.ts";
 import type { ControlFile } from "../data/control.ts";
@@ -20,41 +14,46 @@ import type { ControlFile } from "../data/control.ts";
 export class AppShell {
     private readonly controller: AppController;
     private readonly workspace: WorkspaceController;
+    private readonly sourceEditor: SourceEditorView;
     private readonly elements: {
         fileInput: HTMLInputElement;
         workspaceEl: HTMLElement;
-        sourceInput: HTMLTextAreaElement;
         errorEl: HTMLElement;
         sessionBanner: HTMLElement;
         dynamicToolbar: HTMLElement;
         btnExport: HTMLElement;
+        btnToggleSidebar: HTMLElement;
+        sidebarEl: HTMLElement;
         statusText: HTMLElement;
     };
 
     constructor(
         controller: AppController,
         workspace: WorkspaceController,
+        sourceEditor: SourceEditorView,
         elements: {
             fileInput: HTMLInputElement;
             workspaceEl: HTMLElement;
-            sourceInput: HTMLTextAreaElement;
             errorEl: HTMLElement;
             sessionBanner: HTMLElement;
             dynamicToolbar: HTMLElement;
             btnExport: HTMLElement;
+            btnToggleSidebar: HTMLElement;
+            sidebarEl: HTMLElement;
             statusText: HTMLElement;
         },
     ) {
         this.controller = controller;
         this.workspace = workspace;
+        this.sourceEditor = sourceEditor;
         this.elements = elements;
     }
 
-    /** Wire all event listeners. Called once from main.ts after construction. */
     init(): void {
         this.wireKeyboard();
         this.wireStaticToolbar();
         this.wireDynamicToolbar();
+        this.wireSidebar();
         this.wireFileLoading();
         this.wireSessionBanner();
         this.elements.fileInput.setAttribute("accept", ".csv,.json,.graph.json");
@@ -64,22 +63,30 @@ export class AppShell {
 
     private wireKeyboard(): void {
         document.addEventListener("keydown", (e) => {
+            // Source editor handles Ctrl+Z/Y in capture phase when focused
+            if (this.sourceEditor.focused) return;
             if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
                 e.preventDefault();
                 this.controller.undo();
             } else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
                 e.preventDefault();
                 this.controller.redo();
+            } else if (e.key === "Escape") {
+                // Escape clears row selection (source editor not focused — guarded above)
+                this.workspace.getActiveTableView()?.clearSelection();
             }
         });
 
+        // Cancel active cell edit when clicking outside the workspace and sidebar
         document.addEventListener("click", (e) => {
-            if (this.elements.sourceInput.contains(e.target as Node)) return;
+            const target = e.target as Node;
+            // Don't cancel if clicking inside the sidebar (source editor)
+            if (this.elements.sidebarEl.contains(target)) return;
             this.workspace.getActiveTableView()?.cancelActive();
         });
     }
 
-    // ── Static toolbar (common to all views) ──────────────────────────────────
+    // ── Static toolbar ────────────────────────────────────────────────────────
 
     private wireStaticToolbar(): void {
         this.elements.btnExport.addEventListener("click", () => {
@@ -96,7 +103,7 @@ export class AppShell {
         });
     }
 
-    // ── Dynamic toolbar (rebuilt on each tab switch) ──────────────────────────
+    // ── Dynamic toolbar ───────────────────────────────────────────────────────
 
     private wireDynamicToolbar(): void {
         this.workspace.setToolbarChangeHandler((actions, view) => {
@@ -111,12 +118,28 @@ export class AppShell {
                     if (action.disabled) btn.disabled = true;
                     btn.addEventListener("click", () => {
                         view.onToolbarAction(action.id);
-                        rebuild(); // refresh disabled states after action
+                        rebuild();
                     });
                     el.appendChild(btn);
                 }
             };
             rebuild();
+        });
+    }
+
+    // ── Sidebar toggle ────────────────────────────────────────────────────────
+
+    private wireSidebar(): void {
+        const btn = this.elements.btnToggleSidebar;
+        const sidebar = this.elements.sidebarEl;
+
+        // Sidebar starts open — mark button as open
+        btn.classList.add("sidebar-open");
+
+        btn.addEventListener("click", () => {
+            const collapsed = sidebar.classList.toggle("sidebar-collapsed");
+            btn.classList.toggle("sidebar-open", !collapsed);
+            btn.textContent = collapsed ? "\u25B6 Editor" : "\u25C0 Editor";
         });
     }
 
@@ -129,11 +152,19 @@ export class AppShell {
         });
 
         const ws = this.elements.workspaceEl;
-        ws.addEventListener("dragover", (e) => { e.preventDefault(); ws.classList.add("drag-over"); });
+        ws.addEventListener("dragover", (e) => {
+            // Only show the file-drop highlight when the drag carries actual files
+            if (!e.dataTransfer?.types.includes("Files")) return;
+            e.preventDefault();
+            ws.classList.add("drag-over");
+        });
         ws.addEventListener("dragleave", () => ws.classList.remove("drag-over"));
         ws.addEventListener("drop", (e) => {
-            e.preventDefault(); ws.classList.remove("drag-over");
-            if (e.dataTransfer?.files) this.loadFiles(Array.from(e.dataTransfer.files));
+            ws.classList.remove("drag-over");
+            // Ignore row-reorder drags and any drop that carries no files
+            if (!e.dataTransfer?.files.length) return;
+            e.preventDefault();
+            this.loadFiles(Array.from(e.dataTransfer.files));
         });
     }
 
@@ -211,11 +242,11 @@ export class AppShell {
     private registerAllTabs(): void {
         const kb = this.controller.getKnowledgeBase();
         for (const graph of kb.graphs) {
-            const view = viewFactory(graph, this.controller, this.elements.sourceInput);
+            const view = viewFactory(graph, this.controller);
             this.workspace.registerTab(graph.name, view, { graph });
         }
         for (const table of kb.tables) {
-            const view = viewFactory(table, this.controller, this.elements.sourceInput);
+            const view = viewFactory(table, this.controller, this.sourceEditor);
             this.workspace.registerTab(table.name, view, { table });
         }
         this.workspace.activateFirst();
