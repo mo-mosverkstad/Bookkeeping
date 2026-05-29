@@ -1,22 +1,22 @@
 Group,Name,Formula,Notes
 rich,rich,rich,rich
-Vectors,Dot product,"math`[u] . [v] = \S{k=0, n, u[k]*v[k]}`",Scalar result
-Vectors,Cross product,"math`[u] \cross [v] = [[u[1]*v[2]-u[2]*v[1]], [u[2]*v[0]-u[0]*v[2]], [u[0]*v[1]-u[1]*v[0]]]`",3D only
-Vectors,Magnitude,math`|[v]| = \sqrt{v[0]^2 + v[1]^2 + v[2]^2}`,
-Vectors,Unit vector,math`[v] / |[v]|`,
-Vectors,Angle,math`\cos(\t) = ([u] . [v]) / (|[u]| * |[v]|)`,
-Matrices,Matrix product,"math`(AB)[i][j] = \S{k=0, n, A[i][k] * B[k][j]}`","A is m×n, B is n×p"
-Matrices,Transpose,math`(A^T)[i][j] = A[j][i]`,
-Matrices,Determinant 2x2,"math`det([[a, b], [c, d]]) = a*d - b*c`",
-Matrices,Inverse 2x2,"math`A^(-1) = 1/det(A) * [[d, -b], [-c, a]]`",
-Matrices,Eigenvalue equation,math`A*[v] = \l*[v]`,[v] is eigenvector
-Matrices,Characteristic polynomial,math`det(A - \l*I) = 0`,
-Matrices,Trace,"math`\S{k=0, n, A[k][k]}`",Sum of diagonal
+Vectors,Dot product,"$math{[u] . [v] = \S{k=0, n, u[k]*v[k]}}",Scalar result
+Vectors,Cross product,"$math{[u] \cross [v] = [[u[1]*v[2]-u[2]*v[1]], [u[2]*v[0]-u[0]*v[2]], [u[0]*v[1]-u[1]*v[0]]]}",3D only
+Vectors,Magnitude,$math{|[v]| = \sqrt{v[0]^2 + v[1]^2 + v[2]^2}},
+Vectors,Unit vector,$math{[v] / |[v]|},
+Vectors,Angle,$math{\cos(\t) = ([u] . [v]) / (|[u]| * |[v]|)},
+Matrices,Matrix product,"$math{(AB)[i][j] = \S{k=0, n, A[i][k] * B[k][j]}}","A is m×n, B is n×p"
+Matrices,Transpose,$math{(A^T)[i][j] = A[j][i]},
+Matrices,Determinant 2x2,"$math{det([[a, b], [c, d]]) = a*d - b*c}",
+Matrices,Inverse 2x2,"$math{A^(-1) = 1/det(A) * [[d, -b], [-c, a]]}",
+Matrices,Eigenvalue equation,$math{A*[v] = \l*[v]},[v] is eigenvector
+Matrices,Characteristic polynomial,$math{det(A - \l*I) = 0},
+Matrices,Trace,"$math{\S{k=0, n, A[k][k]}}",Sum of diagonal
 Systems,Gaussian elimination,[A|b] -> row reduce -> [I|x],
-Systems,Cramer's rule,math`x[k] = det(A_k) / det(A)`,A_k has column k replaced by b
+Systems,Cramer's rule,$math{x[k] = det(A_k) / det(A)},A_k has column k replaced by b
 Spaces,Null space,Null(A) = {[x] : A*[x] = [0]},
-Spaces,Column space,math`Col(A) = span of columns of A`,
-Spaces,math`Rank-nullity`,math`rank(A) + nullity(A) = n`,math`n = number of columns`
-Decompositions,LU decomposition,math`A = L*U`,"L lower triangular, U upper triangular"
-Decompositions,QR decomposition,math`A = Q*R`,"Q orthogonal, R upper triangular"
-Decompositions,SVD,math`A = U*\S*V^T`,Singular value decomposition
+Spaces,Column space,$math{Col(A) = span of columns of A},
+Spaces,$math{Rank-nullity},$math{rank(A) + nullity(A) = n},$math{n = number of columns}
+Decompositions,LU decomposition,$math{A = L*U},"L lower triangular, U upper triangular"
+Decompositions,QR decomposition,$math{A = Q*R},"Q orthogonal, R upper triangular"
+Decompositions,SVD,$math{A = U*\S*V^T},Singular value decomposition

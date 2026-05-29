@@ -1,29 +1,29 @@
 Name,Diagram,Notes
 rich,rich,rich
-Block on surface,"math`Point(A,B,C,D)`
-math`Point(A)=(0,0)`
-math`Point(B)=(3,0)`
-math`Point(C)=(3,2)`
-math`Point(D)=(0,2)`
-math`Polygon(A,B,C,D)`
-math`Body(B1)=mass(m)`
-math`Force(W,A,\d)=mg`
-math`Force(N,A,\u)=N`
-math`Force(f,A,\r)=f`",math`Weight down + normal up + friction right`
-Inclined plane,"math`Point(A,B,C)`
-math`Point(A)=(0,0)`
-math`Point(B)=(4,0)`
-math`Point(C)=(4,3)`
-math`Triangle(A,B,C)`
-math`Body(block)=mass(m)`
-math`Force(W,C,\d)=mg`
-math`Force(N,C,\u)=N`
-math`Fixed(A)`
-math`Roller(B,\u)`",Block on inclined plane with pin at A and roller at B
-math`Spring-mass`,"math`Point(A,B)`
-math`Point(A)=(0,1)`
-math`Point(B)=(3,1)`
-math`Fixed(A)`
-math`Spring(A,B)=k`
-math`Body(m1)=mass(m)`
-math`Force(W,B,\d)=mg`",Spring-mass: fixed wall + spring k + hanging mass m
+Block on surface,"$math{Point(A,B,C,D)}
+$math{Point(A)=(0,0)}
+$math{Point(B)=(3,0)}
+$math{Point(C)=(3,2)}
+$math{Point(D)=(0,2)}
+$math{Polygon(A,B,C,D)}
+$math{Body(B1)=mass(m)}
+$math{Force(W,A,\d)=mg}
+$math{Force(N,A,\u)=N}
+$math{Force(f,A,\r)=f}",$math{Weight down + normal up + friction right}
+Inclined plane,"$math{Point(A,B,C)}
+$math{Point(A)=(0,0)}
+$math{Point(B)=(4,0)}
+$math{Point(C)=(4,3)}
+$math{Triangle(A,B,C)}
+$math{Body(block)=mass(m)}
+$math{Force(W,C,\d)=mg}
+$math{Force(N,C,\u)=N}
+$math{Fixed(A)}
+$math{Roller(B,\u)}",Block on inclined plane with pin at A and roller at B
+$math{Spring-mass},"$math{Point(A,B)}
+$math{Point(A)=(0,1)}
+$math{Point(B)=(3,1)}
+$math{Fixed(A)}
+$math{Spring(A,B)=k}
+$math{Body(m1)=mass(m)}
+$math{Force(W,B,\d)=mg}",Spring-mass: fixed wall + spring k + hanging mass m

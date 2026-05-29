@@ -1,11 +1,11 @@
 Name,Notes,chemistry
 rich,rich,rich
-Combustion of hydrogen,Irreversible forward reaction,math`Reaction(2H2 + O2 -> 2H2O)`
+Combustion of hydrogen,Irreversible forward reaction,$math{Reaction(2H2 + O2 -> 2H2O)}
 Haber process,Equilibrium with conditions,"Reaction(N2 + 3H2 <=> 2NH3, cond(T=450\deg,P=200atm,cat=Fe))"
 Ionic precipitation,Charged species with states,"Reaction({Ca,2+}(aq) + 2{Cl,1-}(aq) -> CaCl2(s))"
 Nuclear fission,Isotopes and neutron particles,Reaction(^235_92U + n -> ^141_56Ba + ^92_36Kr + 3n)
-Thermodynamics,Enthalpy of water formation,math`DeltaH = -286kJ/mol`
-Ethanol C1,Structural atom,math`Atom(C1)`
-Ethanol C2,Structural atom,math`Atom(C2)`
-Ethanol bond,math`C-C single bond`,"math`Bond(C1,C2,single)`"
-Ethanol OH,Hydroxyl group,"math`Group(C2,OH)`"
+Thermodynamics,Enthalpy of water formation,$math{DeltaH = -286kJ/mol}
+Ethanol C1,Structural atom,$math{Atom(C1)}
+Ethanol C2,Structural atom,$math{Atom(C2)}
+Ethanol bond,$math{C-C single bond},"$math{Bond(C1,C2,single)}"
+Ethanol OH,Hydroxyl group,"$math{Group(C2,OH)}"

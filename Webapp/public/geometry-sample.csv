@@ -1,32 +1,32 @@
 Name,Diagram,Notes
 rich,rich,rich
-Right Triangle,"math`Point(A,B,C)`
-math`Point(A)=(0,0)`
-math`Point(B)=(3,0)`
-math`Point(C)=(0,4)`
-math`Triangle(A,B,C)`
-math`Segment(A,B)=3`
-math`Segment(A,C)=4`
-math`Segment(B,C)=5`
-math`Perpendicular(Line(A,B),Line(A,C))`",math`Pythagorean 3-4-5 right triangle`
-Parallel Lines,"math`Point(A,B,C,D)`
-math`Point(A)=(0,1)`
-math`Point(B)=(3,1)`
-math`Point(C)=(0,0)`
-math`Point(D)=(3,0)`
-math`Line(A,B)`
-math`Line(C,D)`
-math`Parallel(Line(A,B),Line(C,D))`",Two parallel horizontal lines
-Circle,"math`Point(O,A,B,C)`
-math`Point(O)=(0,0)`
-math`Point(A)=(2,0)`
-math`Point(B)=(0,2)`
-math`Point(C)=(-2,0)`
-math`Circle((A,B,C),O,2)`",Unit circle with radius 2
-Angle Demo,"math`Point(A,B,C)`
-math`Point(A)=(2,0)`
-math`Point(B)=(0,0)`
-math`Point(C)=(1,2)`
-math`Segment(B,A)`
-math`Segment(B,C)`
-math`Angle(A,B,C)=45\deg`",Angle at vertex B
+Right Triangle,"$math{Point(A,B,C)}
+$math{Point(A)=(0,0)}
+$math{Point(B)=(3,0)}
+$math{Point(C)=(0,4)}
+$math{Triangle(A,B,C)}
+$math{Segment(A,B)=3}
+$math{Segment(A,C)=4}
+$math{Segment(B,C)=5}
+$math{Perpendicular(Line(A,B),Line(A,C))}",$math{Pythagorean 3-4-5 right triangle}
+Parallel Lines,"$math{Point(A,B,C,D)}
+$math{Point(A)=(0,1)}
+$math{Point(B)=(3,1)}
+$math{Point(C)=(0,0)}
+$math{Point(D)=(3,0)}
+$math{Line(A,B)}
+$math{Line(C,D)}
+$math{Parallel(Line(A,B),Line(C,D))}",Two parallel horizontal lines
+Circle,"$math{Point(O,A,B,C)}
+$math{Point(O)=(0,0)}
+$math{Point(A)=(2,0)}
+$math{Point(B)=(0,2)}
+$math{Point(C)=(-2,0)}
+$math{Circle((A,B,C),O,2)}",Unit circle with radius 2
+Angle Demo,"$math{Point(A,B,C)}
+$math{Point(A)=(2,0)}
+$math{Point(B)=(0,0)}
+$math{Point(C)=(1,2)}
+$math{Segment(B,A)}
+$math{Segment(B,C)}
+$math{Angle(A,B,C)=45\deg}",Angle at vertex B

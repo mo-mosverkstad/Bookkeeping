@@ -22,24 +22,41 @@ type RichSpan =
 
 type RichLine = RichSpan[];
 
-// Match: math`...`, chem`...`, geom`...`, phys`...`
-const EMBED_RE = /\b(math|chem|geom|phys)`([^`]*)`/g;
+// Match: $math{...}, $chem{...}, $geom{...}, $phys{...} with balanced braces
+const EMBED_START = /\$(math|chem|geom|phys)\{/g;
+
+function extractBalancedBraces(str: string, start: number): { content: string; end: number } | null {
+    // start points to the char after the opening {
+    let depth = 1;
+    let i = start;
+    while (i < str.length && depth > 0) {
+        if (str[i] === "{") depth++;
+        else if (str[i] === "}") depth--;
+        if (depth > 0) i++;
+    }
+    if (depth !== 0) return null;
+    return { content: str.slice(start, i), end: i + 1 };
+}
 
 function parseLine(line: string): RichLine {
     const spans: RichLine = [];
     let lastIndex = 0;
 
-    EMBED_RE.lastIndex = 0;
+    EMBED_START.lastIndex = 0;
     let match: RegExpExecArray | null;
 
-    while ((match = EMBED_RE.exec(line)) !== null) {
+    while ((match = EMBED_START.exec(line)) !== null) {
+        const braceStart = match.index + match[0].length;
+        const result = extractBalancedBraces(line, braceStart);
+        if (!result) break; // unbalanced — stop parsing embeddings
+
         // Text before this embedding
         if (match.index > lastIndex) {
             spans.push({ kind: "text", value: line.slice(lastIndex, match.index) });
         }
 
         const tag = match[1];
-        const content = match[2];
+        const content = result.content;
 
         try {
             switch (tag) {
@@ -68,7 +85,8 @@ function parseLine(line: string): RichLine {
             spans.push({ kind: "error", tag, content, message: (e as Error).message });
         }
 
-        lastIndex = match.index + match[0].length;
+        lastIndex = result.end;
+        EMBED_START.lastIndex = result.end;
     }
 
     // Remaining text after last embedding

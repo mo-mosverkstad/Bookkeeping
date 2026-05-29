@@ -1,10 +1,10 @@
 Name,Definition,Formula,Domain
 rich,rich,rich,rich
-Pythagorean Theorem,In a right triangle the square of the hypotenuse equals the sum of squares of the other two sides,math`a^2 + b^2 = c^2`,Geometry
-Quadratic Formula,Solutions to a quadratic equation,math`x = (-b + \sqrt{b^2 - 4a*c}) / (2a)`,Algebra
-Euler's Identity,Connects five fundamental constants,math`e^(\\p*\\i) + 1 = 0`,Analysis
-Derivative Power Rule,Derivative of x to the n,math`f(x) = x^n -> f'(x) = n*x^(n-1)`,Calculus
-Integration by Parts,Product rule for integrals,"math`\int{a, b, u*v'} = u*v - \int{a, b, u'*v}`",Calculus
-Area of Circle,Area enclosed by a circle of radius r,math`A = \\p*r^2`,Geometry
-Binomial Theorem,math`Expansion of (a+b)^n`,"math`+{k=0, n, \binom{n, k}*a^(n-k)*b^k}`",Algebra
-Aleph Null,Cardinality of natural numbers,math`\ha_0 = |\\N|`,Set Theory
+Pythagorean Theorem,In a right triangle the square of the hypotenuse equals the sum of squares of the other two sides,$math{a^2 + b^2 = c^2},Geometry
+Quadratic Formula,Solutions to a quadratic equation,$math{x = (-b + \sqrt{b^2 - 4a*c}) / (2a)},Algebra
+Euler's Identity,Connects five fundamental constants,$math{e^(\\p*\\i) + 1 = 0},Analysis
+Derivative Power Rule,Derivative of x to the n,$math{f(x) = x^n -> f'(x) = n*x^(n-1)},Calculus
+Integration by Parts,Product rule for integrals,"$math{\int{a, b, u*v'} = u*v - \int{a, b, u'*v}}",Calculus
+Area of Circle,Area enclosed by a circle of radius r,$math{A = \\p*r^2},Geometry
+Binomial Theorem,$math{Expansion of (a+b)^n},"$math{+{k=0, n, \binom{n, k}*a^(n-k)*b^k}}",Algebra
+Aleph Null,Cardinality of natural numbers,$math{\ha_0 = |\\N|},Set Theory

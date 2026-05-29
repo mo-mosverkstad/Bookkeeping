@@ -119,30 +119,39 @@ const EMBED_TAG_TO_RULES: Record<string, TokenRule[]> = {
 };
 
 function highlightRich(text: string): string {
-    // Match embedding tags: math`...`, chem`...`, geom`...`, phys`...`
-    const re = /\b(math|chem|geom|phys)`([^`]*)`/g;
+    // Match embedding tags: $math{...}, $chem{...}, $geom{...}, $phys{...}
+    const re = /\$(math|chem|geom|phys)\{/g;
     let out = "";
     let lastIndex = 0;
     let match: RegExpExecArray | null;
 
     while ((match = re.exec(text)) !== null) {
-        // Plain text before this embedding — no highlighting (just escaped)
+        // Plain text before this embedding
         if (match.index > lastIndex) {
             out += escapeHtml(text.slice(lastIndex, match.index));
         }
-        // The tag (e.g. "math`")
+        // Find balanced closing brace
+        let depth = 1, i = match.index + match[0].length;
+        while (i < text.length && depth > 0) {
+            if (text[i] === "{") depth++;
+            else if (text[i] === "}") depth--;
+            if (depth > 0) i++;
+        }
+        if (depth !== 0) { out += escapeHtml(match[0]); lastIndex = match.index + match[0].length; continue; }
+
         const tag = match[1];
-        out += `<span class="hl-embed-tag">${escapeHtml(tag)}\`</span>`;
-        // The content — highlighted with the appropriate rules
-        const content = match[2];
+        const content = text.slice(match.index + match[0].length, i);
+        // Tag: $math{
+        out += `<span class="hl-embed-tag">${escapeHtml("$" + tag + "{")}</span>`;
+        // Content highlighted
         const rules = EMBED_TAG_TO_RULES[tag] || [];
         out += highlightWithRules(content, rules);
-        // Closing backtick
-        out += `<span class="hl-embed-tag">\`</span>`;
-        lastIndex = match.index + match[0].length;
+        // Closing brace
+        out += `<span class="hl-embed-tag">}</span>`;
+        lastIndex = i + 1;
+        re.lastIndex = lastIndex;
     }
 
-    // Remaining text after last embedding
     if (lastIndex < text.length) {
         out += escapeHtml(text.slice(lastIndex));
     }
