@@ -1,4 +1,5 @@
 import { KnowledgeBase, Table, Row, EditHistory, Graph, TypedValue } from "../model/index.ts";
+import { serializeGraph } from "../data/graph-source.ts";
 import type { FileSystemStrategy, FileHandle, OpenedFile } from "../data/file-system.ts";
 import type { Document } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
@@ -56,7 +57,7 @@ export class AppController {
             content = table.toCSV();
         } else {
             const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);
-            if (graph) content = graph.toGraphJSON();
+            if (graph) content = serializeGraph(graph);
             else content = entry.text;
         }
         const newHandle = await this.fileSystem.save(content, entry.handle, name);
@@ -264,7 +265,7 @@ export class AppController {
             current = table.toCSV();
         } else {
             const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);
-            if (graph) current = graph.toGraphJSON();
+            if (graph) current = serializeGraph(graph);
             else return;
         }
         if (current === entry.text) {

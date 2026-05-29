@@ -76,7 +76,7 @@ export class DownloadFallbackStrategy implements FileSystemStrategy {
             const input = document.createElement("input");
             input.type = "file";
             input.multiple = true;
-            input.accept = ".csv,.json,.graph.json,.doc.json";
+            input.accept = ".csv,.json,.graph.json,.doc.json,.md,.mmd,.flowchart";
             input.addEventListener("change", async () => {
                 const files = Array.from(input.files ?? []);
                 const results: OpenedFile[] = [];

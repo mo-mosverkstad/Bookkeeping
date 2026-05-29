@@ -5,6 +5,7 @@
 import { AppController } from "../controller/index.ts";
 import { WorkspaceController } from "../knowledge-pane/workspace-controller.ts";
 import { viewFactory } from "../knowledge-pane/workspace-view.ts";
+import { DiagramView } from "../knowledge-pane/diagram-view.ts";
 import { SourceEditorView } from "../source-editor/source-editor-view.ts";
 import { NavigationTreeView } from "./navigation-tree-view.ts";
 import { saveSession, loadSession } from "./session.ts";
@@ -17,6 +18,7 @@ export class AppShell {
     private readonly workspace: WorkspaceController;
     private readonly sourceEditor: SourceEditorView;
     private readonly navTree: NavigationTreeView;
+    private diagramSources = new Map<string, string>();
     private readonly elements: {
         fileInput: HTMLInputElement;
         workspaceEl: HTMLElement;
@@ -65,7 +67,7 @@ export class AppShell {
         this.wireNavTree();
         this.wireFileLoading();
         this.wireSessionBanner();
-        this.elements.fileInput.setAttribute("accept", ".csv,.json");
+        this.elements.fileInput.setAttribute("accept", ".csv,.json,.md,.mmd,.flowchart");
     }
 
     // ── Keyboard ──────────────────────────────────────────────────────────────
@@ -214,6 +216,10 @@ export class AppShell {
         const docResults = results.filter(r => isDocJson(r.name));
         const csvResults = results.filter(r => r.name.endsWith(".csv"));
         const graphResults = results.filter(r => isGraphJson(r.name));
+        const diagramResults = results.filter(r => r.name.endsWith(".mmd") || r.name.endsWith(".flowchart") || (r.name.endsWith(".md") && /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie)/m.test(r.text)));
+        for (const d of diagramResults) {
+            this.diagramSources.set(d.name.replace(/\.[^.]+$/, ""), d.text);
+        }
         if (controlResult) {
             this.loadControlBatch(controlResult.text, csvResults, graphResults, docResults);
         } else {
@@ -247,6 +253,11 @@ export class AppShell {
                 const docResults    = results.filter(r => isDocJson(r.name));
                 const csvResults    = results.filter(r => r.name.endsWith(".csv"));
                 const graphResults  = results.filter(r => isGraphJson(r.name));
+
+                const diagramResults = results.filter(r => r.name.endsWith(".mmd") || r.name.endsWith(".flowchart") || (r.name.endsWith(".md") && /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie)/m.test(r.text)));
+                for (const d of diagramResults) {
+                    this.diagramSources.set(d.name.replace(/\.[^.]+$/, ""), d.text);
+                }
 
                 if (controlResult) {
                     this.loadControlBatch(controlResult.text, csvResults, graphResults, docResults);
@@ -360,6 +371,15 @@ export class AppShell {
                 graph.name,
                 () => viewFactory(graph, this.controller, this.sourceEditor),
                 { graph },
+            );
+        }
+
+        // Register diagram files
+        for (const [name, entry] of this.diagramSources) {
+            this.workspace.registerView(
+                name,
+                () => new DiagramView(name, entry, this.sourceEditor),
+                {},
             );
         }
 
