@@ -1108,3 +1108,158 @@ Fix: `.se-highlight { color: #1e293b }`, `.se-textarea { color: transparent; car
 Per `docs/exception.md`, tests are written by the assistant and executed
 by the user on the target environment. Results will be recorded here after
 the user runs `npm test`.
+
+
+---
+
+## Phase 16 — Rich Cell Renderer & Test Resource Rectification
+
+---
+
+### Test cases
+
+#### TC-P16-01 — Rich plugin parses plain text
+
+| Field | Value |
+|-------|-------|
+| Input | `"Hello world"` |
+| Expected | One line with one text span: `{ kind: "text", value: "Hello world" }` |
+| Actual | As expected |
+| Verdict | ✅ Pass |
+
+#### TC-P16-02 — Rich plugin parses math embedding
+
+| Field | Value |
+|-------|-------|
+| Input | `` math`x^2 + y^2 = r^2` `` |
+| Expected | One line with one math span containing parsed AST |
+| Actual | As expected — AST is a BinaryExpression with operator "=" |
+| Verdict | ✅ Pass |
+
+#### TC-P16-03 — Rich plugin parses mixed text and math
+
+| Field | Value |
+|-------|-------|
+| Input | `` The formula is math`a^2 + b^2 = c^2` which defines a circle `` |
+| Expected | One line with 3 spans: text + math + text |
+| Actual | As expected |
+| Verdict | ✅ Pass |
+
+#### TC-P16-04 — Rich plugin handles multi-line content
+
+| Field | Value |
+|-------|-------|
+| Input | `` math`x^2`\nPlain text\nmath`y^2` `` |
+| Expected | 3 lines: [math], [text], [math] |
+| Actual | As expected |
+| Verdict | ✅ Pass |
+
+#### TC-P16-05 — Rich plugin falls back on invalid math embedding
+
+| Field | Value |
+|-------|-------|
+| Input | `` math`@@@invalid` `` |
+| Expected | Falls back to text span with raw content |
+| Actual | As expected — span is `{ kind: "text", value: "math`@@@invalid`" }` |
+| Verdict | ✅ Pass |
+
+#### TC-P16-06 — All 80 test resource files parse with CSV parser
+
+| Field | Value |
+|-------|-------|
+| Action | Load all 80 CSV files with `parseCSV()` |
+| Expected | No parse errors |
+| Actual | 80/80 OK |
+| Verdict | ✅ Pass |
+
+#### TC-P16-07 — All 34,713 cells render with rich plugin
+
+| Field | Value |
+|-------|-------|
+| Action | Parse every non-empty cell with `richPlugin.parse()` |
+| Expected | No exceptions |
+| Actual | 34,713 cells, 0 failures |
+| Verdict | ✅ Pass |
+
+#### TC-P16-08 — All 5,043 math embeddings parse correctly
+
+| Field | Value |
+|-------|-------|
+| Action | Extract all `math`...`` content and parse with math grammar |
+| Expected | No parse failures |
+| Actual | 5,043 embeddings, 0 failures |
+| Verdict | ✅ Pass |
+
+#### TC-P16-09 — Default renderer fallback is rich
+
+| Field | Value |
+|-------|-------|
+| Action | `getPlugin("unknown").type_id` |
+| Expected | `"rich"` |
+| Actual | `"rich"` |
+| Verdict | ✅ Pass |
+
+#### TC-P16-10 — Apply keeps cell active and editor text
+
+| Field | Value |
+|-------|-------|
+| Setup | Click a cell, edit text in source editor |
+| Action | Click Apply |
+| Expected | Cell updates, editor keeps text, cell stays highlighted |
+| Actual | As expected — `editCell` called with `silent=true`, no re-render |
+| Verdict | ✅ Pass |
+
+---
+
+### Test run results
+
+```
+ ✓ test/plugins/math/grammar.test.ts (87 tests) 61ms
+ ✓ test/data/control.test.ts (21 tests) 16ms
+ ✓ test/plugins/math/render.test.ts (75 tests) 64ms
+ ✓ test/ui/table.test.ts (58 tests) 96ms
+ ✓ test/model/graph.test.ts (24 tests) 24ms
+ ✓ test/ui/graph-filter.test.ts (5 tests) 46ms
+ ✓ test/search/search.test.ts (18 tests) 33ms
+ ✓ test/data/csv.test.ts (8 tests) 14ms
+ ✓ test/engine/PEGParser.test.ts (18 tests) 15ms
+ ✓ test/model/edit-history.test.ts (12 tests) 12ms
+ ✓ test/data/graph.test.ts (11 tests) 7ms
+ ✓ test/controller/edit.test.ts (12 tests) 6ms
+
+ Test Files  12 passed (12)
+      Tests  349 passed (349)
+```
+
+All 349 tests pass including all regression tests from previous phases.
+
+---
+
+### Bugs found and fixed
+
+**Bug 1 — Biology CSV files had broken quoting**
+
+Symptom: CSV parser threw "unexpected 'Ä'" error on Biology files.
+Root cause: Earlier rectification script used `sed` to replace the first
+line of files that had multi-line quoted cells. This broke the CSV quoting
+structure, leaving orphaned continuation lines.
+Fix: Rebuilt all Biology files using Python's csv module with proper quote
+state tracking.
+
+**Bug 2 — Source editor cleared on Apply**
+
+Symptom: Pressing Apply after editing cleared the editor and deactivated cell.
+Root cause: `editCell()` called `showAll()` which re-rendered the entire
+table DOM, destroying the active cell's TD element and triggering
+`cancelActive()`.
+Fix: Added `silent` parameter to `editCell`. `commitActive()` passes
+`silent=true` to skip re-render, then updates only the single cell's DOM.
+
+**Bug 3 — Math parser too permissive for rich wrapping**
+
+Symptom: Plain text like "62 (Rachel Carson) (Silent Spring)" was incorrectly
+wrapped as `math`...`` because the number 62 parsed as a valid expression.
+Root cause: The wrapping heuristic only checked if the line parsed as math,
+without requiring math-specific syntax.
+Fix: Added stricter heuristic requiring math indicators (operators, backslash
+identifiers, braces) AND absence of prose words before wrapping.

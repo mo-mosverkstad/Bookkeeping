@@ -1,5 +1,5 @@
 From,To,Type,Enzyme
-text,text,text,text
+rich,rich,rich,rich
 Glucose,Hexokinase,reaction,
 Hexokinase,G6P,reaction,Hexokinase
 G6P,PGI,reaction,

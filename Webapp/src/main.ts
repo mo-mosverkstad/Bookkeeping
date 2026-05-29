@@ -55,6 +55,18 @@ window.addEventListener("load", () => {
         searchView.showNeighbourhood(entityId);
     });
 
+    controller.setDismissPanelsHandler(() => {
+        graphFilterView.getDetailPanel().innerHTML = "";
+        searchView.hideNeighbourhood();
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            graphFilterView.getDetailPanel().innerHTML = "";
+            searchView.hideNeighbourhood();
+        }
+    });
+
     // ── Source code editor (sidebar) ──────────────────────────────────────────
     const sourceEditor = new SourceEditorView(controller, sourceEditorContainer);
 

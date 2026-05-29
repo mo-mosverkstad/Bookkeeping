@@ -63,6 +63,14 @@ export class SearchView {
         this.neighbourPanel.hidden = true;
         container.appendChild(this.neighbourPanel);
 
+        // Close neighbourhood panel on outside click
+        document.addEventListener("click", (e) => {
+            if (!this.neighbourPanel.hidden && !this.neighbourPanel.contains(e.target as Node)) {
+                this.neighbourPanel.hidden = true;
+                this.neighbourPanel.innerHTML = "";
+            }
+        });
+
         // ── Event handlers ────────────────────────────────────────────────────
         textBtn.addEventListener("click", () => {
             const q = textInput.value.trim();
@@ -176,6 +184,11 @@ export class SearchView {
         }
 
         this.neighbourPanel.appendChild(list);
+    }
+
+    hideNeighbourhood(): void {
+        this.neighbourPanel.hidden = true;
+        this.neighbourPanel.innerHTML = "";
     }
 }
 

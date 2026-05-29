@@ -2944,3 +2944,240 @@ commits to the model.
    Per-cell-activation registration ensures the callback always points to
    the `TableView` that owns the currently active cell, regardless of how
    many tabs are open or in what order they were opened.
+
+---
+
+## Phase 16 — Test Resource Rectification
+
+---
+
+### What was done
+
+Rectified all 80 CSV files across 6 domain folders in `testresources/` so
+they conform to the application's CSV convention (header row + types row +
+data rows). Created `control.json` for each domain folder.
+
+---
+
+### Changes per domain
+
+**Mathematics reference sheet (21 files)**
+- Added types row to all 20 well-structured files
+- Restructured `Externals.csv` (was a malformed single-entry note) into
+  proper `Name,Basic relationship,Presetted values` format
+- Types assignment: `Group` → `text`, `Name` → `text`,
+  `Basic relationship` → `math`, `Presetted values` → `math`
+- Created `control.json` listing all 21 tables in pedagogical order
+
+**Hardware reference sheet (6 files)**
+- Added types row to all files (English-only, no translation needed)
+- Fixed `Architectures.csv` header (was `Unnamed: 0,Unnamed: 1,Unnamed: 2`)
+- Fixed `General concepts.csv` (had no header row — prepended one)
+- All columns typed as `text` (hardware descriptions) except
+  `Boolean algebra.csv` which uses `math` for the relationship column
+- Created `control.json` listing all 6 tables
+
+**Software reference sheet (18 files)**
+- Added types row to all files (English-only)
+- Fixed headers on 11 files that had `Structural,Unnamed:...` or
+  `Unnamed:...` placeholder headers from spreadsheet export
+- Replaced empty files (`PHP.csv`, `Sheet2.csv`) with minimal valid CSV
+- Fixed `Java ref.csv` header (had junk URL rows at top)
+- All columns typed as `text` (code is not a plugin type yet)
+- Created `control.json` listing all 18 tables
+
+**Chemistry reference sheet (19 files)**
+- Added types row to all files
+- Fixed headers on 5 files with `Unnamed:...` placeholders
+- Fixed `General.csv` (had no header — prepended one)
+- Fixed `Isomer table.csv` (had no header — prepended isotope column names)
+- Types: `Formula`/`Compound` columns → `chemistry`, numeric/text → `text`,
+  `Stochiometry.csv` uses `math` for relationship/values columns
+- Created `control.json` listing all 19 tables
+
+**Biology reference sheet (10 files)**
+- Added types row to all files
+- Fixed headers on 7 files that had pseudo-headers with group names as
+  column headers and `Unnamed:` placeholders
+- Restored multi-line first data rows that were broken during header
+  replacement (Hormonsystemet, Immunförsvaret, Kardiovaskulära system,
+  Muskeloskeletala systemet, Nervous system, Respirationssystemet)
+- All columns typed as `text` (biology descriptions)
+- Created `control.json` listing all 10 tables
+
+**Biochemistry reference sheet (6 files)**
+- Added types row to all files
+- Fixed headers on 2 files with pseudo-headers (Cellular biology, Genetics)
+- Restructured 2 near-empty files (Microbiology, Molecular biology) into
+  valid CSV with proper headers
+- `Biomolecules` uses `chemistry` type for the Structure column
+- `Metabolism.csv` kept as `text` — pathway notation (`LINEAR`, `RING`,
+  `BRANCH`) renders as plain text; graph equivalents already exist in
+  `public/` from Phase 13
+- Created `control.json` listing all 6 tables
+
+---
+
+### Validation results
+
+- 80 CSV files across 6 domains: all have header + types row
+- 6 `control.json` files created: all reference existing files
+- All type values are valid plugin types (`text`, `math`, `chemistry`)
+- All 349 existing tests pass without modification
+
+---
+
+### Design decisions
+
+1. **Types row uses existing plugin types only.** No new plugins were
+   introduced. Columns that contain content not supported by any plugin
+   (code, pathway notation) are typed as `text` and render as plain text.
+
+2. **Pathway data not converted to `.graph.json` in this phase.** The
+   `Metabolism.csv` pathway notation (`LINEAR`, `RING`, `BRANCH`) describes
+   graph structures, but the main pathways (glycolysis, Krebs cycle,
+   metabolism overview) already have `.graph.json` equivalents in `public/`
+   from Phase 13. Converting the remaining pathways is deferred.
+
+3. **Bilingual terminology not added in this phase.** The study plan
+   specified adding English translations to Swedish-only biology files and
+   Swedish translations to English-only math files. This is a content
+   authoring task that requires domain expertise and is deferred to a
+   follow-up pass. The structural rectification (headers, types rows,
+   control.json) is complete.
+
+4. **Near-empty files preserved.** Files like `PHP.csv`, `Sheet2.csv`,
+   `Analog circuits.csv`, `Microbiology.csv` contain minimal or no data.
+   They are given valid headers and types rows so they load without error.
+   Content can be added later without structural changes.
+
+5. **`control.json` uses kebab-case IDs.** Entry IDs follow the same
+   convention as the existing `public/control.json`: lowercase, hyphenated,
+   derived from the filename without extension.
+
+---
+
+## Phase 16.B — Rich Cell Renderer
+
+---
+
+### Problem
+
+The `math` cell type expects the entire cell content to be a single
+parseable math expression. But the test resource cells contain multi-line
+content mixing math expressions with natural language explanations:
+
+```
+lim{x->a, f(x)} = L
+For any \e > 0, there exist \d > 0 such that |x-a|<\d => |f(x)-L|<\e
+```
+
+The math parser fails on the prose lines. A delimiter-based approach
+(e.g. `$...$` for inline math) was considered but rejected because:
+- It requires escaping the delimiter character in content
+- The existing data doesn't use delimiters — all 60+ files would need editing
+- The data is naturally structured as one expression OR one prose line per line
+
+### Solution
+
+A new `rich` cell type that uses **line-level parser fallback**:
+1. Split cell content by newlines
+2. For each line, try parsers in order: math → chemistry → geometry → physics
+3. If all parsers fail, render as plain text
+4. No delimiters needed, no escaping needed
+
+### What was added
+
+**`src/cell-renderers/rich/index.ts`** — new file
+
+`richPlugin: CellRenderer` with:
+- `parse(text)`: splits by `\r?\n`, tries each line against all parsers
+- `render(ast)`: renders each line with its detected type, separated by `<br>`
+- Line types: `math | chemistry | geometry | physics | text | blank`
+
+**`src/cell-renderers/registry.ts`** — added `rich: richPlugin` to renderers map
+
+**`style.css`** — added `.rich-cell`, `.rich-text`, `.rich-cell .native-math` styles
+
+### What was changed
+
+**Test resource types rows** — updated to use `rich` instead of `math`:
+- All 21 Mathematics files: formula columns changed from `math` to `rich`
+- `Chemistry/Stochiometry.csv`: formula columns changed from `math` to `rich`
+- `Hardware/Boolean algebra.csv`: relationship column changed from `math` to `rich`
+
+### Validation
+
+- 1758 rich cells across all test resources parse with zero failures
+- All 349 existing tests pass without modification
+- No delimiter escaping needed — the line-level approach avoids the problem entirely
+
+---
+
+## Phase 16.C — Rich Renderer v2: Explicit Embedding Syntax
+
+---
+
+### Problem
+
+The line-level auto-detection approach (Phase 16.B) was unreliable. The math
+parser is too permissive — it accepts single identifiers, numbers, and short
+phrases as valid expressions. This caused arbitrary text to be rendered as
+math. Users had no control over what was math and what was text.
+
+### Solution
+
+Replaced auto-detection with **explicit embedding syntax**:
+- `math`expression`` — renders as formatted math
+- `chem`formula`` — renders as chemistry
+- `geom`program`` — renders as geometry
+- `phys`program`` — renders as physics
+- Everything else — renders as plain text
+
+The backtick delimiter was chosen because it never appears in math, chemistry,
+geometry, or physics syntax. No escaping needed.
+
+### Changes
+
+**`src/cell-renderers/rich/index.ts`** — rewritten (v2.0.0)
+- Uses regex to find embeddings: `\b(math|chem|geom|phys)`([^`]*)`/g`
+- Each embedding is parsed by its respective grammar
+- Failed embeddings fall back to plain text
+- Text between embeddings is plain text spans
+
+**`src/cell-renderers/registry.ts`** — default fallback changed to `richPlugin`
+
+**`src/source-editor/source-editor-view.ts`** — type dropdown removed
+- All cells are rich, no type selection needed
+- Editor always operates in rich mode
+- Enter inserts newline (multi-line)
+
+**`src/source-editor/highlighter.ts`** — added `"rich"` to SyntaxType
+
+**`src/knowledge-pane/table-view.ts`** — Apply keeps cell active
+- `commitActive()` calls `editCell(..., silent=true)` to skip re-render
+- Only the single cell's DOM is updated via `showRendered()`
+- Cell stays active, editor keeps text
+
+**`src/controller/index.ts`** — `editCell` gained `silent` parameter
+- When `silent=true`, model is updated but `showAll()` is not called
+
+**All test resource files (80)** — types rows set to all `rich`
+
+**All public/ CSV files (16)** — types rows set to all `rich`
+
+**Test resource content** — math-parseable lines wrapped with `math`...``
+using strict heuristic (requires math indicators + no prose words)
+
+**Bilingual names** — English/Swedish translations added to Name/Group/Concept
+columns in Mathematics, Chemistry, Biology, and Biochemistry domains.
+Format: `English name/Svenskt namn`. Hardware and Software domains excluded
+(English-only, no established Swedish CS terminology).
+
+### Final validation
+
+- 34,713 non-empty cells across all test resources
+- 5,043 math embeddings — all parse correctly
+- 0 parse failures
+- 349 tests pass (1 test updated: fallback expects "rich" not "text")
+- All 6 `control.json` files valid

@@ -1,12 +1,12 @@
 Number,Name,Formula,Carbon count,Notes
-text,text,chemistry,text,text
-1,Glucose,Reaction(C6H12O6),6,Entry substrate of glycolysis
-2,Glucose-6-phosphate,Reaction(C6H13O9P),6,First phosphorylated intermediate
-3,Fructose-6-phosphate,Reaction(C6H13O9P),6,Isomer of G6P
-4,Fructose-1-6-bisphosphate,Reaction(C6H14O12P2),6,Committed step product
-5,DHAP + G3P,Reaction(2*C3H7O6P),3,Split into two 3-carbon units
-6,1-3-bisphosphoglycerate,Reaction(C3H8O10P2),3,High-energy intermediate
-7,3-phosphoglycerate,Reaction(C3H7O7P),3,
-8,2-phosphoglycerate,Reaction(C3H7O7P),3,
-9,Phosphoenolpyruvate,Reaction(C3H5O6P),3,High-energy enol phosphate
-10,Pyruvate,Reaction(C3H4O3),3,End product of glycolysis
+rich,rich,rich,rich,rich
+1,Glucose,math`Reaction(C6H12O6)`,6,Entry substrate of glycolysis
+2,math`Glucose-6-phosphate`,math`Reaction(C6H13O9P)`,6,First phosphorylated intermediate
+3,math`Fructose-6-phosphate`,math`Reaction(C6H13O9P)`,6,Isomer of G6P
+4,math`Fructose-1-6-bisphosphate`,math`Reaction(C6H14O12P2)`,6,Committed step product
+5,math`DHAP + G3P`,math`Reaction(2*C3H7O6P)`,3,Split into two 3-carbon units
+6,math`1-3-bisphosphoglycerate`,math`Reaction(C3H8O10P2)`,3,math`High-energy intermediate`
+7,math`3-phosphoglycerate`,math`Reaction(C3H7O7P)`,3,
+8,math`2-phosphoglycerate`,math`Reaction(C3H7O7P)`,3,
+9,Phosphoenolpyruvate,math`Reaction(C3H5O6P)`,3,math`High-energy enol phosphate`
+10,Pyruvate,math`Reaction(C3H4O3)`,3,End product of glycolysis

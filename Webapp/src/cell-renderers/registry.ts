@@ -4,6 +4,7 @@ import { textPlugin } from "./text/index.ts";
 import { geometryPlugin } from "./geometry/index.ts";
 import { physicsPlugin } from "./physics/index.ts";
 import { chemistryPlugin } from "./chemistry/index.ts";
+import { richPlugin } from "./rich/index.ts";
 
 function escapeHTML(message: string): string {
     return message.replace(/&/g, "&amp;")
@@ -21,10 +22,11 @@ const renderers: Record<string, CellRenderer> = {
     geometry: geometryPlugin,
     physics: physicsPlugin,
     chemistry: chemistryPlugin,
+    rich: richPlugin,
 };
 
 export function getPlugin(typeId: string): CellRenderer {
-    return renderers[typeId] ?? textPlugin;
+    return renderers[typeId] ?? richPlugin;
 }
 
 export function renderCell(typeId: string, text: string): HTMLElement {

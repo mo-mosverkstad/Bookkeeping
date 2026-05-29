@@ -14,7 +14,7 @@ export interface TokenRule {
     pattern: RegExp; // must have the 'y' (sticky) flag
 }
 
-export type SyntaxType = "math" | "chemistry" | "geometry" | "physics" | "table-source" | "graph-source" | "text";
+export type SyntaxType = "math" | "chemistry" | "geometry" | "physics" | "table-source" | "graph-source" | "text" | "rich";
 
 // ── Token rule sets per syntax ────────────────────────────────────────────────
 
@@ -81,6 +81,7 @@ const RULES: Record<SyntaxType, TokenRule[]> = {
     "table-source": TABLE_SOURCE_RULES,
     "graph-source": GRAPH_SOURCE_RULES,
     "text":         [],
+    "rich":         [], // handled specially by highlightRich
 };
 
 // ── Highlighter ───────────────────────────────────────────────────────────────
@@ -89,18 +90,10 @@ function escapeHtml(s: string): string {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/**
- * Tokenise `text` using the rules for `syntaxType` and return highlighted HTML.
- * Each token is wrapped in <span class="hl-{name}">. Unmatched characters are
- * emitted as escaped plain text.
- */
-export function highlight(text: string, syntaxType: SyntaxType): string {
-    const rules = RULES[syntaxType];
+function highlightWithRules(text: string, rules: TokenRule[]): string {
     if (rules.length === 0) return escapeHtml(text);
-
     let pos = 0;
     let out = "";
-
     while (pos < text.length) {
         let matched = false;
         for (const rule of rules) {
@@ -113,12 +106,57 @@ export function highlight(text: string, syntaxType: SyntaxType): string {
                 break;
             }
         }
-        if (!matched) {
-            // Emit one character as plain text
-            out += escapeHtml(text[pos]);
-            pos++;
+        if (!matched) { out += escapeHtml(text[pos]); pos++; }
+    }
+    return out;
+}
+
+const EMBED_TAG_TO_RULES: Record<string, TokenRule[]> = {
+    "math": MATH_RULES,
+    "chem": CHEMISTRY_RULES,
+    "geom": GEOMETRY_RULES,
+    "phys": PHYSICS_RULES,
+};
+
+function highlightRich(text: string): string {
+    // Match embedding tags: math`...`, chem`...`, geom`...`, phys`...`
+    const re = /\b(math|chem|geom|phys)`([^`]*)`/g;
+    let out = "";
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = re.exec(text)) !== null) {
+        // Plain text before this embedding — no highlighting (just escaped)
+        if (match.index > lastIndex) {
+            out += escapeHtml(text.slice(lastIndex, match.index));
         }
+        // The tag (e.g. "math`")
+        const tag = match[1];
+        out += `<span class="hl-embed-tag">${escapeHtml(tag)}\`</span>`;
+        // The content — highlighted with the appropriate rules
+        const content = match[2];
+        const rules = EMBED_TAG_TO_RULES[tag] || [];
+        out += highlightWithRules(content, rules);
+        // Closing backtick
+        out += `<span class="hl-embed-tag">\`</span>`;
+        lastIndex = match.index + match[0].length;
+    }
+
+    // Remaining text after last embedding
+    if (lastIndex < text.length) {
+        out += escapeHtml(text.slice(lastIndex));
     }
 
     return out;
+}
+
+/**
+ * Tokenise `text` using the rules for `syntaxType` and return highlighted HTML.
+ * Each token is wrapped in <span class="hl-{name}">. Unmatched characters are
+ * emitted as escaped plain text.
+ */
+export function highlight(text: string, syntaxType: SyntaxType): string {
+    if (syntaxType === "rich") return highlightRich(text);
+    const rules = RULES[syntaxType];
+    return highlightWithRules(text, rules);
 }

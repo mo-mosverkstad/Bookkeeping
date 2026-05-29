@@ -16,6 +16,7 @@ export class TableView implements WorkspaceView {
     private sourceEditor: SourceEditorView | null = null;
     private controller: AppController | null = null;
     private onEntityClick: ((entityId: string) => void) | null = null;
+    private onCellFocusChange: (() => void) | null = null;
     private onStatus: ((msg: string) => void) | null = null;
     private activeTabIdx = 0;
     private currentTables: Table[] = [];
@@ -30,9 +31,14 @@ export class TableView implements WorkspaceView {
         td: HTMLElement;
         originalValue: string;
         typeId: string;
+        tableIdx: number;
+        rowIdx: number;
+        colIdx: number;
         commit: (value: string) => void;
         cancel: () => void;
+        onCommit: (value: string) => void;
     } | null = null;
+    private _committing = false;
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -42,6 +48,7 @@ export class TableView implements WorkspaceView {
     setSourceEditor(se: SourceEditorView): void { this.sourceEditor = se; }
     setEntityClickHandler(handler: (entityId: string) => void): void { this.onEntityClick = handler; }
     setStatusCallback(cb: (msg: string) => void): void { this.onStatus = cb; }
+    setOnCellFocusChange(cb: () => void): void { this.onCellFocusChange = cb; }
     getActiveTableIdx(): number { return this.kbTableIdx; }
     getController(): AppController | null { return this.controller; }
     getSortState(): { sortCol: number; sortAsc: boolean } { return { sortCol: this.sortCol, sortAsc: this.sortAsc }; }
@@ -260,6 +267,15 @@ export class TableView implements WorkspaceView {
                         td.addEventListener("click", (e) => {
                             e.stopPropagation();
                             this.onEntityClick!(row.entityId);
+                            // Also activate the cell for editing
+                            if (this.activeCell?.td === td) return;
+                            this.cancelActive();
+                            this.onCellFocusChange?.();
+                            if (tableIdx >= 0 && this.controller) {
+                                this.activateCell(td, cell.value, cell.typeId, tableIdx, rowIdx, colIdx, (newValue) => {
+                                    this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
+                                });
+                            }
                         });
                     }
 
@@ -273,6 +289,7 @@ export class TableView implements WorkspaceView {
                             e.stopPropagation();
                             if (this.activeCell?.td === td) return;
                             this.cancelActive();
+                            this.onCellFocusChange?.();
                             this.activateCell(td, cell.value, cell.typeId, tableIdx, rowIdx, colIdx, (newValue) => {
                                 this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
                             });
@@ -487,33 +504,46 @@ export class TableView implements WorkspaceView {
         this.sourceEditor?.setOnCellApply(() => this.commitActive());
         requestAnimationFrame(() => { this.sourceEditor?.focusTextarea(); });
 
-        const commit = (value: string) => {
+        const deactivate = () => {
             this.activeCell = null;
             td.classList.remove("cell-active");
             this.sourceEditor?.setOnCellApply(null);
             this.sourceEditor?.clear();
+        };
+
+        const commit = (value: string) => {
+            deactivate();
             onCommit(value);
             this.showRendered(td, value, typeId);
         };
 
         const cancel = () => {
-            this.activeCell = null;
-            td.classList.remove("cell-active");
-            this.sourceEditor?.setOnCellApply(null);
-            this.sourceEditor?.clear();
+            deactivate();
             this.showRendered(td, originalValue, typeId);
         };
 
-        this.activeCell = { td, originalValue, typeId, commit, cancel };
+        this.activeCell = { td, originalValue, typeId, tableIdx, rowIdx, colIdx, commit, cancel, onCommit };
     }
 
     commitActive(): void {
         if (!this.activeCell) return;
         const value = this.sourceEditor?.getValue() ?? this.activeCell.originalValue;
-        this.activeCell.commit(value);
+        if (value === this.activeCell.originalValue) return;
+        // Update model silently (no re-render), then update just this cell's DOM
+        this.activeCell.originalValue = value;
+        this.controller!.editCell(this.activeCell.tableIdx, this.activeCell.rowIdx, this.activeCell.colIdx, value, true);
+        this.showRendered(this.activeCell.td, value, this.activeCell.typeId);
     }
 
-    cancelActive(): void { this.activeCell?.cancel(); }
+    cancelActive(): void {
+        if (!this.activeCell) return;
+        this.commitActive();
+        const { td } = this.activeCell!;
+        this.activeCell = null;
+        td.classList.remove("cell-active");
+        this.sourceEditor?.setOnCellApply(null);
+        this.sourceEditor?.clear();
+    }
 
     /** Clear all row checkbox selections and re-render. */
     clearSelection(): void {

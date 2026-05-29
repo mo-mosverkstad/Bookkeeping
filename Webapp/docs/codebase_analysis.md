@@ -6083,3 +6083,214 @@ export function viewFactory(
 `WorkspaceData` gained `document?: Document`. The `isDiagram` check in
 `WorkspaceController.activateTab` uses `next.data.graph !== undefined` —
 documents are not diagrams, so they get normal scrollable workspace layout.
+
+
+---
+
+## Phase 16 — Rich Cell Renderer & Test Resource Rectification
+
+---
+
+### Concept: Rich Cell Type
+
+The application previously required each column to declare a specific cell
+type (`math`, `chemistry`, `geometry`, `physics`, `text`) in the types row.
+The renderer for that type would attempt to parse the **entire cell content**
+as a single expression. This failed for real-world data where cells contain
+mixed content (formulas interspersed with prose explanations).
+
+Phase 16 introduces a single universal cell type: `rich`. All cells are rich
+cells. The rich renderer uses **explicit inline embedding syntax** to
+distinguish rendered content from plain text:
+
+```
+math`\int{0, 1, x^2}` equals one third
+```
+
+The embedding syntax is: `type` followed by a backtick, content, closing backtick.
+Supported types: `math`, `chem`, `geom`, `phys`.
+
+Everything outside an embedding renders as plain text. No guessing, no
+ambiguity, no delimiter escaping problems (backtick never appears in math
+or chemistry syntax).
+
+---
+
+### File: `src/cell-renderers/rich/index.ts`
+
+The rich plugin implements the `CellRenderer` interface:
+
+```ts
+export const richPlugin: CellRenderer = {
+    type_id: "rich",
+    version: "2.0.0",
+    parse(text: string): unknown { ... },
+    render(ast: unknown): HTMLElement { ... },
+};
+```
+
+**`parse(text)`** splits the cell by newlines, then for each line uses a
+regex to find embedding markers (`math`...``, `chem`...``, etc.). Text
+between embeddings becomes `{ kind: "text", value }` spans. Each embedding
+is parsed by its respective grammar (math parser, chemistry parser, etc.).
+If parsing fails, the embedding falls back to plain text.
+
+**`render(ast)`** creates a `<div class="rich-cell">` and appends each
+span as either a rendered math/chemistry/geometry/physics element or a
+plain `<span class="rich-text">` for text. Lines are separated by `<br>`.
+
+The regex used for embedding detection:
+```ts
+const EMBED_RE = /\b(math|chem|geom|phys)`([^`]*)`/g;
+```
+
+---
+
+### File: `src/cell-renderers/registry.ts`
+
+The default fallback renderer changed from `textPlugin` to `richPlugin`:
+```ts
+export function getPlugin(typeId: string): CellRenderer {
+    return renderers[typeId] ?? richPlugin;
+}
+```
+
+This means any unknown type (or the universal `rich` type) uses the rich
+renderer. The specific renderers (`math`, `chemistry`, etc.) still exist
+and are used internally by the rich plugin for embedding parsing.
+
+---
+
+### Source Editor Changes
+
+The source editor type dropdown was removed. Since all cells are rich, the
+editor always operates in rich mode:
+- Syntax highlighting uses math rules (most common content)
+- Enter key inserts a newline (rich is multi-line)
+- Apply commits the raw text including `math`...`` markers
+- Preview shows the rendered rich output
+
+The `SyntaxType` union in `highlighter.ts` gained `"rich"` as a member.
+
+---
+
+### Commit Behavior Fix (`src/knowledge-pane/table-view.ts`)
+
+**Problem:** Pressing Apply cleared the source editor and deactivated the cell.
+
+**Root cause:** `commitActive()` called `controller.editCell()` which called
+`showAll()` which re-rendered the entire table DOM, which called
+`cancelActive()`, which cleared the editor.
+
+**Fix:** `editCell` gained a `silent` parameter. When `silent = true`, the
+model is updated but `showAll()` is not called. `commitActive()` passes
+`silent = true`, then manually re-renders only the single cell's TD via
+`showRendered()`. The cell stays active, the editor keeps its text.
+
+```ts
+commitActive(): void {
+    if (!this.activeCell) return;
+    const value = this.sourceEditor?.getValue() ?? this.activeCell.originalValue;
+    if (value === this.activeCell.originalValue) return;
+    this.activeCell.originalValue = value;
+    this.controller!.editCell(tableIdx, rowIdx, colIdx, value, true);
+    this.showRendered(this.activeCell.td, value, this.activeCell.typeId);
+}
+```
+
+---
+
+### Test Resource Rectification
+
+All 80 CSV files in `testresources/` across 6 domains were rectified:
+
+1. **Header row** added where missing
+2. **Types row** set to all `rich` for every column
+3. **CSV quoting** fixed (broken multi-line cells in Biology files)
+4. **`control.json`** created for each domain (6 files)
+5. **Math embeddings** added: lines containing valid math expressions are
+   wrapped with `math`...`` syntax using a heuristic that requires:
+   - Math-specific syntax (operators, backslash identifiers, braces)
+   - No prose words (the, is, that, for, etc.)
+   - Successful parse by the math grammar
+6. **Bilingual names** added to Name/Group/Concept columns (English/Swedish)
+   for Mathematics, Chemistry, Biology, and Biochemistry domains.
+   Hardware and Software domains are English-only (no Swedish CS terminology).
+
+---
+
+### CSV Parser (`src/data/csv.ts`)
+
+No changes to the CSV parser itself. The PEG-based parser correctly handles:
+- Quoted fields with embedded newlines
+- Escaped quotes (`""`)
+- CRLF and LF line endings
+- UTF-8 characters (Swedish å, ä, ö)
+
+The parser requires exactly 2 header rows (headers + types) before data.
+All test resource files conform to this requirement.
+
+
+---
+
+### Source Editor: Rich Highlighting (`src/source-editor/highlighter.ts`)
+
+The `highlight` function dispatches to `highlightRich()` when the syntax
+type is `"rich"`. This function:
+
+1. Scans the text for embedding markers using the regex
+   `/\b(math|chem|geom|phys)`([^`]*)`/g`
+2. Text outside embeddings is emitted as plain escaped HTML (black text)
+3. Embedding tags (`math``, `chem``, etc.) are wrapped in
+   `<span class="hl-embed-tag">` (purple bold)
+4. Content inside each embedding is highlighted using the appropriate
+   rule set (MATH_RULES, CHEMISTRY_RULES, GEOMETRY_RULES, PHYSICS_RULES)
+
+This gives visual feedback: you can immediately see which parts of a cell
+are plain text and which are rendered expressions.
+
+---
+
+### Cell Activation & Apply Behavior
+
+**Auto-apply on leave:** When a cell loses focus (user clicks another cell),
+`cancelActive()` calls `commitActive()` first — saving the current editor
+content to the model. This prevents data loss from forgetting to press Apply.
+
+**Alt+Enter = Apply:** In the source editor, Alt+Enter triggers Apply
+(commits without leaving the cell). Plain Enter inserts a newline.
+
+**Silent commit:** `commitActive()` calls `controller.editCell(..., true)`
+with `silent=true` to update the model without triggering a full table
+re-render. Only the single cell's DOM is updated via `showRendered()`.
+
+---
+
+### Entity/Association Cell Behavior
+
+**Column 0 (entity cells)** are now both clickable for neighbourhood display
+AND activatable for editing. A single click shows the association panels
+and activates the cell in the source editor simultaneously.
+
+**Panel dismissal** occurs when:
+- User clicks a different (non-entity) cell → `onCellFocusChange` callback
+- User clicks outside the panel → `document` click handler
+- User presses Escape → global keydown handler
+
+The dismiss logic is wired through `controller.setDismissPanelsHandler()`
+which is called from `main.ts` and passed to each `TableView` via
+`setOnCellFocusChange()`.
+
+---
+
+### Error Display in Rich Cells
+
+When an embedding fails to parse (e.g. `math`@invalid`), the rich renderer
+displays the full PEG parser error message in a `<pre class="cell-error">`
+element. The error message includes:
+- The error position (line:column)
+- The source line with a caret pointing to the failure
+- The list of expected tokens
+
+This is the raw output from `PEGParser.formatError()` — no wrapping or
+summarization.

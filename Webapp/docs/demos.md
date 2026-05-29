@@ -1609,3 +1609,84 @@ before Apply works.
 ### Graph sections inside a document show blank
 The `.graph.json` file referenced by the document section was not loaded.
 Ensure all graph files are included in the drop alongside the `.doc.json`.
+
+
+---
+
+## Phase 16 — Rich Cell Renderer & Test Resource Rectification
+
+---
+
+### Prerequisites
+
+- Node.js installed
+- `npm install` completed in project root
+- Browser with File API support (Chrome, Firefox, Edge)
+
+### Build
+
+```bash
+npm run build
+```
+
+### Run
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173` in the browser.
+
+### Demo: Load Mathematics Reference Sheet
+
+1. Open the app in the browser
+2. Drag and drop all files from `testresources/Mathematics reference sheet/`
+   (including `control.json`) onto the app
+3. The navigation tree shows "Mathematics reference sheet" with 21 tables
+4. Click any table (e.g. "Integrals")
+5. Observe: cells with `math`...`` embeddings render as formatted math
+   (integrals, fractions, Greek letters, superscripts)
+6. Cells without embeddings render as plain text
+7. Click a cell — the source editor shows the raw content with `math`...``
+   markers visible
+8. Edit the content, click Apply — the cell updates in place, editor keeps
+   text, cell stays active
+9. Click a different cell — previous cell deactivates, new cell activates
+
+### Demo: Rich Cell Editing
+
+1. With a table loaded, click any cell
+2. In the source editor, type: `` math`x^2 + 1` is a polynomial ``
+3. Click Apply
+4. The cell shows "x² + 1" rendered as math, followed by " is a polynomial"
+   as plain text
+5. The source editor still shows the raw text
+6. Edit to: `` math`x^3 + 1` is a cubic ``
+7. Click Apply again — cell updates, editor keeps text
+
+### Demo: Load Biology Reference Sheet (bilingual)
+
+1. Drop all files from `testresources/Biology reference sheet/`
+2. Open "Ecology - Ekologi" table
+3. Observe: concept names show both English and Swedish separated by /
+   (e.g. "Fundamentals/Grundläggande")
+4. All cells render as plain text (biology has no math formulas)
+
+### Expected Output
+
+| Action | Expected Result |
+|--------|----------------|
+| Load Mathematics files | 21 tables appear in nav tree |
+| Open Integrals table | Math formulas render with proper formatting |
+| Click a math cell | Source editor shows `math`...`` syntax |
+| Apply after edit | Cell updates, editor keeps text |
+| Load Biology files | 10 tables with bilingual names |
+| Load all 6 domains | 80 tables total, all render without errors |
+
+### Verification
+
+- No "Parse error" red text in any cell
+- Math expressions show superscripts, fractions, Greek letters
+- Plain text renders as-is without formatting
+- Source editor never clears unexpectedly on Apply
+- All `control.json` files load their tables in declared order

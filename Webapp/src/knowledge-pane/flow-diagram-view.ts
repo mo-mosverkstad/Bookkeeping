@@ -12,6 +12,8 @@ import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./w
 import type { NodeStyle, EdgeStyle } from "../data/control.ts";
 import type { Graph } from "../model/Graph.ts";
 import type { AppController } from "../controller/index.ts";
+import { serializeGraph, parseGraphSource } from "../data/graph-source.ts";
+import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
 
 // ── Thin adapters: Graph → the shapes renderGraph/renderSequence expect ───────
 
@@ -745,6 +747,8 @@ function renderSequence(
 export class FlowDiagramView implements WorkspaceView {
     private readonly viewType: string;
     private readonly controller: AppController | null;
+    private sourceEditor: SourceEditorView | null = null;
+    private _syncing = false;
     private container: HTMLElement | null = null;
     private svg: SVGElement | null = null;
     private state: DiagramState = { ...DEFAULT_STATE };
@@ -765,6 +769,8 @@ export class FlowDiagramView implements WorkspaceView {
         this.controller = controller ?? null;
     }
 
+    setSourceEditor(se: SourceEditorView): void { this.sourceEditor = se; }
+
     setToolbarRefreshCallback(cb: () => void): void {
         this.toolbarRefresh = cb;
     }
@@ -777,6 +783,16 @@ export class FlowDiagramView implements WorkspaceView {
             this.kbGraphIdx = this.controller.getKnowledgeBase().graphs.indexOf(data.graph);
         }
         this.render();
+        // Ensure source editor shows graph source after all mount/unmount cleanup
+        if (this.sourceEditor && data.graph) {
+            const se = this.sourceEditor;
+            const graph = data.graph;
+            const self = this;
+            requestAnimationFrame(() => {
+                se.setText(serializeGraph(graph));
+                se.setOnCellApply((value: string) => { self.applySourceEdit(value); });
+            });
+        }
     }
 
     unmount(): ViewState {
@@ -786,6 +802,8 @@ export class FlowDiagramView implements WorkspaceView {
         this.edgeFromNodeId = null;
         this.pendingEditNodeId = null;
         if (this.clickTimer) { clearTimeout(this.clickTimer); this.clickTimer = null; }
+        this.sourceEditor?.setOnCellApply(null);
+        this.sourceEditor?.clear();
         return { ...this.state };
     }
 
@@ -819,7 +837,6 @@ export class FlowDiagramView implements WorkspaceView {
     }
 
     onToolbarAction(id: string): void {
-        if (!this.controller) return;
         const graph = this.currentData?.graph;
         if (!graph) return;
 
@@ -828,7 +845,7 @@ export class FlowDiagramView implements WorkspaceView {
             let n = graph.nodes.length + 1;
             let nodeId = `${base}-${n}`;
             while (graph.getNode(nodeId)) nodeId = `${base}-${++n}`;
-            this.controller.addNode(this.kbGraphIdx, nodeId, { label: nodeId });
+            graph.addNode(nodeId, { label: nodeId });
             this.state.selectedNodeIds = [nodeId];
             this.selectedEdgeId = null;
             this.edgeFromNodeId = null;
@@ -850,12 +867,10 @@ export class FlowDiagramView implements WorkspaceView {
         } else if (id === "delete") {
             if (this.state.selectedNodeIds.length > 0) {
                 const nodeId = this.state.selectedNodeIds[0];
-                if (!confirm(`Delete node "${nodeId}" and all its edges?`)) return;
-                this.controller.removeNode(this.kbGraphIdx, nodeId);
+                graph.removeNode(nodeId);
                 this.state.selectedNodeIds = [];
             } else if (this.selectedEdgeId) {
-                if (!confirm(`Delete this edge?`)) return;
-                this.controller.removeEdge(this.kbGraphIdx, this.selectedEdgeId);
+                graph.removeEdge(this.selectedEdgeId);
                 this.selectedEdgeId = null;
             }
             this.render();
@@ -871,7 +886,7 @@ export class FlowDiagramView implements WorkspaceView {
                 this.state.selectedNodeIds = [nodeId];
             } else {
                 // Second click: create edge
-                this.controller?.addEdge(this.kbGraphIdx, this.edgeFromNodeId, nodeId);
+                this.currentData?.graph?.addEdge(this.edgeFromNodeId, nodeId);
                 this.edgeFromNodeId = null;
                 this.state.selectedNodeIds = [];
             }
@@ -998,5 +1013,28 @@ export class FlowDiagramView implements WorkspaceView {
                 if (shapeEl && lblEl) this.onNodeDblClick(nodeId, shapeEl, lblEl);
             }
         }
+        this.syncSourceEditor();
+    }
+
+    // ── Source editor sync ────────────────────────────────────────────────────
+
+    private syncSourceEditor(): void {
+        if (this._syncing || !this.sourceEditor || !this.currentData?.graph) return;
+        const text = serializeGraph(this.currentData.graph);
+        this.sourceEditor.setText(text);
+        // Use rAF to ensure this runs after any synchronous cleanup (e.g. table unmount)
+        requestAnimationFrame(() => {
+            this.sourceEditor?.setOnCellApply((value: string) => {
+                this.applySourceEdit(value);
+            });
+        });
+    }
+
+    private applySourceEdit(source: string): void {
+        if (!this.currentData?.graph) return;
+        parseGraphSource(source, this.currentData.graph);
+        this._syncing = true;
+        this.render();
+        this._syncing = false;
     }
 }

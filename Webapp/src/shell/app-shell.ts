@@ -315,7 +315,7 @@ export class AppShell {
             if (docGraphFiles.has(graph.sourceFile ?? graph.name)) continue;
             this.workspace.registerView(
                 graph.name,
-                () => viewFactory(graph, this.controller),
+                () => viewFactory(graph, this.controller, this.sourceEditor),
                 { graph },
             );
         }

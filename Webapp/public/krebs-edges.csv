@@ -1,5 +1,5 @@
 From,To,Type,Enzyme
-text,text,text,text
+rich,rich,rich,rich
 Pyruvate,PDH,reaction,
 PDH,AcCoA,reaction,PDH
 AcCoA,CS,reaction,

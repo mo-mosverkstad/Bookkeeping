@@ -55,11 +55,15 @@ export function viewFactory(
         view.setController(controller);
         const handler = controller.getEntityClickHandler();
         if (handler) view.setEntityClickHandler(handler);
+        const dismiss = controller.getDismissPanelsHandler();
+        if (dismiss) view.setOnCellFocusChange(dismiss);
         if (sourceEditor) {
             view.setSourceEditor(sourceEditor);
         }
         return view;
     }
     const g = model as GraphClass;
-    return new FlowDiagramView(g.viewType, controller);
+    const diagramView = new FlowDiagramView(g.viewType, controller);
+    if (sourceEditor) diagramView.setSourceEditor(sourceEditor);
+    return diagramView;
 }

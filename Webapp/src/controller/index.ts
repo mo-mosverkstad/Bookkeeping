@@ -13,6 +13,7 @@ export class AppController {
     private workspaceController: WorkspaceController | null = null;
     private graphFilterView: GraphFilterView | null = null;
     private entityClickHandler: ((entityId: string) => void) | null = null;
+    private dismissPanelsHandler: (() => void) | null = null;
     readonly history = new EditHistory();
 
     setWorkspaceController(wc: WorkspaceController): void { this.workspaceController = wc; }
@@ -20,6 +21,8 @@ export class AppController {
     setEntityClickHandler(handler: (entityId: string) => void): void {
         this.entityClickHandler = handler;
     }
+    setDismissPanelsHandler(handler: () => void): void { this.dismissPanelsHandler = handler; }
+    getDismissPanelsHandler(): (() => void) | null { return this.dismissPanelsHandler; }
     getEntityClickHandler(): ((entityId: string) => void) | null {
         return this.entityClickHandler;
     }
@@ -79,14 +82,14 @@ export class AppController {
         return this.knowledgeBase.graph.getInverse(relation);
     }
 
-    editCell(tableIdx: number, rowIdx: number, colIdx: number, newValue: string): void {
+    editCell(tableIdx: number, rowIdx: number, colIdx: number, newValue: string, silent = false): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
         const oldValue = table.getCellValue(rowIdx, colIdx);
         if (oldValue === newValue) return;
         this.history.push({ type: "cell", tableIdx, rowIdx, colIdx, oldValue, newValue });
         table.setCellValue(rowIdx, colIdx, newValue);
-        this.showAll();
+        if (!silent) this.showAll();
     }
 
     addRow(tableIdx: number): void {

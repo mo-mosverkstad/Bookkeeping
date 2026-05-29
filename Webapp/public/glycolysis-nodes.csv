@@ -1,11 +1,11 @@
 Formula,Name,Kind
-text,text,text
+rich,rich,rich
 Glucose,Glucose,compound
-G6P,Glucose-6-phosphate,compound
-F6P,Fructose-6-phosphate,compound
-F16BP,Fructose-1-6-bisphosphate,compound
+G6P,math`Glucose-6-phosphate`,compound
+F6P,math`Fructose-6-phosphate`,compound
+F16BP,math`Fructose-1-6-bisphosphate`,compound
 DHAP,Dihydroxyacetone phosphate,compound
-G3P,Glyceraldehyde-3-phosphate,compound
+G3P,math`Glyceraldehyde-3-phosphate`,compound
 Pyruvate,Pyruvate,compound
 Hexokinase,Hexokinase,enzyme
 PGI,Phosphoglucose isomerase,enzyme

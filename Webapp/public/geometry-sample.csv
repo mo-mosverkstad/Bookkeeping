@@ -1,32 +1,32 @@
 Name,Diagram,Notes
-text,geometry,text
-Right Triangle,"Point(A,B,C)
-Point(A)=(0,0)
-Point(B)=(3,0)
-Point(C)=(0,4)
-Triangle(A,B,C)
-Segment(A,B)=3
-Segment(A,C)=4
-Segment(B,C)=5
-Perpendicular(Line(A,B),Line(A,C))",Pythagorean 3-4-5 right triangle
-Parallel Lines,"Point(A,B,C,D)
-Point(A)=(0,1)
-Point(B)=(3,1)
-Point(C)=(0,0)
-Point(D)=(3,0)
-Line(A,B)
-Line(C,D)
-Parallel(Line(A,B),Line(C,D))",Two parallel horizontal lines
-Circle,"Point(O,A,B,C)
-Point(O)=(0,0)
-Point(A)=(2,0)
-Point(B)=(0,2)
-Point(C)=(-2,0)
-Circle((A,B,C),O,2)",Unit circle with radius 2
-Angle Demo,"Point(A,B,C)
-Point(A)=(2,0)
-Point(B)=(0,0)
-Point(C)=(1,2)
-Segment(B,A)
-Segment(B,C)
-Angle(A,B,C)=45\deg",Angle at vertex B
+rich,rich,rich
+Right Triangle,"math`Point(A,B,C)`
+math`Point(A)=(0,0)`
+math`Point(B)=(3,0)`
+math`Point(C)=(0,4)`
+math`Triangle(A,B,C)`
+math`Segment(A,B)=3`
+math`Segment(A,C)=4`
+math`Segment(B,C)=5`
+math`Perpendicular(Line(A,B),Line(A,C))`",math`Pythagorean 3-4-5 right triangle`
+Parallel Lines,"math`Point(A,B,C,D)`
+math`Point(A)=(0,1)`
+math`Point(B)=(3,1)`
+math`Point(C)=(0,0)`
+math`Point(D)=(3,0)`
+math`Line(A,B)`
+math`Line(C,D)`
+math`Parallel(Line(A,B),Line(C,D))`",Two parallel horizontal lines
+Circle,"math`Point(O,A,B,C)`
+math`Point(O)=(0,0)`
+math`Point(A)=(2,0)`
+math`Point(B)=(0,2)`
+math`Point(C)=(-2,0)`
+math`Circle((A,B,C),O,2)`",Unit circle with radius 2
+Angle Demo,"math`Point(A,B,C)`
+math`Point(A)=(2,0)`
+math`Point(B)=(0,0)`
+math`Point(C)=(1,2)`
+math`Segment(B,A)`
+math`Segment(B,C)`
+math`Angle(A,B,C)=45\deg`",Angle at vertex B

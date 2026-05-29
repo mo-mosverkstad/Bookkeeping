@@ -112,7 +112,7 @@ export class SourceEditorView {
 
         this.typeSelect = document.createElement("select");
         this.typeSelect.className = "se-type-select";
-        (["math", "chemistry", "geometry", "physics", "table-source", "graph-source", "text"] as SyntaxType[])
+        (["math", "chemistry", "geometry", "physics", "table-source", "graph-source", "text", "rich"] as SyntaxType[])
             .forEach(t => {
                 const opt = document.createElement("option");
                 opt.value = t; opt.textContent = t;
@@ -130,8 +130,6 @@ export class SourceEditorView {
         this.applyBtn.title = "Apply parsed result to the active model";
 
         header.appendChild(label);
-        header.appendChild(typeLabel);
-        header.appendChild(this.typeSelect);
         header.appendChild(this.parseBtn);
         header.appendChild(this.applyBtn);
         header.appendChild(this.toggleBtn);
@@ -221,17 +219,13 @@ export class SourceEditorView {
                 }
                 return;
             }
-            // Enter without modifier: apply for single-line syntaxes, newline for multi-line
-            if (e.key === "Enter" && !e.shiftKey) {
-                const type = this.typeSelect.value as SyntaxType;
-                const multiLine: SyntaxType[] = ["text", "table-source", "graph-source", "geometry", "physics"];
-                if (!multiLine.includes(type)) {
-                    // Single-line syntax (math, chemistry): Enter = Apply
-                    e.preventDefault();
-                    this.apply();
-                }
-                // Multi-line syntaxes: let the browser insert a newline naturally
+            // Alt+Enter: Apply
+            if (e.key === "Enter" && e.altKey) {
+                e.preventDefault();
+                this.apply();
+                return;
             }
+            // Enter without modifier: newline (rich is multi-line)
         }, true);
 
         // Push snapshot on every meaningful change for local undo
@@ -244,10 +238,6 @@ export class SourceEditorView {
         });
 
         // Type selector change: re-highlight and re-parse
-        this.typeSelect.addEventListener("change", () => {
-            this.syncHighlight();
-            this.parse();
-        });
 
         // Manual parse button
         this.parseBtn.addEventListener("click", () => this.parse());
@@ -289,7 +279,7 @@ export class SourceEditorView {
     // ── Highlight sync ────────────────────────────────────────────────────────
 
     private syncHighlight(): void {
-        const type = this.typeSelect.value as SyntaxType;
+        const type: SyntaxType = "rich";
         const html = highlight(this.textarea.value, type);
         // Append a trailing newline so the pre height matches the textarea
         this.highlight.innerHTML = html + "\n";
@@ -303,7 +293,7 @@ export class SourceEditorView {
     }
 
     private parse(): void {
-        const type = this.typeSelect.value as SyntaxType;
+        const type: SyntaxType = "rich";
         const text = this.textarea.value.trim();
         this.errorEl.textContent = "";
         this.preview.innerHTML = "";
@@ -319,7 +309,7 @@ export class SourceEditorView {
     }
 
     private parseSource(type: SyntaxType, text: string): HTMLElement {
-        if (type === "math" || type === "chemistry" || type === "geometry" || type === "physics" || type === "text") {
+        if (type === "math" || type === "chemistry" || type === "geometry" || type === "physics" || type === "text" || type === "rich") {
             return renderCell(type, text);
         }
         const div = document.createElement("div");
@@ -331,19 +321,13 @@ export class SourceEditorView {
     // ── Apply ─────────────────────────────────────────────────────────────────
 
     private apply(): void {
-        const type = this.typeSelect.value as SyntaxType;
         const text = this.textarea.value.trim();
         if (!text) return;
 
         this.errorEl.textContent = "";
 
-        if (type === "table-source" || type === "graph-source") {
-            this.errorEl.textContent = `[${type} Apply not yet implemented]`;
-            return;
-        }
-
         if (this.onCellApply) {
-            this.onCellApply(text, type);
+            this.onCellApply(text, "rich");
         } else {
             this.errorEl.textContent = "No active cell — click a cell first, then edit here and Apply.";
             return;
@@ -365,9 +349,8 @@ export class SourceEditorView {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /** Load text into the editor (e.g. from the active cell or model). */
-    setText(text: string, type: SyntaxType = "math"): void {
+    setText(text: string, _type?: SyntaxType): void {
         this.textarea.value = text;
-        this.typeSelect.value = type;
         this.localHistory.clear();
         this.lastSnapshot = this.snapshot();
         this.syncHighlight();
@@ -388,8 +371,6 @@ export class SourceEditorView {
     /** Clear the editor (called when a cell edit is committed or cancelled). */
     clear(): void {
         this.textarea.value = "";
-        this.typeSelect.value = "math";
-        this.activeCellCtx = null;
         this.localHistory.clear();
         this.lastSnapshot = this.snapshot();
         this.syncHighlight();

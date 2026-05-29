@@ -1,11 +1,11 @@
 Name,Definition,Domain,_associations
-text,text,text,text
+rich,rich,rich,rich
 derivative,The rate of change of a function,Calculus,is-used-by:Fundamental Theorem of Calculus;is-used-by:Chain Rule
 integral,The area under a curve,Calculus,is-used-by:Fundamental Theorem of Calculus;is-used-by:Integration by Parts
-product-rule,Derivative of a product of two functions,Calculus,is-used-by:Integration by Parts
+math`product-rule`,Derivative of a product of two functions,Calculus,is-used-by:Integration by Parts
 composition,Applying one function to the result of another,Calculus,is-used-by:Chain Rule
-right-triangle,A triangle with one 90-degree angle,Geometry,is-used-by:Pythagorean Theorem
-binomial-coefficient,The number of ways to choose k items from n,Algebra,is-used-by:Binomial Theorem
+math`right-triangle`,A triangle with one 90-degree angle,Geometry,is-used-by:Pythagorean Theorem
+math`binomial-coefficient`,The number of ways to choose k items from n,Algebra,is-used-by:Binomial Theorem
 factorial,The product of all positive integers up to n,Algebra,is-used-by:Binomial Theorem
 exponential,The function e^x,Analysis,is-used-by:Euler's Formula
-complex-numbers,"Numbers of the form a + bi, where i^2 = -1",Analysis,is-used-by:Euler's Formula
+math`complex-numbers`,"Numbers of the form a + bi, where i^2 = -1",Analysis,is-used-by:Euler's Formula

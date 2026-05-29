@@ -1,10 +1,10 @@
 Gate,Symbol,Expression,Truth table summary
-text,text,math,text
-AND,A·B,A * B,1 only when all inputs are 1
-OR,A+B,A + B,1 when any input is 1
-NOT,Ā,-A,Inverts input
-NAND,A↑B,-(A * B),0 only when all inputs are 1
-NOR,A↓B,-(A + B),1 only when all inputs are 0
-XOR,A⊕B,A*(-B) + (-A)*B,1 when inputs differ
-XNOR,A⊙B,-(A*(-B) + (-A)*B),1 when inputs are equal
+rich,rich,rich,rich
+AND,A·B,math`A * B`,1 only when all inputs are 1
+OR,math`A+B`,math`A + B`,1 when any input is 1
+NOT,Ā,math`-A`,Inverts input
+NAND,A↑B,math`-(A * B)`,0 only when all inputs are 1
+NOR,A↓B,math`-(A + B)`,1 only when all inputs are 0
+XOR,A⊕B,math`A*(-B) + (-A)*B`,1 when inputs differ
+XNOR,A⊙B,math`-(A*(-B) + (-A)*B)`,1 when inputs are equal
 Buffer,A,A,Output equals input

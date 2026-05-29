@@ -364,6 +364,9 @@ body {
 .knowledge-table thead th:hover { background: #f1f5f9; }
 .knowledge-table tbody tr:hover > td { background: #f8fafc; }
 .knowledge-table td .cell-error { color: #ef4444; font-size: 0.85em; font-family: monospace; }
+.rich-cell { line-height: 1.6; }
+.rich-cell .rich-text { display: inline; }
+.rich-cell .native-math { display: inline-block; }
 
 .col-rownum {
   width: 2.5em;
@@ -629,6 +632,7 @@ body {
 .hl-comma      { color: #64748b; }
 .hl-type-id    { color: #7c3aed; }
 .hl-view-type  { color: #0369a1; }
+.hl-embed-tag  { color: #6d28d9; font-weight: 700; }
 
 /* ── Document view ────────────────────────────────────────────────────────── */
 .document-view {
