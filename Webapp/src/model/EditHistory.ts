@@ -16,6 +16,7 @@ export type EditAction =
 export class EditHistory {
     private past: EditAction[] = [];
     private future: EditAction[] = [];
+    private savedPosition = 0;
 
     push(action: EditAction): void {
         this.past.push(action);
@@ -36,5 +37,7 @@ export class EditHistory {
 
     canUndo(): boolean { return this.past.length > 0; }
     canRedo(): boolean { return this.future.length > 0; }
-    clear(): void { this.past = []; this.future = []; }
+    clear(): void { this.past = []; this.future = []; this.savedPosition = 0; }
+    markSaved(): void { this.savedPosition = this.past.length; }
+    isAtSavedPosition(): boolean { return this.past.length === this.savedPosition; }
 }

@@ -3244,3 +3244,22 @@ Format: `English name/Svenskt namn`. Hardware and Software domains excluded
 
 5. **Sequential saves.** `saveAllModified()` awaits each file sequentially
    to avoid permission prompt conflicts and browser download throttling.
+
+
+---
+
+### Phase 17 addendum — Per-file dirty tracking
+
+Replaced global `history.savedPosition` with per-file content comparison.
+
+**Problem:** Global saved position was incorrect for multi-file. Undoing
+file A's change while file B remained dirty would clear all dirty flags.
+Also, saving at a mid-point then undoing did not re-raise the dirty flag.
+
+**Fix:** `recheckDirtyFile(name)` serializes the file's current model state
+and compares to the text stored in `loadedFiles` at last save. If they
+differ, the file is dirty. If they match, it's clean.
+
+**Result:** Dirty state is now per-file and content-based. Undo/redo
+correctly raises/clears dirty flags for each individual file regardless
+of other files' states. 7 integration tests added to verify all scenarios.

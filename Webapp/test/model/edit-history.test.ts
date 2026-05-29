@@ -106,3 +106,178 @@ describe("KnowledgeBase.exportTableAsCSV", () => {
         expect(kb.exportTableAsCSV(99)).toBe("");
     });
 });
+
+describe("EditHistory saved position tracking", () => {
+    it("starts at saved position", () => {
+        const h = new EditHistory();
+        expect(h.isAtSavedPosition()).toBe(true);
+    });
+
+    it("push moves away from saved position", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        expect(h.isAtSavedPosition()).toBe(false);
+    });
+
+    it("markSaved sets current position as saved", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        h.markSaved();
+        expect(h.isAtSavedPosition()).toBe(true);
+    });
+
+    it("push after markSaved is no longer at saved position", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        h.markSaved();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "b", newValue: "c" });
+        expect(h.isAtSavedPosition()).toBe(false);
+    });
+
+    it("undo back to saved position returns true", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        h.markSaved();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "b", newValue: "c" });
+        expect(h.isAtSavedPosition()).toBe(false);
+        h.undo();
+        expect(h.isAtSavedPosition()).toBe(true);
+    });
+
+    it("redo past saved position is dirty", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        h.markSaved();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "b", newValue: "c" });
+        h.undo();
+        expect(h.isAtSavedPosition()).toBe(true);
+        h.redo();
+        expect(h.isAtSavedPosition()).toBe(false);
+    });
+
+    it("undo past saved position is dirty", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "b", newValue: "c" });
+        h.markSaved();
+        h.undo();
+        expect(h.isAtSavedPosition()).toBe(false);
+    });
+
+    it("multiple undo/redo cycles track position correctly", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "b", newValue: "c" });
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "c", newValue: "d" });
+        h.markSaved(); // saved at position 3
+        expect(h.isAtSavedPosition()).toBe(true);
+
+        h.undo(); // position 2
+        expect(h.isAtSavedPosition()).toBe(false);
+        h.undo(); // position 1
+        expect(h.isAtSavedPosition()).toBe(false);
+        h.redo(); // position 2
+        expect(h.isAtSavedPosition()).toBe(false);
+        h.redo(); // position 3
+        expect(h.isAtSavedPosition()).toBe(true);
+    });
+
+    it("clear resets saved position", () => {
+        const h = new EditHistory();
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        h.markSaved();
+        h.clear();
+        expect(h.isAtSavedPosition()).toBe(true);
+    });
+
+    it("save at start then edit then undo all returns to saved", () => {
+        const h = new EditHistory();
+        h.markSaved(); // saved at position 0
+        h.push({ type: "cell", tableIdx: 0, rowIdx: 0, colIdx: 0, oldValue: "a", newValue: "b" });
+        expect(h.isAtSavedPosition()).toBe(false);
+        h.undo();
+        expect(h.isAtSavedPosition()).toBe(true);
+    });
+});
+
+describe("AppController dirty tracking with undo/redo", () => {
+    function setupController(): import("../../src/controller/index.ts").AppController {
+        const { AppController } = require("../../src/controller/index.ts");
+        const ctrl = new AppController();
+        // Load a table
+        ctrl.loadCSV("test.csv", "Name,Value\nrich,rich\nAlpha,1\nBeta,2\n");
+        // Store as loaded file (simulates opening)
+        const table = ctrl.getKnowledgeBase().tables[0];
+        ctrl.storeLoadedFile("test.csv", table.toCSV(), null);
+        return ctrl;
+    }
+
+    it("edit makes file dirty", () => {
+        const ctrl = setupController();
+        ctrl.editCell(0, 0, 1, "99", true);
+        expect(ctrl.isDirty()).toBe(true);
+        expect(ctrl.getDirtyFiles().has("test.csv")).toBe(true);
+    });
+
+    it("undo after edit returns to clean", () => {
+        const ctrl = setupController();
+        ctrl.editCell(0, 0, 1, "99", true);
+        expect(ctrl.isDirty()).toBe(true);
+        ctrl.undo();
+        expect(ctrl.isDirty()).toBe(false);
+    });
+
+    it("redo after undo makes dirty again", () => {
+        const ctrl = setupController();
+        ctrl.editCell(0, 0, 1, "99", true);
+        ctrl.undo();
+        expect(ctrl.isDirty()).toBe(false);
+        ctrl.redo();
+        expect(ctrl.isDirty()).toBe(true);
+    });
+
+    it("save then undo makes dirty", async () => {
+        const ctrl = setupController();
+        ctrl.editCell(0, 0, 1, "99", true);
+        // Simulate save (updates stored text)
+        const table = ctrl.getKnowledgeBase().tables[0];
+        ctrl.storeLoadedFile("test.csv", table.toCSV(), null);
+        ctrl.getDirtyFiles().delete("test.csv");
+        expect(ctrl.isDirty()).toBe(false);
+        // Undo reverts the cell — now content differs from saved
+        ctrl.undo();
+        expect(ctrl.isDirty()).toBe(true);
+    });
+
+    it("save then undo then redo returns to clean", () => {
+        const ctrl = setupController();
+        ctrl.editCell(0, 0, 1, "99", true);
+        // Save
+        const table = ctrl.getKnowledgeBase().tables[0];
+        ctrl.storeLoadedFile("test.csv", table.toCSV(), null);
+        ctrl.getDirtyFiles().delete("test.csv");
+        // Undo (dirty)
+        ctrl.undo();
+        expect(ctrl.isDirty()).toBe(true);
+        // Redo back to saved state (clean)
+        ctrl.redo();
+        expect(ctrl.isDirty()).toBe(false);
+    });
+
+    it("multiple edits then undo one is still dirty", () => {
+        const ctrl = setupController();
+        ctrl.editCell(0, 0, 1, "99", true);
+        ctrl.editCell(0, 1, 1, "88", true);
+        ctrl.undo(); // undoes second edit
+        expect(ctrl.isDirty()).toBe(true); // first edit still differs from saved
+    });
+
+    it("multiple edits then undo all returns to clean", () => {
+        const ctrl = setupController();
+        ctrl.editCell(0, 0, 1, "99", true);
+        ctrl.editCell(0, 1, 1, "88", true);
+        ctrl.undo();
+        ctrl.undo();
+        expect(ctrl.isDirty()).toBe(false);
+    });
+});

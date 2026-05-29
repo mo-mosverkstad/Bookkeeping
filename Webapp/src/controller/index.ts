@@ -254,6 +254,27 @@ export class AppController {
 
     // ── Undo / Redo ───────────────────────────────────────────────────────────
 
+    private recheckDirtyFile(name: string): void {
+        const entry = this.loadedFiles.get(name);
+        if (!entry) return;
+        // Compare current content to saved content
+        const table = this.knowledgeBase.tables.find(t => t.name + ".csv" === name || t.name === name);
+        let current: string;
+        if (table) {
+            current = table.toCSV();
+        } else {
+            const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);
+            if (graph) current = graph.toGraphJSON();
+            else return;
+        }
+        if (current === entry.text) {
+            this.dirty.delete(name);
+        } else {
+            this.dirty.add(name);
+        }
+        this.onDirtyChange?.();
+    }
+
     undo(): void {
         const action = this.history.undo();
         if (!action) return;
@@ -275,6 +296,7 @@ export class AppController {
                     table.rows.splice(action.fromIndices[i], 0, action.rows[i]);
             }
             this.navigateToTable(action.tableIdx);
+            this.recheckDirtyFile(table.name + ".csv");
         } else {
             const graph = this.knowledgeBase.graphs[action.graphIdx];
             if (!graph) return;
@@ -288,6 +310,7 @@ export class AppController {
                 graph.edges.push(action.edge);
             }
             this.navigateToGraph(action.graphIdx);
+            this.recheckDirtyFile(graph.name);
         }
     }
 
@@ -312,6 +335,7 @@ export class AppController {
                 table.rows.splice(action.toIdx, 0, ...action.rows);
             }
             this.navigateToTable(action.tableIdx);
+            this.recheckDirtyFile(table.name + ".csv");
         } else {
             const graph = this.knowledgeBase.graphs[action.graphIdx];
             if (!graph) return;
@@ -325,6 +349,7 @@ export class AppController {
                 graph.removeEdge(action.edgeId);
             }
             this.navigateToGraph(action.graphIdx);
+            this.recheckDirtyFile(graph.name);
         }
     }
 

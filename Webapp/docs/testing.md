@@ -1293,3 +1293,28 @@ not available in Node.js or happy-dom. These strategies are tested
 manually in the browser. The capability detection constant
 `HAS_FILE_SYSTEM_ACCESS` evaluates to `false` in the test environment,
 so the fallback strategy is always selected during tests.
+
+
+---
+
+### Per-file dirty tracking revision
+
+The global `history.savedPosition` approach was replaced with per-file
+content comparison. `recheckDirtyFile(name)` compares the current
+serialized content against the stored saved text in `loadedFiles`.
+
+**Changes:**
+- `src/controller/index.ts`: replaced `recheckDirty()` (global) with
+  `recheckDirtyFile(name)` (per-file content comparison)
+- `src/model/EditHistory.ts`: `markSaved()`/`isAtSavedPosition()` retained
+  but no longer used for dirty tracking (kept for potential future use)
+- Undo/redo now call `recheckDirtyFile` for the specific affected file
+- `saveFile()` updates `loadedFiles` entry text → subsequent undo correctly
+  detects content differs from saved
+
+**New tests (7):**
+- `test/model/edit-history.test.ts` → "AppController dirty tracking with undo/redo"
+- Covers: edit→dirty, undo→clean, redo→dirty, save+undo→dirty,
+  save+undo+redo→clean, partial undo→still dirty, full undo→clean
+
+**Test run:** 366 tests pass (12 files).

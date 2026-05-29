@@ -6364,3 +6364,44 @@ User presses Ctrl+S (or Save button)
             → if null: saveAs dialog (or download)
         → dirty set cleared → onDirtyChange → UI clears indicators
 ```
+
+
+---
+
+### Per-File Dirty Tracking (revised)
+
+The initial implementation used a global `history.savedPosition` to determine
+dirty state. This was incorrect for multi-file scenarios — undoing one file's
+change while another file remained modified would incorrectly clear all dirty
+flags.
+
+**Revised approach: content comparison per file.**
+
+`recheckDirtyFile(name)` serializes the current model state for a file and
+compares it to the stored saved content in `loadedFiles`:
+
+```ts
+private recheckDirtyFile(name: string): void {
+    const entry = this.loadedFiles.get(name);
+    if (!entry) return;
+    const table = this.knowledgeBase.tables.find(...);
+    const current = table ? table.toCSV() : graph.toGraphJSON();
+    if (current === entry.text) this.dirty.delete(name);
+    else this.dirty.add(name);
+    this.onDirtyChange?.();
+}
+```
+
+Called after every undo/redo for the affected file. The `loadedFiles` map
+stores the content as it was at last save (or at load time). When `saveFile`
+completes, it updates `loadedFiles` with the new content — so subsequent
+undo makes the file dirty again (content differs from saved).
+
+**Test coverage (7 new tests):**
+- Edit → dirty
+- Undo after edit → clean
+- Redo after undo → dirty
+- Save then undo → dirty
+- Save then undo then redo → clean
+- Multiple edits, undo one → still dirty
+- Multiple edits, undo all → clean
