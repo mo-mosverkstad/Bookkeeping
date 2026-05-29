@@ -3263,3 +3263,120 @@ differ, the file is dirty. If they match, it's clean.
 **Result:** Dirty state is now per-file and content-based. Undo/redo
 correctly raises/clears dirty flags for each individual file regardless
 of other files' states. 7 integration tests added to verify all scenarios.
+
+
+---
+
+## Phase 18 — Diagram Grammars (Mermaid-compatible, zero dependencies)
+
+---
+
+### What was added
+
+**7 diagram types** implemented with Mermaid-compatible syntax, zero external
+dependencies. Each uses the PEG parser infrastructure (or line-based parsing
+for simpler formats).
+
+```
+src/cell-renderers/diagram/
+├── index.ts                — dispatcher (detects type from first keyword)
+├── flowchart/
+│   ├── types.ts            — FlowchartAST, FlowNodeDef, FlowEdge
+│   ├── grammar.ts          — PEG grammar (flowchart/graph keyword, shapes, arrows)
+│   └── render.ts           — SVG renderer with topological layer layout
+├── sequence/
+│   ├── types.ts            — SequenceAST, SeqMessage
+│   ├── grammar.ts          — PEG grammar (participants, arrows, labels)
+│   └── render.ts           — SVG renderer with lifelines and messages
+├── class-diagram/
+│   ├── types.ts            — ClassDiagramAST, ClassDef, ClassRelation
+│   ├── grammar.ts          — PEG grammar (classes, members, relations)
+│   └── render.ts           — SVG renderer with class boxes and arrows
+├── state/
+│   ├── types.ts            — StateDiagramAST, StateDef, StateTransition
+│   ├── grammar.ts          — PEG grammar (states, transitions, [*] markers)
+│   └── render.ts           — SVG renderer with rounded state boxes
+├── er/
+│   ├── types.ts            — ERDiagramAST, EREntity, ERRelation
+│   ├── grammar.ts          — PEG grammar (entities, cardinality, labels)
+│   └── render.ts           — SVG renderer with entity boxes and relations
+├── gantt/
+│   ├── types.ts            — GanttAST, GanttSection, GanttTask
+│   ├── grammar.ts          — Line-based parser (sections, tasks, dates)
+│   └── render.ts           — SVG renderer with horizontal bars
+└── pie/
+    ├── types.ts            — PieAST, PieSlice
+    └── render.ts           — Parser + SVG renderer with arc paths
+```
+
+**`src/knowledge-pane/diagram-view.ts`** — standalone diagram view
+
+Renders a diagram file as an SVG tab. Bidirectional sync with source editor:
+- Mount: parses source, renders SVG, loads source into editor
+- Apply: re-parses edited source, re-renders SVG
+- Parse errors shown in the container
+
+**File loading** — `.md`, `.mmd`, `.flowchart` files recognized as diagrams
+
+The app shell detects diagram files by extension or by first-line keyword
+match (`flowchart`, `sequenceDiagram`, `classDiagram`, `stateDiagram`,
+`erDiagram`, `gantt`, `pie`). They open as standalone diagram tabs.
+
+### Supported syntax (Mermaid-compatible)
+
+**Flowchart:**
+```
+flowchart TD
+    A[Start] --> B{Decision}
+    B --> C[OK]
+    B --> D((Fail))
+```
+
+**Sequence:**
+```
+sequenceDiagram
+    Alice->>Bob: Hello
+    Bob-->>Alice: Hi
+```
+
+**State:**
+```
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running : start
+    Running --> [*]
+```
+
+**Gantt:**
+```
+gantt
+    title Schedule
+    section Dev
+    Task A :a1, 2024-01-01, 30d
+```
+
+**Pie:**
+```
+pie title Results
+    "Yes" : 70
+    "No" : 30
+```
+
+### Graph save format
+
+Graphs now save in their text syntax (via `serializeGraph`) instead of JSON.
+The `toGraphJSON()` method still exists but is no longer used for saving.
+This makes graph files human-readable and editable in any text editor.
+
+### Sample files
+
+- `public/sample-flowchart.md` — TD flowchart
+- `public/sample-flowchart-lr.md` — LR flowchart
+- `public/sample-sequence.md` — sequence diagram
+- `public/sample-state.md` — state diagram
+- `public/sample-gantt.md` — Gantt chart
+- `public/sample-pie.md` — pie chart
+
+### Test results
+
+383 tests pass (17 new flowchart grammar tests + all regression tests).

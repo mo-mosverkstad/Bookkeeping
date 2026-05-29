@@ -6405,3 +6405,111 @@ undo makes the file dirty again (content differs from saved).
 - Save then undo then redo → clean
 - Multiple edits, undo one → still dirty
 - Multiple edits, undo all → clean
+
+
+---
+
+## Phase 18 — Diagram Grammars (Mermaid-compatible, zero dependencies)
+
+---
+
+### Diagram Dispatcher (`src/cell-renderers/diagram/index.ts`)
+
+`parseDiagram(source)` detects the diagram type from the first line keyword
+and dispatches to the appropriate parser:
+
+```ts
+export function parseDiagram(source: string): DiagramResult {
+    const firstLine = source.trim().split(/\r?\n/)[0].trim();
+    if (/^(flowchart|graph)\s+(TD|TB|LR|RL|BT)/.test(firstLine)) ...
+    if (firstLine.startsWith("sequenceDiagram")) ...
+    if (firstLine.startsWith("classDiagram")) ...
+    if (/^stateDiagram/.test(firstLine)) ...
+    if (firstLine.startsWith("erDiagram")) ...
+    if (firstLine.startsWith("gantt")) ...
+    if (firstLine.startsWith("pie")) ...
+}
+```
+
+Returns `{ type, ast, render(w, h) }` — the render function produces an SVG.
+
+---
+
+### Flowchart Grammar (`src/cell-renderers/diagram/flowchart/grammar.ts`)
+
+PEG grammar with rules:
+- `Flowchart` → `Header` + `Statements`
+- `Header` → `(flowchart|graph)` + `Direction`
+- `Statement` → `EdgeChain` | `NodeDef`
+- `NodeRef` → `NodeWithShape` | `BareNode`
+- `ShapeContent` → `StadiumShape` | `SubroutineShape` | `CircleShape` | `HexShape` | `RectShape` | `RoundShape` | `DiamondShape`
+- `Arrow` → `LabeledArrow` | `PlainArrow`
+
+Multi-char shape delimiters (`([`, `[[`, `((`, `{{`) are tried before
+single-char ones to avoid premature matching.
+
+Edge chains (`A --> B --> C`) produce multiple edge statements from a
+single line. Node deduplication ensures each node ID appears once.
+
+Layout uses topological sort (BFS layers) for vertical/horizontal placement.
+
+---
+
+### Sequence Diagram Grammar (`src/cell-renderers/diagram/sequence/grammar.ts`)
+
+PEG grammar parsing `sequenceDiagram` keyword followed by messages.
+Each message: `Participant Arrow Participant : Label`.
+Arrows: `->>` (solid), `-->>` (dashed), `-x` (cross), `-)` (open).
+Participants auto-discovered from messages.
+
+Renderer draws lifelines (dashed vertical lines), header boxes, and
+horizontal arrows with labels.
+
+---
+
+### State Diagram Grammar (`src/cell-renderers/diagram/state/grammar.ts`)
+
+PEG grammar parsing `stateDiagram-v2` keyword followed by transitions.
+Each transition: `StateId --> StateId : OptLabel`.
+Special state `[*]` renders as a filled circle (start/end marker).
+
+---
+
+### Class Diagram Grammar (`src/cell-renderers/diagram/class-diagram/grammar.ts`)
+
+PEG grammar parsing `classDiagram` keyword followed by relations and
+member lines. Relations use arrows like `<|--`, `*--`, `o--`, `-->`, `..>`.
+Member lines: `ClassName : member`.
+
+---
+
+### ER, Gantt, Pie
+
+ER diagram uses PEG grammar with cardinality notation (`||--o{`, etc.).
+Gantt and Pie use simpler line-based parsers (regex per line) since their
+syntax is more structured and doesn't need recursive parsing.
+
+---
+
+### DiagramView (`src/knowledge-pane/diagram-view.ts`)
+
+Standalone view for diagram files. On mount:
+1. Parses source with `parseDiagram()`
+2. Renders SVG into container
+3. Loads source into source editor (via `requestAnimationFrame`)
+4. Sets `onCellApply` callback for bidirectional editing
+
+On Apply: re-parses source, re-renders SVG. Parse errors shown as `<pre>`.
+
+---
+
+### File Loading
+
+Diagram files detected by:
+- Extension: `.mmd`, `.flowchart`, `.md`
+- Content: first line matches a diagram keyword
+
+Stored in `AppShell.diagramSources` map. Registered as tabs in
+`registerAllTabs()` using `DiagramView`.
+
+File input accept updated to include `.md,.mmd,.flowchart`.
