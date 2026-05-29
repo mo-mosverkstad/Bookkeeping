@@ -1136,7 +1136,7 @@ toolbar. The Source Editor handles *content* (TypedValue expressions), not
 
 3. **Cross-document entity identity** — a compound in `compounds.csv` may
    appear as a node in `glycolysis.graph.json` and also in `krebs.graph.json`.
-   The stable UUID registry (Phase 19) is the long-term solution. For now,
+   The stable UUID registry (Phase 20) is the long-term solution. For now,
    the node ID in the graph must match the first-column value in the table.
 
 4. **Document editing UI** — how does the user create and edit `.doc.json`
@@ -4565,7 +4565,208 @@ location regardless of browser.
 
 ---
 
-#### Phase 18 - Semantic Layer: Ordered Knowledge Topology - *planned*
+
+#### Phase 18 - Diagram Grammars (Mermaid-compatible, zero dependencies) - *planned*
+
+**Goal:** Implement text-based diagram grammars covering all major Mermaid.js
+diagram types, using the existing PEG parser infrastructure. Zero external
+dependencies. Each grammar is a data structure (like math/chemistry/geometry
+grammars). Each diagram type has its own PEG grammar, AST types, and SVG
+renderer.
+
+---
+
+##### Architecture
+
+```
+src/cell-renderers/diagram/
+├── flowchart/
+│   ├── grammar.ts      — PEG grammar data structure
+│   ├── types.ts        — AST node types
+│   └── render.ts       — SVG renderer + layout
+├── sequence/
+│   ├── grammar.ts
+│   ├── types.ts
+│   └── render.ts
+├── class-diagram/
+│   ├── grammar.ts
+│   ├── types.ts
+│   └── render.ts
+├── state/
+│   ├── grammar.ts
+│   ├── types.ts
+│   └── render.ts
+├── er/
+│   ├── grammar.ts
+│   ├── types.ts
+│   └── render.ts
+├── gantt/
+│   ├── grammar.ts
+│   ├── types.ts
+│   └── render.ts
+├── pie/
+│   ├── grammar.ts
+│   ├── types.ts
+│   └── render.ts
+└── index.ts            — registry, dispatches on diagram type keyword
+```
+
+Each grammar uses `PEGParser` with a `Grammar` data structure — the same
+pattern as `src/cell-renderers/math/grammar.ts`.
+
+---
+
+##### Supported diagram types and syntax (Mermaid-compatible)
+
+**1. Flowchart**
+```
+flowchart TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[OK]
+    B -->|No| D[Fail]
+```
+
+Direction keywords: `TD` (top-down), `LR` (left-right), `BT`, `RL`.
+Node shapes: `[rect]`, `(round)`, `{diamond}`, `([stadium])`, `[[subroutine]]`.
+Edge types: `-->`, `---`, `-.->`, `==>`, `--text-->`.
+
+**2. Sequence diagram**
+```
+sequenceDiagram
+    Alice->>Bob: Hello
+    Bob-->>Alice: Hi back
+    Alice->>Bob: How are you?
+    Bob-->>Alice: Fine
+```
+
+Arrows: `->>` (solid), `-->>` (dashed), `-x` (cross), `-)` (open).
+Participants, activations, notes, loops, alt/opt blocks.
+
+**3. Class diagram**
+```
+classDiagram
+    Animal <|-- Duck
+    Animal <|-- Fish
+    Animal : +int age
+    Animal : +String gender
+    Animal : +isMammal() bool
+```
+
+Relationships: `<|--` (inheritance), `*--` (composition), `o--` (aggregation),
+`-->` (association), `..>` (dependency), `<..` (realization).
+
+**4. State diagram**
+```
+stateDiagram-v2
+    [*] --> Still
+    Still --> Moving : start
+    Moving --> Still : stop
+    Moving --> Crash : collision
+    Crash --> [*]
+```
+
+States, transitions, start/end markers, composite states, forks/joins.
+
+**5. Entity-Relationship diagram**
+```
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    CUSTOMER }|..|{ DELIVERY-ADDRESS : uses
+```
+
+Cardinality: `||` (one), `o{` (zero-or-more), `|{` (one-or-more), `o|` (zero-or-one).
+
+**6. Gantt chart**
+```
+gantt
+    title Project Schedule
+    dateFormat YYYY-MM-DD
+    section Design
+    Task A :a1, 2024-01-01, 30d
+    Task B :after a1, 20d
+```
+
+**7. Pie chart**
+```
+pie title Pets
+    "Dogs" : 386
+    "Cats" : 85
+    "Rats" : 15
+```
+
+---
+
+##### Embedding syntax
+
+Diagrams are embedded in rich cells using:
+```
+$diagram{
+flowchart TD
+    A --> B --> C
+}
+```
+
+The `$diagram{...}` embedding detects the diagram type from the first
+keyword and dispatches to the appropriate grammar/renderer.
+
+---
+
+##### Graph source editor integration
+
+When a graph tab is active, the source editor shows the diagram in
+Mermaid-compatible text syntax. Editing the text and pressing Apply
+re-parses and re-renders the diagram. This replaces the current
+`node/edge` text format with the Mermaid-compatible syntax.
+
+---
+
+##### PEG grammar approach
+
+Each diagram grammar is defined as a `Grammar` object (same as math):
+
+```ts
+const flowchartGrammar: Grammar = {
+    Diagram: { peg: { type: "sequence", parts: [...] }, build(...) { ... } },
+    Direction: { peg: { type: "choice", options: [...] } },
+    Statement: { peg: { type: "choice", options: [...] } },
+    Node: { peg: { type: "sequence", parts: [...] }, build(...) { ... } },
+    Edge: { peg: { type: "sequence", parts: [...] }, build(...) { ... } },
+    ...
+};
+```
+
+No regex-based tokenizers, no external parser generators. Pure PEG
+data structures parsed by the existing `PEGParser` engine.
+
+---
+
+##### Concrete tasks
+
+- [ ] Implement flowchart grammar, AST, and SVG renderer
+- [ ] Implement sequence diagram grammar, AST, and SVG renderer
+- [ ] Implement class diagram grammar, AST, and SVG renderer
+- [ ] Implement state diagram grammar, AST, and SVG renderer
+- [ ] Implement ER diagram grammar, AST, and SVG renderer
+- [ ] Implement Gantt chart grammar, AST, and SVG renderer
+- [ ] Implement pie chart grammar, AST, and SVG renderer
+- [ ] Add `$diagram{...}` embedding type to rich renderer
+- [ ] Integrate with graph source editor (replace node/edge format)
+- [ ] Add layout algorithms for each diagram type (no external deps)
+- [ ] Add tests for each grammar (parse + round-trip)
+- [ ] Add tests for each renderer (SVG output structure)
+
+**Completion criteria:**
+- All 7 diagram types parse and render from text
+- Syntax is Mermaid-compatible (same keywords, same arrow notation)
+- Zero external dependencies (no mermaid.js, no d3, no dagre)
+- All grammars use PEGParser with Grammar data structures
+- Existing tests pass without modification
+- Graph source editor uses Mermaid-compatible syntax
+
+---
+
+#### Phase 19 - Semantic Layer: Ordered Knowledge Topology - *planned*
 
 ##### New model classes (additive — no existing classes modified)
 
@@ -4879,7 +5080,7 @@ completely different tree structure from the same generic model.
 
 ---
 
-#### Phase 19 - Stable Entity Identity and Semantic Editing - *planned*
+#### Phase 20 - Stable Entity Identity and Semantic Editing - *planned*
 
 ##### Background and motivation
 
@@ -5004,7 +5205,7 @@ sidecar. Reload — the node, edge, and properties are all preserved.
 
 ---
 
-#### Phase 20 - Native Format: Replacing CSV as Canonical Storage - *planned*
+#### Phase 21 - Native Format: Replacing CSV as Canonical Storage - *planned*
 
 ##### Background and motivation
 
