@@ -300,35 +300,19 @@ export class AppShell {
     private registerAllTabs(): void {
         const kb = this.controller.getKnowledgeBase();
 
-        for (const doc of kb.documents) {
-            this.workspace.registerView(
-                doc.name,
-                () => viewFactory(doc, this.controller, this.sourceEditor),
-                { document: doc },
-            );
-        }
-
-        const docGraphFiles = new Set(kb.documents.flatMap(d =>
-            d.getGraphSections().map(s => (s.block as import("../model/Document.ts").GraphBlock).graph.sourceFile ?? "")
-        ));
-        for (const graph of kb.graphs) {
-            if (docGraphFiles.has(graph.sourceFile ?? graph.name)) continue;
-            this.workspace.registerView(
-                graph.name,
-                () => viewFactory(graph, this.controller, this.sourceEditor),
-                { graph },
-            );
-        }
-
-        const docTableNames = new Set(kb.documents.flatMap(d =>
-            d.getTableSections().map(s => (s.block as import("../model/Document.ts").TableBlock).table.name)
-        ));
         for (const table of kb.tables) {
-            if (docTableNames.has(table.name)) continue;
             this.workspace.registerView(
                 table.name,
                 () => viewFactory(table, this.controller, this.sourceEditor),
                 { table },
+            );
+        }
+
+        for (const graph of kb.graphs) {
+            this.workspace.registerView(
+                graph.name,
+                () => viewFactory(graph, this.controller, this.sourceEditor),
+                { graph },
             );
         }
 

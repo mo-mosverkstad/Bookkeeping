@@ -77,7 +77,7 @@ export class NavigationTreeView {
         const header = this.makeFolderHeader(
             doc.name,
             isCollapsed,
-            () => this.workspace?.openTab(doc.name),
+            null,
             () => this.toggleCollapse(key, childrenEl),
         );
         folderEl.appendChild(header);
@@ -88,18 +88,13 @@ export class NavigationTreeView {
 
         for (const section of doc.sections) {
             const kind = section.block.kind;
+            const name = kind === "table"
+                ? (section.block as TableBlock).table.name
+                : (section.block as GraphBlock).graph.name;
             const item = this.makeLeaf(
                 kind === "graph" ? "◈" : "▤",
                 section.title,
-                () => {
-                    this.workspace?.openTab(doc.name);
-                    requestAnimationFrame(() => {
-                        const el = document.querySelector(
-                            `[data-section-id="${section.id}"]`
-                        ) as HTMLElement | null;
-                        el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    });
-                },
+                () => { this.workspace?.openTab(name); },
             );
             childrenEl.appendChild(item);
 
