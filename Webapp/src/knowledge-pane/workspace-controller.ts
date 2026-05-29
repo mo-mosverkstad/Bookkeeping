@@ -185,4 +185,22 @@ export class WorkspaceController {
     }
 
     getActiveId(): string | null { return this.activeId; }
+    markTabDirty(id: string): void {
+        const entry = this.tabs.get(id);
+        if (!entry) return;
+        const label = entry.btn.querySelector("span");
+        if (label && !label.textContent?.startsWith("● ")) {
+            label.textContent = "● " + label.textContent;
+        }
+    }
+
+    clearTabDirty(id: string): void {
+        const entry = this.tabs.get(id);
+        if (!entry) return;
+        const label = entry.btn.querySelector("span");
+        if (label && label.textContent?.startsWith("● ")) {
+            label.textContent = label.textContent.slice(2);
+        }
+    }
+
 }

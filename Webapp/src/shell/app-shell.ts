@@ -106,6 +106,36 @@ export class AppShell {
             a.href = url; a.download = `${name}.csv`; a.click();
             URL.revokeObjectURL(url);
         });
+
+        document.getElementById("btn-save")?.addEventListener("click", () => {
+            this.controller.saveAllModified();
+        });
+
+        document.getElementById("btn-open")?.addEventListener("click", () => {
+            const fs = this.controller.getFileSystemStrategy();
+            if (!fs) return;
+            fs.open({ multiple: true }).then(files => {
+                if (files.length === 0) return;
+                this.controller.getKnowledgeBase().clear();
+                this.workspace.clear();
+                for (const f of files) {
+                    this.controller.storeLoadedFile(f.name, f.text, f.handle);
+                }
+                const results = files.map(f => ({ name: f.name, text: f.text }));
+                const isDocJson = (n: string) => n.endsWith(".doc.json") || n.endsWith(".doc");
+                const isGraphJson = (n: string) => n.endsWith(".graph.json") || (n.endsWith(".json") && !isDocJson(n) && n !== "control.json");
+                const controlResult = results.find(r => r.name === "control.json");
+                const docResults = results.filter(r => isDocJson(r.name));
+                const csvResults = results.filter(r => r.name.endsWith(".csv"));
+                const graphResults = results.filter(r => isGraphJson(r.name));
+                if (controlResult) {
+                    this.loadControlBatch(controlResult.text, csvResults, graphResults, docResults);
+                } else {
+                    this.loadPlainBatch(csvResults, graphResults, docResults);
+                }
+                this.registerAllTabs();
+            });
+        });
     }
 
     // ── Dynamic toolbar ───────────────────────────────────────────────────────
@@ -192,6 +222,11 @@ export class AppShell {
             try {
                 this.controller.getKnowledgeBase().clear();
                 this.workspace.clear();
+
+                // Store loaded files (no handles from drag-drop/input)
+                for (const r of results) {
+                    this.controller.storeLoadedFile(r.name, r.text, null);
+                }
 
                 const isDocJson   = (n: string) => n.endsWith(".doc.json") || n.endsWith(".doc");
                 const isGraphJson = (n: string) => n.endsWith(".graph.json") || (n.endsWith(".json") && !isDocJson(n) && n !== "control.json");

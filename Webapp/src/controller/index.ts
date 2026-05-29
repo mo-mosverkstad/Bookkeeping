@@ -1,4 +1,5 @@
 import { KnowledgeBase, Table, Row, EditHistory, Graph, TypedValue } from "../model/index.ts";
+import type { FileSystemStrategy, FileHandle, OpenedFile } from "../data/file-system.ts";
 import type { Document } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
 import { parseControlFile, resolveNodes, resolveEdges, resolveActors, resolveMessages } from "../data/control.ts";
@@ -15,6 +16,10 @@ export class AppController {
     private entityClickHandler: ((entityId: string) => void) | null = null;
     private dismissPanelsHandler: (() => void) | null = null;
     readonly history = new EditHistory();
+    private fileSystem: FileSystemStrategy | null = null;
+    private loadedFiles = new Map<string, { text: string; handle: FileHandle | null }>();
+    private dirty = new Set<string>();
+    private onDirtyChange: (() => void) | null = null;
 
     setWorkspaceController(wc: WorkspaceController): void { this.workspaceController = wc; }
     setGraphFilterView(view: GraphFilterView): void { this.graphFilterView = view; }
@@ -28,6 +33,43 @@ export class AppController {
     }
 
     getKnowledgeBase(): KnowledgeBase { return this.knowledgeBase; }
+
+    setFileSystemStrategy(fs: FileSystemStrategy): void { this.fileSystem = fs; }
+    getFileSystemStrategy(): FileSystemStrategy | null { return this.fileSystem; }
+    isDirty(): boolean { return this.dirty.size > 0; }
+    getDirtyFiles(): Set<string> { return this.dirty; }
+    setOnDirtyChange(cb: () => void): void { this.onDirtyChange = cb; }
+    markDirty(name: string): void { this.dirty.add(name); this.onDirtyChange?.(); }
+
+    storeLoadedFile(name: string, text: string, handle: FileHandle | null): void {
+        this.loadedFiles.set(name, { text, handle });
+    }
+
+    async saveFile(name: string): Promise<void> {
+        if (!this.fileSystem) return;
+        const entry = this.loadedFiles.get(name);
+        if (!entry) return;
+        // Serialize current state
+        const table = this.knowledgeBase.tables.find(t => t.name + ".csv" === name || t.name === name);
+        let content: string;
+        if (table) {
+            content = table.toCSV();
+        } else {
+            const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);
+            if (graph) content = graph.toGraphJSON();
+            else content = entry.text;
+        }
+        const newHandle = await this.fileSystem.save(content, entry.handle, name);
+        this.loadedFiles.set(name, { text: content, handle: newHandle });
+        this.dirty.delete(name);
+        this.onDirtyChange?.();
+    }
+
+    async saveAllModified(): Promise<void> {
+        for (const name of this.dirty) {
+            await this.saveFile(name);
+        }
+    }
 
     // ── Table loading ─────────────────────────────────────────────────────────
 
@@ -89,6 +131,7 @@ export class AppController {
         if (oldValue === newValue) return;
         this.history.push({ type: "cell", tableIdx, rowIdx, colIdx, oldValue, newValue });
         table.setCellValue(rowIdx, colIdx, newValue);
+        this.markDirty(table.name + ".csv");
         if (!silent) this.showAll();
     }
 
@@ -97,6 +140,7 @@ export class AppController {
         if (!table) return;
         const row = table.appendRow();
         this.history.push({ type: "addRow", tableIdx, row });
+        this.markDirty(table.name + ".csv");
         this.showAll();
     }
 
@@ -105,6 +149,7 @@ export class AppController {
         if (!table) return;
         const row = table.insertRowAt(atIdx);
         this.history.push({ type: "addRow", tableIdx, row });
+        this.markDirty(table.name + ".csv");
         this.showAll();
     }
 
@@ -156,6 +201,7 @@ export class AppController {
         const row = table.removeRowAt(rowIdx);
         if (!row) return;
         this.history.push({ type: "deleteRow", tableIdx, rowIdx, row });
+        this.markDirty(table.name + ".csv");
         this.showAll();
     }
 

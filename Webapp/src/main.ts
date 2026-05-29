@@ -12,7 +12,7 @@ import { AppShell } from "./shell/app-shell.ts";
 import { SourceEditorView } from "./source-editor/source-editor-view.ts";
 import { NavigationTreeView } from "./shell/navigation-tree-view.ts";
 
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
     // ── DOM references ────────────────────────────────────────────────────────
     const errorEl              = document.getElementById("error-message")!;
     const fileInput            = document.getElementById("file-input") as HTMLInputElement;
@@ -60,6 +60,63 @@ window.addEventListener("load", () => {
         searchView.hideNeighbourhood();
     });
 
+    // ── File System Strategy ──────────────────────────────────────────────────
+    const { HAS_FILE_SYSTEM_ACCESS, NativeFileSystemStrategy, DownloadFallbackStrategy } = await import("./data/file-system.ts");
+    const fileSystem = HAS_FILE_SYSTEM_ACCESS
+        ? new NativeFileSystemStrategy()
+        : new DownloadFallbackStrategy();
+    controller.setFileSystemStrategy(fileSystem);
+
+    // Dirty indicator
+    controller.setOnDirtyChange(() => {
+        const dirtyFiles = controller.getDirtyFiles();
+        if (dirtyFiles.size > 0) {
+            statusText.textContent = "● Unsaved changes";
+            statusText.style.color = "#b45309";
+        } else {
+            statusText.textContent = fileSystem.canSaveInPlace ? "" : "⇣ Download mode";
+            statusText.style.color = "";
+        }
+        // Mark/clear tabs and nav tree items
+        const kb = controller.getKnowledgeBase();
+        for (const table of kb.tables) {
+            const fileName = table.name + ".csv";
+            if (dirtyFiles.has(fileName)) {
+                workspace.markTabDirty(table.name);
+                navTreeMarkDirty(table.name);
+            } else {
+                workspace.clearTabDirty(table.name);
+                navTreeClearDirty(table.name);
+            }
+        }
+    });
+
+    // Nav tree dirty helpers (navTree defined later, accessed via closure)
+    let navTreeRef: NavigationTreeView | null = null;
+    const navTreeMarkDirty = (name: string) => navTreeRef?.markDirty(name);
+    const navTreeClearDirty = (name: string) => navTreeRef?.clearDirty(name);
+
+    // Status indicator for download mode
+    if (!fileSystem.canSaveInPlace) {
+        statusText.textContent = "⇣ Download mode";
+    }
+
+    // Ctrl+S → save all modified files
+    document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+            e.preventDefault();
+            controller.saveAllModified().then(() => {
+                if (controller.isDirty()) return;
+                statusText.textContent = fileSystem.canSaveInPlace ? "Saved ✓" : "Downloaded ✓";
+                statusText.style.color = "#15803d";
+                setTimeout(() => {
+                    statusText.textContent = fileSystem.canSaveInPlace ? "" : "⇣ Download mode";
+                    statusText.style.color = "";
+                }, 2000);
+            });
+        }
+    });
+
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
             graphFilterView.getDetailPanel().innerHTML = "";
@@ -73,6 +130,7 @@ window.addEventListener("load", () => {
     // ── AppShell ──────────────────────────────────────────────────────────────
     // Navigation tree
     const navTree = new NavigationTreeView(navTreeEl, controller);
+    navTreeRef = navTree;
     navTree.setWorkspaceController(workspace);
 
     const shell = new AppShell(controller, workspace, sourceEditor, navTree, {

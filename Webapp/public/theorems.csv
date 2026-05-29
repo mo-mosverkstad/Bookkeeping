@@ -6,3 +6,6 @@ Chain Rule,math`f(g(x))' = f'(g(x))*g'(x)`,Calculus,uses:derivative;uses:composi
 Pythagorean Theorem,math`a^2 + b^2 = c^2`,Geometry,uses:right-triangle
 Binomial Theorem,"math`+{k=0, n, \binom{n, k}*a^(n-k)*b^k}`",Algebra,uses:binomial-coefficient;uses:factorial
 Euler's Formula,math`e^(\\p*\\i*x) = \cos(x) + \\i*\sin(x)`,Analysis,uses:exponential;uses:complex-numbers
+More data,math`d/(dx)x^3=3x^2`,,
+More data,"More here
+math`5x^3`",,
