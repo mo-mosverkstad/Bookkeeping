@@ -7,4 +7,5 @@ NAND,A↑B,math`-(A * B)`,0 only when all inputs are 1
 NOR,A↓B,math`-(A + B)`,1 only when all inputs are 0
 XOR,A⊕B,math`A*(-B) + (-A)*B`,1 when inputs differ
 XNOR,A⊙B,math`-(A*(-B) + (-A)*B)`,1 when inputs are equal
-Buffer,A,A,Output equals input
+Buffer,A,math`-(-A)`,Output equals input
+,,,

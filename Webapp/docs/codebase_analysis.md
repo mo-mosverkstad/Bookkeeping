@@ -6294,3 +6294,73 @@ element. The error message includes:
 
 This is the raw output from `PEGParser.formatError()` — no wrapping or
 summarization.
+
+
+---
+
+## Phase 17 — File System Access & Save Strategy
+
+---
+
+### File System Strategy (`src/data/file-system.ts`)
+
+The module exports a capability constant and two strategy implementations:
+
+```ts
+export const HAS_FILE_SYSTEM_ACCESS =
+    typeof window.showOpenFilePicker === "function" &&
+    typeof window.showSaveFilePicker === "function";
+```
+
+**`NativeFileSystemStrategy`** (Chrome, Edge):
+- `open()` → `showOpenFilePicker()` → returns `FileSystemFileHandle[]`
+- `save(content, handle, name)` → `handle.createWritable()` → silent write
+- `saveAs(content, name)` → `showSaveFilePicker()` → user picks location
+- `canSaveInPlace = true`
+
+**`DownloadFallbackStrategy`** (Firefox, Safari):
+- `open()` → programmatic `<input type="file">` click → returns null handles
+- `save()` / `saveAs()` → `Blob` + `<a download>` → browser download
+- `canSaveInPlace = false`
+
+### Dirty Tracking
+
+The controller maintains:
+- `loadedFiles: Map<string, { text, handle }>` — original content + handle
+- `dirty: Set<string>` — filenames with unsaved changes
+- `onDirtyChange` callback — fires on every dirty state change
+
+When `markDirty(name)` is called (from `editCell`, `addRow`, etc.):
+1. Status bar shows "● Unsaved changes" (orange)
+2. Tab label gets "● " prefix
+3. Nav tree item gets "● " prefix
+
+When `saveFile(name)` completes:
+1. File is serialized from current model state
+2. Written via strategy (`createWritable` or download)
+3. Removed from dirty set
+4. `onDirtyChange` fires → indicators clear
+
+### Open Button Behavior
+
+Single "Open" button in menu bar:
+- **Native API available:** intercepts click, calls `showOpenFilePicker`,
+  stores handles → enables silent Ctrl+S
+- **No native API:** falls through to `<input type="file">`, stores null
+  handles → Ctrl+S triggers download
+
+### Save Flow
+
+```
+User edits cell
+    → editCell() → markDirty("table.csv") → onDirtyChange → UI updates
+
+User presses Ctrl+S (or Save button)
+    → saveAllModified()
+        → for each dirty file:
+            → serialize (table.toCSV() or graph.toGraphJSON())
+            → strategy.save(content, handle, name)
+            → if handle: silent write (no dialog)
+            → if null: saveAs dialog (or download)
+        → dirty set cleared → onDirtyChange → UI clears indicators
+```

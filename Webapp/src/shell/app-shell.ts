@@ -111,31 +111,6 @@ export class AppShell {
             this.controller.saveAllModified();
         });
 
-        document.getElementById("btn-open")?.addEventListener("click", () => {
-            const fs = this.controller.getFileSystemStrategy();
-            if (!fs) return;
-            fs.open({ multiple: true }).then(files => {
-                if (files.length === 0) return;
-                this.controller.getKnowledgeBase().clear();
-                this.workspace.clear();
-                for (const f of files) {
-                    this.controller.storeLoadedFile(f.name, f.text, f.handle);
-                }
-                const results = files.map(f => ({ name: f.name, text: f.text }));
-                const isDocJson = (n: string) => n.endsWith(".doc.json") || n.endsWith(".doc");
-                const isGraphJson = (n: string) => n.endsWith(".graph.json") || (n.endsWith(".json") && !isDocJson(n) && n !== "control.json");
-                const controlResult = results.find(r => r.name === "control.json");
-                const docResults = results.filter(r => isDocJson(r.name));
-                const csvResults = results.filter(r => r.name.endsWith(".csv"));
-                const graphResults = results.filter(r => isGraphJson(r.name));
-                if (controlResult) {
-                    this.loadControlBatch(controlResult.text, csvResults, graphResults, docResults);
-                } else {
-                    this.loadPlainBatch(csvResults, graphResults, docResults);
-                }
-                this.registerAllTabs();
-            });
-        });
     }
 
     // ── Dynamic toolbar ───────────────────────────────────────────────────────
@@ -190,6 +165,21 @@ export class AppShell {
     // ── File loading ──────────────────────────────────────────────────────────
 
     private wireFileLoading(): void {
+        // If native File System Access API is available, intercept the Open label
+        const fs = this.controller.getFileSystemStrategy();
+        if (fs && fs.canSaveInPlace) {
+            const label = document.getElementById("btn-open-label");
+            if (label) {
+                label.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    fs.open({ multiple: true }).then(files => {
+                        if (files.length === 0) return;
+                        this.openFromStrategy(files);
+                    });
+                });
+            }
+        }
+
         this.elements.fileInput.addEventListener("change", () => {
             if (this.elements.fileInput.files)
                 this.loadFiles(Array.from(this.elements.fileInput.files));
@@ -208,6 +198,28 @@ export class AppShell {
             e.preventDefault();
             this.loadFiles(Array.from(e.dataTransfer.files));
         });
+    }
+
+
+    private openFromStrategy(files: import("../data/file-system.ts").OpenedFile[]): void {
+        this.controller.getKnowledgeBase().clear();
+        this.workspace.clear();
+        for (const f of files) {
+            this.controller.storeLoadedFile(f.name, f.text, f.handle);
+        }
+        const results = files.map(f => ({ name: f.name, text: f.text }));
+        const isDocJson = (n: string) => n.endsWith(".doc.json") || n.endsWith(".doc");
+        const isGraphJson = (n: string) => n.endsWith(".graph.json") || (n.endsWith(".json") && !isDocJson(n) && n !== "control.json");
+        const controlResult = results.find(r => r.name === "control.json");
+        const docResults = results.filter(r => isDocJson(r.name));
+        const csvResults = results.filter(r => r.name.endsWith(".csv"));
+        const graphResults = results.filter(r => isGraphJson(r.name));
+        if (controlResult) {
+            this.loadControlBatch(controlResult.text, csvResults, graphResults, docResults);
+        } else {
+            this.loadPlainBatch(csvResults, graphResults, docResults);
+        }
+        this.registerAllTabs();
     }
 
     private loadFiles(files: File[]): void {

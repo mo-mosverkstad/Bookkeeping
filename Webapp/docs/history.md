@@ -3181,3 +3181,66 @@ Format: `English name/Svenskt namn`. Hardware and Software domains excluded
 - 0 parse failures
 - 349 tests pass (1 test updated: fallback expects "rich" not "text")
 - All 6 `control.json` files valid
+
+
+---
+
+## Phase 17 — File System Access & Save Strategy
+
+---
+
+### What was added
+
+**`src/data/file-system.ts`** — new file
+
+- `HAS_FILE_SYSTEM_ACCESS` — capability constant, evaluated once at module load
+- `FileSystemStrategy` interface: `open()`, `save()`, `saveAs()`, `canSaveInPlace`
+- `NativeFileSystemStrategy` — uses `showOpenFilePicker`, `createWritable`,
+  `showSaveFilePicker` for true in-place save
+- `DownloadFallbackStrategy` — uses `<input type="file">` for open,
+  `Blob` + `<a download>` for save
+
+### What was changed
+
+**`src/controller/index.ts`**
+- Added `fileSystem`, `loadedFiles`, `dirty`, `onDirtyChange` fields
+- Added `setFileSystemStrategy()`, `getFileSystemStrategy()`,
+  `storeLoadedFile()`, `markDirty()`, `isDirty()`, `getDirtyFiles()`,
+  `setOnDirtyChange()`, `saveFile()`, `saveAllModified()`
+- `editCell`, `addRow`, `insertRow`, `deleteRow` now call `markDirty()`
+
+**`src/main.ts`**
+- Dynamic import of file-system module at startup
+- Strategy selection based on `HAS_FILE_SYSTEM_ACCESS`
+- `Ctrl+S` handler calling `saveAllModified()`
+- Dirty change callback updating status bar, tabs, and nav tree
+
+**`src/shell/app-shell.ts`**
+- `wireFileLoading()` intercepts Open label click when native API available
+- `openFromStrategy()` loads files with handles for in-place save
+- `storeLoadedFile()` called on drag-drop load (null handles)
+- Save button wired to `saveAllModified()`
+
+**`index.html`**
+- Added Save button to toolbar
+- Open label given id for interception
+
+### Design decisions
+
+1. **One Open button, automatic detection.** On Chrome/Edge, clicking Open
+   uses `showOpenFilePicker` (returns handles). On Firefox, it falls back
+   to `<input type="file">` (no handles). Same UI, different mechanism.
+
+2. **Handles stored per-file.** Each loaded file's handle is stored in
+   `loadedFiles` map. When saving, the handle enables silent in-place write.
+   Null handle (from drag-drop or Firefox) triggers `saveAs` dialog.
+
+3. **Dirty tracking fires callback.** `markDirty()` fires `onDirtyChange`
+   which updates three indicators: status bar ("● Unsaved changes"),
+   tab strip ("● tablename"), and nav tree ("● tablename").
+
+4. **No try/catch for capability detection.** `HAS_FILE_SYSTEM_ACCESS` is
+   a pure property existence check. No version strings, no browser sniffing.
+
+5. **Sequential saves.** `saveAllModified()` awaits each file sequentially
+   to avoid permission prompt conflicts and browser download throttling.

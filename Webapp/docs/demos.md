@@ -1690,3 +1690,52 @@ Open `http://localhost:5173` in the browser.
 - Plain text renders as-is without formatting
 - Source editor never clears unexpectedly on Apply
 - All `control.json` files load their tables in declared order
+
+
+---
+
+## Phase 17 — File System Access & Save Strategy
+
+---
+
+### Demo: In-place Save (Chrome/Edge)
+
+1. Open the app in Chrome or Edge
+2. Click **Open** in the menu bar → file picker appears
+3. Select CSV files (e.g. from `testresources/Mathematics reference sheet/`)
+4. Files load, tables appear
+5. Click a cell, edit content, press Alt+Enter (Apply)
+6. Status bar shows **"● Unsaved changes"** in orange
+7. Tab shows **"● tablename"**
+8. Press **Ctrl+S**
+9. Files save silently — no dialog appears
+10. Status bar shows **"Saved ✓"** in green, then clears
+11. Open the file in a text editor — edit is present
+
+### Demo: Download Fallback (Firefox)
+
+1. Open the app in Firefox
+2. Status bar shows **"⇣ Download mode"**
+3. Click **Open** → standard file picker (no handles)
+4. Load files, edit a cell
+5. Press **Ctrl+S**
+6. Browser downloads the modified file(s)
+7. Status bar shows **"Downloaded ✓"**
+
+### Demo: Drag-and-Drop (any browser)
+
+1. Drag files onto the workspace
+2. Files load (no handles stored)
+3. Edit a cell, press Ctrl+S
+4. On Chrome: `showSaveFilePicker` dialog appears (first time only per file)
+5. On Firefox: download triggered
+
+### Expected Output
+
+| Action | Chrome/Edge | Firefox |
+|--------|-------------|---------|
+| Open button | `showOpenFilePicker` | `<input type="file">` |
+| Ctrl+S (with handles) | Silent in-place write | N/A |
+| Ctrl+S (no handles) | `showSaveFilePicker` dialog | Download |
+| Dirty indicator | "● Unsaved changes" | Same |
+| After save | "Saved ✓" | "Downloaded ✓" |

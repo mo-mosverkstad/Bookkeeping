@@ -1263,3 +1263,33 @@ Root cause: The wrapping heuristic only checked if the line parsed as math,
 without requiring math-specific syntax.
 Fix: Added stricter heuristic requiring math indicators (operators, backslash
 identifiers, braces) AND absence of prose words before wrapping.
+
+
+---
+
+## Phase 17 — File System Access & Save Strategy
+
+---
+
+### Test run results
+
+```
+ Test Files  12 passed (12)
+      Tests  349 passed (349)
+```
+
+All existing tests pass. No new automated tests added for file system
+operations (they require browser APIs that are not available in the
+Node.js/happy-dom test environment). Manual testing confirmed:
+- Chrome: Open via picker → edit → Ctrl+S → silent save ✓
+- Firefox: Open via input → edit → Ctrl+S → download ✓
+- Dirty indicators appear/clear correctly ✓
+- Save button works same as Ctrl+S ✓
+
+### Notes
+
+File System Access API (`showOpenFilePicker`, `showSaveFilePicker`) is
+not available in Node.js or happy-dom. These strategies are tested
+manually in the browser. The capability detection constant
+`HAS_FILE_SYSTEM_ACCESS` evaluates to `false` in the test environment,
+so the fallback strategy is always selected during tests.
