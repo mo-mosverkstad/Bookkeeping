@@ -11,75 +11,36 @@ Read these files to reconstruct full context:
 ## Current State
 
 - **Phase 17 (File System Access)** — COMPLETE
-- **Phase 18 (Diagram Grammars)** — IN PROGRESS
+- **Phase 18 (Diagram Grammars)** — IN PROGRESS (mostly complete)
   - 7 diagram types implemented: flowchart, sequence, class, state, ER, gantt, pie
-  - All parse and render to SVG
-  - **NEW: `.diagram` file extension** replaces `.md` and `.graph.json`
-  - **NEW: `.doc.json` integration** via `graph_flowchart`, `graph_sequence`, etc. block types
-  - **NEW: `control.json` integration** via `"view": "diagram"` entries
-  - Diagrams save their own Mermaid-compatible text syntax directly (not JSON)
-  - Source editor bidirectional sync works
+  - All parse and render to SVG with proper graph layout
+  - `.diagram` file extension (replaces `.md` and `.graph.json`)
+  - `.doc.json` integration via `graph_flowchart`, `graph_sequence`, etc.
+  - `control.json` integration via `"view": "diagram"`
+  - Sugiyama layered layout with crossing minimization
+  - Ring layout for cyclic graphs
+  - Cubic bezier edge routing with back-edge exterior routing
+  - Pan/zoom on all diagram views
+  - Source editor bidirectional sync
   - TODO: labeled edges in flowchart (`-->|text|`), class diagram members merging,
     subgraphs, more Mermaid syntax coverage
 - **Phase 19 (Semantic Layer)** — NOT STARTED
 - **Phase 20 (Stable Identity)** — NOT STARTED
 - **Phase 21 (Native Format)** — NOT STARTED
 
-## Key Architecture Decisions Made Today
-
-1. **Diagrams use `.diagram` file extension** — NOT `.md` (they are not markdown)
-2. **Diagrams save their own text syntax** — NOT converted to `.graph.json`
-3. **`.graph.json` is removed** — replaced by `.diagram` files with Mermaid-compatible syntax
-4. **`.doc.json` block types are per-diagram-kind** — `graph_flowchart`, `graph_sequence`,
-   `graph_class`, `graph_state`, `graph_er`, `graph_gantt`, `graph_pie`
-5. **`control.json` uses `"view": "diagram"`** with `"file": "name.diagram"`
-6. **`DiagramView` is the sole view for diagram files** — renders directly from text source
-7. **`DiagramBlock` added to Document model** — `{ kind: "diagram", file, source, diagramType }`
-8. **`Graph` model + `FlowDiagramView` remain** for CSV-based graph entries in control.json
-   (flow/spatial/relation/sequence from CSV nodes+edges), but are no longer the file format
-
-## File Format Examples
-
-### .diagram file (raw text, Mermaid-compatible syntax):
-```
-flowchart TD
-    A[Start] --> B{Decision}
-    B --> C[OK]
-    B --> D[Fail]
-```
-
-### .doc.json section referencing a diagram:
-```json
-{
-  "id": "login-flow",
-  "title": "Login Flow",
-  "block": {
-    "type": "graph_flowchart",
-    "file": "login-flow.diagram",
-    "labelStyle": "default"
-  }
-}
-```
-
-### control.json entry for a diagram:
-```json
-{
-  "id": "glycolysis-map",
-  "view": "diagram",
-  "file": "glycolysis.diagram"
-}
-```
-
 ## Test Status
 
 383 tests pass (13 test files). Run: `npm test`
 
-## Known Issues / Incomplete
+## Key Architecture Decisions
 
-- Flowchart `-->|label|` syntax not yet supported (pipe-delimited labels)
-- Class diagram member lines don't merge into existing class defs
-- No `$diagram{...}` embedding in rich cells yet (diagrams are standalone only)
-- Sidebar resize was attempted but reverted (CSS issues)
-- Some Biology test resource files lost introductory text during Phase 16 rectification
-- `Graph` model + `FlowDiagramView` still exist for CSV-based control.json entries
-  (flow/spatial/relation/sequence from CSV nodes+edges) — may be removed in future
+1. **`.diagram` file extension** — NOT `.md` (not markdown), NOT `.graph.json` (not JSON)
+2. **Diagrams save their own text syntax** — Mermaid-compatible, human-readable
+3. **`.doc.json` block types are per-diagram-kind** — `graph_flowchart`, `graph_sequence`, etc.
+4. **`control.json` uses `"view": "diagram"`** with `"file": "name.diagram"`
+5. **Shared `graph-utils.ts`** — Tarjan SCC + back-edge detection reused across renderers
+6. **Sugiyama layout** — longest-path ranking, barycenter ordering, iterative median positioning
+7. **Ring layout** — for graphs where ≥50% of nodes form a cycle
+8. **Draw order: nodes behind, edges on top** — arrowheads always visible
+9. **`nodeIntersect`** — computes exact edge-node border intersection for arrow placement
+10. **`[*]` splitting** — start/end states rendered as separate visual nodes

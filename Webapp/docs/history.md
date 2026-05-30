@@ -3380,3 +3380,93 @@ This makes graph files human-readable and editable in any text editor.
 ### Test results
 
 383 tests pass (17 new flowchart grammar tests + all regression tests).
+
+---
+
+### Phase 18 continuation — .diagram file format and graph rendering improvements
+
+---
+
+#### What changed
+
+**File format: `.diagram` replaces `.md` and `.graph.json`**
+
+- New file extension `.diagram` for all text-syntax diagrams
+- `.graph.json` files removed — diagrams save their own Mermaid-compatible syntax
+- `.md` diagram files removed — diagrams are NOT markdown
+- Sample files renamed: `sample-flowchart.diagram`, `krebs.diagram`, etc.
+
+**`.doc.json` integration — per-diagram-kind block types**
+
+Block types are now specific: `graph_flowchart`, `graph_sequence`, `graph_class`,
+`graph_state`, `graph_er`, `graph_gantt`, `graph_pie`. Example:
+```json
+{ "type": "graph_flowchart", "file": "glycolysis.diagram", "labelStyle": "default" }
+```
+
+**`control.json` integration — `"view": "diagram"` entries**
+
+```json
+{ "id": "krebs-map", "view": "diagram", "file": "krebs.diagram" }
+```
+
+**Model layer:**
+- `DiagramBlock` added to `src/model/Document.ts`
+- `DiagramFileDecl` added to `src/data/control.ts`
+
+**Data layer:**
+- `parseDocJSON` gains `diagramMap` parameter for resolving diagram blocks
+- `parseControlFile` handles `"view": "diagram"` entries
+
+**Shell layer:**
+- `AppShell` detects `.diagram` files, passes to doc parser and nav tree
+- `NavigationTreeView` gains `diagramNames` field for standalone diagrams
+- `DocumentView` renders `DiagramBlock` sections via `DiagramView`
+
+**Graph rendering algorithm — Sugiyama layered layout:**
+- Shared `src/cell-renderers/diagram/graph-utils.ts` with Tarjan SCC and back-edge detection
+- Flowchart and state diagram use proper Sugiyama method:
+  1. Cycle breaking via Tarjan SCC / DFS back-edge detection
+  2. Longest-path rank assignment
+  3. Barycenter crossing minimization
+  4. Iterative median coordinate assignment (4 up/down passes)
+  5. Overlap resolution within each layer
+  6. Viewport centering
+- Ring layout for cyclic graphs (≥50% of nodes in a cycle)
+- Cubic bezier S-curves for edges (Mermaid-style)
+- Back-edges route around the graph exterior
+- `nodeIntersect` computes edge-node border intersection for arrowhead placement
+- Draw order: nodes behind, edges on top (arrowheads always visible)
+
+**State diagram grammar fix:**
+- `OptLabel` only matches when starting with `:` — no longer eats next line
+- `[*]` split into start/end nodes when used as both source and target
+- End state rendered as double circle
+
+**Pan/zoom on DiagramView:**
+- Container uses `overflow: hidden` (no scrollbars)
+- Mouse drag for panning, scroll wheel for zooming
+- SVG content wrapped in a transformable `<g>` group
+
+#### Files added
+- `src/cell-renderers/diagram/graph-utils.ts` — shared Tarjan SCC + back-edge detection
+- `public/*.diagram` — 8 diagram files replacing old .md and .graph.json
+
+#### Files removed
+- `public/sample-*.md` — replaced by `.diagram`
+- `public/*.graph.json` — replaced by `.diagram`
+
+#### Files changed
+- `src/model/Document.ts` — added `DiagramBlock`
+- `src/data/doc.ts` — added `diagramMap` parameter, `graph_*` block handling
+- `src/data/control.ts` — added `DiagramFileDecl`, `"diagram"` view parsing
+- `src/shell/app-shell.ts` — `.diagram` detection, nav tree population
+- `src/shell/navigation-tree-view.ts` — `diagramNames`, `DiagramBlock` handling
+- `src/knowledge-pane/document-view.ts` — `DiagramBlock` rendering
+- `src/knowledge-pane/diagram-view.ts` — pan/zoom, overflow hidden
+- `src/cell-renderers/diagram/flowchart/render.ts` — Sugiyama layout, ring layout, bezier edges
+- `src/cell-renderers/diagram/state/render.ts` — Sugiyama layout, [*] splitting, bezier edges
+- `src/cell-renderers/diagram/state/grammar.ts` — OptLabel fix, newline handling
+- `src/cell-renderers/diagram/er/render.ts` — white label backgrounds
+- `public/control.json` — uses `"view": "diagram"`
+- `public/biochemistry.doc.json` — uses `graph_flowchart` block type

@@ -6513,3 +6513,168 @@ Stored in `AppShell.diagramSources` map. Registered as tabs in
 `registerAllTabs()` using `DiagramView`.
 
 File input accept updated to include `.md,.mmd,.flowchart`.
+
+
+---
+
+## Phase 18 continuation — `.diagram` format and graph rendering algorithms
+
+---
+
+### `.diagram` file format
+
+Diagrams are stored as plain text files with the `.diagram` extension. The
+content is the raw Mermaid-compatible syntax — no JSON wrapper, no metadata.
+The diagram type is auto-detected from the first keyword.
+
+**Integration with `.doc.json`:**
+```json
+{ "type": "graph_flowchart", "file": "krebs.diagram", "labelStyle": "default" }
+```
+
+Block types: `graph_flowchart`, `graph_sequence`, `graph_class`, `graph_state`,
+`graph_er`, `graph_gantt`, `graph_pie`.
+
+**Integration with `control.json`:**
+```json
+{ "id": "krebs-map", "view": "diagram", "file": "krebs.diagram" }
+```
+
+**Model:** `DiagramBlock` in `Document.ts` — `{ kind: "diagram", file, source, diagramType }`.
+
+---
+
+### Shared graph utilities (`src/cell-renderers/diagram/graph-utils.ts`)
+
+Two reusable functions used by flowchart and state diagram renderers:
+
+**`findCycles(nodeIds, edges)`** — Tarjan's SCC algorithm. Returns all
+strongly-connected components with size > 1. Used to detect cycles for
+ring layout.
+
+**`findBackEdges(nodeIds, edges)`** — DFS-based back-edge detection.
+Returns a Set of `"from->to"` strings representing edges that form cycles.
+Used to break cycles before layered layout.
+
+---
+
+### Graph rendering algorithm — Sugiyama layered layout
+
+The flowchart and state diagram renderers use a proper Sugiyama-style
+layered graph layout algorithm, the same approach used by dagre (which
+Mermaid.js depends on). The algorithm has 5 phases:
+
+#### Phase 1: Cycle breaking
+
+Uses `findBackEdges()` to identify edges that create cycles. These edges
+are excluded from the DAG used for layout, but still drawn (routed around
+the graph exterior).
+
+If ≥50% of nodes form a single cycle (detected via `findCycles()`), the
+renderer switches to **ring layout** instead of layered layout.
+
+#### Phase 2: Rank assignment (longest path)
+
+BFS from source nodes (in-degree 0 in the DAG). Each node's rank is the
+longest path from any source. This ensures that edges always point from
+lower ranks to higher ranks.
+
+```
+Rank 0: [*]_start
+Rank 1: Idle
+Rank 2: Running
+Rank 3: Error
+Rank 4: [*]_end
+```
+
+#### Phase 3: Crossing minimization (barycenter heuristic)
+
+For each layer (top to bottom), nodes are sorted by the average position
+of their parents in the previous layer. This minimizes edge crossings
+without an expensive optimal solution.
+
+#### Phase 4: Coordinate assignment (iterative median)
+
+4 passes (alternating down and up):
+- **Down pass:** Each node moves to the median x-position of its parents
+- **Up pass:** Each node moves to the median x-position of its children
+- After each pass, overlaps within the layer are resolved by pushing
+  nodes apart (minimum gap enforced)
+
+This produces the characteristic tree-like layout where parents are
+centered over their children.
+
+#### Phase 5: Viewport centering
+
+The bounding box of all nodes is computed and the entire diagram is
+translated to center it in the available viewport.
+
+---
+
+### Ring layout (for cyclic graphs)
+
+When a graph is predominantly cyclic (≥50% of nodes in one SCC, ≥3 nodes):
+
+1. **Entry detection:** Find the cycle node that receives input from
+   non-cycle nodes (the entry point into the cycle)
+2. **Walk order:** Follow edges from the entry point around the cycle
+3. **Placement:** Nodes placed evenly on a circle, entry at the top
+   (angle -π/2), flowing clockwise
+4. **Non-cycle nodes:** Placed above the ring in topological order,
+   flowing downward toward the ring entry
+5. **Edge routing:** Quadratic bezier arcs with control point pushed
+   outward from ring center (follows the ring curvature)
+
+---
+
+### Edge rendering
+
+**Forward edges (layered layout):** Cubic bezier S-curves.
+- TD: exit bottom center, enter top center, control points at vertical midpoint
+- LR: exit right center, enter left center, control points at horizontal midpoint
+
+**Back-edges:** Routed around the graph exterior.
+- TD: curve around the right side via control points offset from the rightmost node
+- LR: curve above the graph via control points offset from the topmost node
+
+**Ring edges:** Quadratic bezier with control point pushed outward from
+the ring center. Start/end points computed via `nodeIntersect()` to land
+exactly at node borders.
+
+**`nodeIntersect(px, py, node)`:** Computes the intersection of a ray from
+(px, py) toward the node center with the node's border. Handles rectangles
+(aspect-ratio-aware) and circles (radius-based).
+
+---
+
+### Draw order and arrowhead visibility
+
+SVG elements are rendered in document order (later = on top). The renderer
+uses two `<g>` groups:
+1. `nodeGroup` — appended first (drawn behind)
+2. `edgeGroup` — appended second (drawn on top)
+
+This ensures arrowheads at edge endpoints are never obscured by node shapes.
+
+---
+
+### State diagram: `[*]` splitting
+
+Mermaid's `[*]` represents both start and end states. When `[*]` appears
+as both a source and a target in the same diagram, the renderer splits it
+into two visual nodes:
+- `[*]_start` — filled circle, placed at rank 0
+- `[*]_end` — double circle (filled + outline), placed at the last rank
+
+This prevents `Error → [*]` from being classified as a back-edge (which
+would route it around the graph incorrectly).
+
+---
+
+### DiagramView pan/zoom
+
+`DiagramView` wraps all SVG content in a `<g>` group and applies:
+- Mouse drag → translate (pan)
+- Scroll wheel → scale (zoom, clamped 0.2–4.0)
+
+Container uses `overflow: hidden` to suppress scrollbars. Restored on unmount.
