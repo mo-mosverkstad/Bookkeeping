@@ -8,9 +8,23 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
     const nodes = ast.statements.filter(s => s.type === "node") as FlowNodeDef[];
     const edges = ast.statements.filter(s => s.type === "edge") as FlowEdge[];
 
+    // Detect ring layout
+    const sccs = findCycles(nodes.map(n => n.id), edges);
+    const mainCycle = sccs.length > 0 ? sccs.reduce((a, b) => a.length >= b.length ? a : b) : [];
+    const ringSet = new Set(mainCycle);
+    const isRing = ringSet.size >= nodes.length * 0.5 && ringSet.size >= 3;
+
     // Layout
     const layout = layoutNodes(nodes, edges, ast.direction, width, height);
     const layoutMap = new Map(layout.map(n => [n.id, n]));
+
+    // Compute ring center for arc edges
+    let ringCx = width / 2, ringCy = height / 2;
+    if (isRing) {
+        const ringNodes = layout.filter(n => ringSet.has(n.id));
+        ringCx = ringNodes.reduce((s, n) => s + n.x + n.w / 2, 0) / ringNodes.length;
+        ringCy = ringNodes.reduce((s, n) => s + n.y + n.h / 2, 0) / ringNodes.length;
+    }
 
     // Create SVG
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -37,56 +51,49 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
     svg.appendChild(defs);
 
     // Draw edges
-    // Draw edges — Mermaid-style smooth curves with back-edge routing
     for (const edge of edges) {
         const from = layoutMap.get(edge.from);
         const to = layoutMap.get(edge.to);
         if (!from || !to) continue;
 
-        const isH = ast.direction === "LR" || ast.direction === "RL";
         const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2;
         const tcx = to.x + to.w / 2, tcy = to.y + to.h / 2;
-
-        // Detect if this is a back-edge (target is at same or earlier layer)
-        const isBack = isH
-            ? (ast.direction === "LR" ? tcx <= fcx : tcx >= fcx)
-            : (ast.direction === "BT" ? tcy >= fcy : tcy <= fcy);
+        const bothOnRing = isRing && ringSet.has(edge.from) && ringSet.has(edge.to);
+        const isH = ast.direction === "LR" || ast.direction === "RL";
 
         let d: string;
-        if (isBack) {
-            // Route back-edges around the outside of the graph
-            if (isH) {
-                const offset = 30;
-                const topY = Math.min(from.y, to.y) - offset;
-                const x1 = fcx, y1 = from.y;
-                const x2 = tcx, y2 = to.y;
-                d = `M ${x1} ${y1} C ${x1} ${topY}, ${x2} ${topY}, ${x2} ${y2}`;
-            } else {
-                const offset = 40;
-                const rightX = Math.max(from.x + from.w, to.x + to.w) + offset;
-                const x1 = from.x + from.w, y1 = fcy;
-                const x2 = to.x + to.w, y2 = tcy;
-                d = `M ${x1} ${y1} C ${rightX} ${y1}, ${rightX} ${y2}, ${x2} ${y2}`;
-            }
+        if (bothOnRing) {
+            const mx = (fcx + tcx) / 2, my = (fcy + tcy) / 2;
+            const dx = mx - ringCx, dy = my - ringCy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const push = 40;
+            const qx = mx + (dx / dist) * push;
+            const qy = my + (dy / dist) * push;
+            d = `M ${fcx} ${fcy} Q ${qx} ${qy} ${tcx} ${tcy}`;
         } else {
-            // Normal forward edge
-            let x1: number, y1: number, x2: number, y2: number;
-            if (isH) {
-                if (ast.direction === "RL") {
-                    x1 = from.x; y1 = fcy; x2 = to.x + to.w; y2 = tcy;
+            const isBack = isH
+                ? (ast.direction === "LR" ? tcx <= fcx : tcx >= fcx)
+                : (ast.direction === "BT" ? tcy >= fcy : tcy <= fcy);
+            if (isBack) {
+                if (isH) {
+                    const topY = Math.min(from.y, to.y) - 30;
+                    d = `M ${fcx} ${from.y} C ${fcx} ${topY}, ${tcx} ${topY}, ${tcx} ${to.y}`;
                 } else {
-                    x1 = from.x + from.w; y1 = fcy; x2 = to.x; y2 = tcy;
+                    const rightX = Math.max(from.x + from.w, to.x + to.w) + 40;
+                    d = `M ${from.x + from.w} ${fcy} C ${rightX} ${fcy}, ${rightX} ${tcy}, ${to.x + to.w} ${tcy}`;
                 }
-                const mx = (x1 + x2) / 2;
-                d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
             } else {
-                if (ast.direction === "BT") {
-                    x1 = fcx; y1 = from.y; x2 = tcx; y2 = to.y + to.h;
+                if (isH) {
+                    const x1 = ast.direction === "RL" ? from.x : from.x + from.w;
+                    const x2 = ast.direction === "RL" ? to.x + to.w : to.x;
+                    const mx = (x1 + x2) / 2;
+                    d = `M ${x1} ${fcy} C ${mx} ${fcy}, ${mx} ${tcy}, ${x2} ${tcy}`;
                 } else {
-                    x1 = fcx; y1 = from.y + from.h; x2 = tcx; y2 = to.y;
+                    const y1 = ast.direction === "BT" ? from.y : from.y + from.h;
+                    const y2 = ast.direction === "BT" ? to.y + to.h : to.y;
+                    const my = (y1 + y2) / 2;
+                    d = `M ${fcx} ${y1} C ${fcx} ${my}, ${tcx} ${my}, ${tcx} ${y2}`;
                 }
-                const my = (y1 + y2) / 2;
-                d = `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
             }
         }
 
@@ -370,29 +377,37 @@ function layoutRing(
     W: number,
     H: number,
 ): LayoutNode[] {
-    // Order cycle nodes by walking edges within the cycle
-    const cycleAdj = new Map<string, string>();
+    // Find entry point: the cycle node that has an incoming edge from a non-cycle node
+    const entryNode = [...cycleSet].find(id =>
+        edges.some(e => e.to === id && !cycleSet.has(e.from))
+    ) || [...cycleSet][0];
+
+    // Walk cycle from entry point following edges
+    const cycleAdj = new Map<string, string[]>();
     for (const e of edges) {
-        if (cycleSet.has(e.from) && cycleSet.has(e.to)) cycleAdj.set(e.from, e.to);
+        if (cycleSet.has(e.from) && cycleSet.has(e.to)) {
+            if (!cycleAdj.has(e.from)) cycleAdj.set(e.from, []);
+            cycleAdj.get(e.from)!.push(e.to);
+        }
     }
     const cycleNodes: string[] = [];
     const visited = new Set<string>();
-    let cur = [...cycleSet][0];
+    let cur = entryNode;
     while (cur && !visited.has(cur)) {
         cycleNodes.push(cur);
         visited.add(cur);
-        cur = cycleAdj.get(cur) ?? "";
+        cur = (cycleAdj.get(cur) ?? []).find(n => !visited.has(n)) ?? "";
     }
     for (const id of cycleSet) if (!visited.has(id)) cycleNodes.push(id);
 
-    // Compute ring radius based on total perimeter needed
+    // Compute ring radius
     const totalPerimeter = cycleNodes.reduce((s, id) => s + sizeMap.get(id)!.w + 40, 0);
-    const radius = Math.max(100, totalPerimeter / (2 * Math.PI));
+    const radius = Math.max(120, totalPerimeter / (2 * Math.PI));
     const cx = W / 2, cy = H / 2;
 
     const result: LayoutNode[] = [];
 
-    // Place cycle nodes on ring
+    // Place cycle nodes on ring — entry at top, flowing clockwise
     cycleNodes.forEach((id, i) => {
         const angle = -Math.PI / 2 + (2 * Math.PI * i) / cycleNodes.length;
         const sz = sizeMap.get(id)!;
@@ -405,13 +420,29 @@ function layoutRing(
         });
     });
 
-    // Place non-cycle nodes outside the ring
+    // Place non-cycle nodes: chain them above the ring entry point, flowing downward (TD)
     const nonCycle = nodes.filter(n => !cycleSet.has(n.id));
-    let offY = cy + radius + 80;
-    for (const n of nonCycle) {
-        const sz = sizeMap.get(n.id)!;
-        result.push({ id: n.id, label: n.label, shape: n.shape, x: cx - sz.w / 2, y: offY, w: sz.w, h: sz.h });
-        offY += sz.h + 40;
+    // Sort non-cycle by dependency order (topological from sources)
+    const ncAdj = new Map<string, string[]>();
+    for (const n of nonCycle) ncAdj.set(n.id, []);
+    for (const e of edges) {
+        if (!cycleSet.has(e.from) && !cycleSet.has(e.to)) ncAdj.get(e.from)?.push(e.to);
+    }
+    const ncOrder: string[] = [];
+    const ncVisited = new Set<string>();
+    function ncDfs(id: string) { ncVisited.add(id); for (const n of ncAdj.get(id) ?? []) if (!ncVisited.has(n)) ncDfs(n); ncOrder.push(id); }
+    for (const n of nonCycle) if (!ncVisited.has(n.id)) ncDfs(n.id);
+    ncOrder.reverse();
+
+    // Place them top-down above the ring
+    const chainGap = 50;
+    const totalChainH = ncOrder.reduce((s, id) => s + sizeMap.get(id)!.h + chainGap, 0) - chainGap;
+    let curY = cy - radius - 60 - totalChainH;
+    for (const id of ncOrder) {
+        const n = nodes.find(nd => nd.id === id)!;
+        const sz = sizeMap.get(id)!;
+        result.push({ id, label: n.label, shape: n.shape, x: cx - sz.w / 2, y: curY, w: sz.w, h: sz.h });
+        curY += sz.h + chainGap;
     }
 
     return result;
