@@ -3470,3 +3470,57 @@ Block types are now specific: `graph_flowchart`, `graph_sequence`, `graph_class`
 - `src/cell-renderers/diagram/er/render.ts` — white label backgrounds
 - `public/control.json` — uses `"view": "diagram"`
 - `public/biochemistry.doc.json` — uses `graph_flowchart` block type
+
+---
+
+### Additional Phase 18 work (continued session)
+
+**Gantt chart renderer rewritten:**
+- Proper date parsing (`YYYY-MM-DD` → timestamps)
+- Relative task starts (`after a1` resolves to dependency end date)
+- Timeline axis with date labels and vertical grid lines
+- Proportional bar positioning and widths on a real timeline
+- Section headers separating task groups
+
+**Global undo/redo for diagrams:**
+- `EditAction` gains `"diagramEdit"` type (`{ diagramName, oldSource, newSource }`)
+- `AppController.editDiagram()` records actions in global history
+- `DiagramView` registers update callback for undo/redo push-back
+- Ctrl+Z outside editor reverts diagram edits; Ctrl+Z inside editor reverts text
+
+**Per-file dirty tracking (VSCode-style):**
+- `savedContent: Map<string, string>` stores baseline per file
+- `getCurrentContent(name)` unified getter for tables, graphs, diagrams
+- `recheckDirtyFile` compares current vs saved baseline
+- `saveFile` updates baseline on save
+- `markFileSaved(name)` public API for external save triggers
+- Dirty marks now work for ALL file types (tables, graphs, diagrams)
+
+**Dirty UI for all file types:**
+- `onDirtyChange` callback in `main.ts` handles tables, graphs, and `.diagram` files
+- `workspace.getRegisteredIds()` added for iterating diagram tabs
+- Tab labels and nav tree items show/clear ● prefix correctly
+
+**Unsaved changes protection:**
+- `beforeunload` event shows browser warning dialog
+- `visibilitychange` + `beforeunload` backup dirty files to localStorage
+- Backup key: `bookkeeping_backup` with timestamp and file contents
+- Auto-cleanup when no dirty files remain
+
+**Ring layout threshold fix:**
+- Raised from 50%/3 nodes to 75%/4 nodes
+- Small cycles (3 nodes in 6-node graph) no longer trigger ring layout
+- Prevents LR flowcharts with one back-edge from rendering as rings
+
+**Adaptive layer spacing:**
+- LR: `max(140, min(200, W/(layers+1)))` — fits within viewport
+- TD: consistent `nodeH + gapY` between layers
+
+**Back-edge routing improved:**
+- Offset increased from 30px to 50px
+- LR back-edges route above the graph
+- TD back-edges route to the right of the graph
+
+**Duplicate registerAllTabs fix:**
+- `openFromStrategy` no longer calls `registerAllTabs()` (already called inside batch loaders)
+- Prevents double-registration that could cause nav tree items to disappear
