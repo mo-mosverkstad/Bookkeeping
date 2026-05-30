@@ -292,7 +292,7 @@ export class AppController {
     }
 
     /** Get the current in-memory content of a file by name. */
-    private getCurrentContent(name: string): string | null {
+    getCurrentContent(name: string): string | null {
         const table = this.knowledgeBase.tables.find(t => t.name + ".csv" === name || t.name === name);
         if (table) return table.toCSV();
         const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);

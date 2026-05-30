@@ -168,4 +168,35 @@ window.addEventListener("load", async () => {
         statusText,
     });
     shell.init();
+
+    // ── Unsaved changes guard ─────────────────────────────────────────────────
+    // Warn before leaving with unsaved changes
+    window.addEventListener("beforeunload", (e) => {
+        if (controller.getDirtyFiles().size > 0) {
+            e.preventDefault();
+            e.returnValue = "";
+        }
+    });
+
+    // Backup unsaved changes to localStorage on exit
+    const BACKUP_KEY = "bookkeeping_backup";
+    function backupToLocalStorage(): void {
+        if (controller.getDirtyFiles().size === 0) {
+            localStorage.removeItem(BACKUP_KEY);
+            return;
+        }
+        const backup: Record<string, string> = {};
+        for (const name of controller.getDirtyFiles()) {
+            const content = controller.getCurrentContent(name);
+            if (content) backup[name] = content;
+        }
+        if (Object.keys(backup).length > 0) {
+            localStorage.setItem(BACKUP_KEY, JSON.stringify({ timestamp: Date.now(), files: backup }));
+        }
+    }
+
+    window.addEventListener("beforeunload", backupToLocalStorage);
+    window.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") backupToLocalStorage();
+    });
 });
