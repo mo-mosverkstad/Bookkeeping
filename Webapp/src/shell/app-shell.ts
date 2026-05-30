@@ -384,7 +384,7 @@ export class AppShell {
         for (const [name, source] of this.diagramSources) {
             this.workspace.registerView(
                 name,
-                () => new DiagramView(name, source, this.sourceEditor),
+                () => new DiagramView(name, source, this.sourceEditor, this.controller),
                 {},
             );
         }

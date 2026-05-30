@@ -1,33 +1,45 @@
 import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
 import { parseDiagram } from "../cell-renderers/diagram/index.ts";
 import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
+import type { AppController } from "../controller/index.ts";
 
 /**
  * DiagramView — renders a standalone diagram file (flowchart, sequence, etc.)
  * from its text source. Bidirectional sync with source editor.
+ * Supports global undo/redo via controller.editDiagram().
  */
 export class DiagramView implements WorkspaceView {
     private container: HTMLElement | null = null;
     private source: string;
     private sourceEditor: SourceEditorView | null = null;
+    private controller: AppController | null = null;
     private name: string;
 
-    constructor(name: string, source: string, sourceEditor?: SourceEditorView) {
+    constructor(name: string, source: string, sourceEditor?: SourceEditorView, controller?: AppController) {
         this.name = name;
         this.source = source;
         this.sourceEditor = sourceEditor ?? null;
+        this.controller = controller ?? null;
     }
 
     mount(container: HTMLElement, _data: WorkspaceData, _state?: ViewState): void {
         this.container = container;
         container.style.overflow = "hidden";
         this.render();
+        // Register for undo/redo callbacks
+        this.controller?.registerDiagramCallback(this.name, (src) => {
+            this.source = src;
+            this.render();
+            if (this.sourceEditor) this.sourceEditor.setText(src);
+        });
         if (this.sourceEditor) {
             requestAnimationFrame(() => {
                 this.sourceEditor!.setText(this.source);
                 this.sourceEditor!.setOnCellApply((value: string) => {
+                    const oldSource = this.source;
                     this.source = value;
                     this.render();
+                    this.controller?.editDiagram(this.name, oldSource, value);
                 });
             });
         }
@@ -35,6 +47,7 @@ export class DiagramView implements WorkspaceView {
 
     unmount(): ViewState {
         if (this.container) this.container.style.overflow = "";
+        this.controller?.unregisterDiagramCallback(this.name);
         this.sourceEditor?.setOnCellApply(null);
         this.sourceEditor?.clear();
         return {};

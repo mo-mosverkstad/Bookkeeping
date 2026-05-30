@@ -21,6 +21,8 @@ export class AppController {
     private loadedFiles = new Map<string, { text: string; handle: FileHandle | null }>();
     private dirty = new Set<string>();
     private onDirtyChange: (() => void) | null = null;
+    /** Callbacks for diagram undo/redo — keyed by diagram name */
+    private diagramUpdateCallbacks = new Map<string, (source: string) => void>();
 
     setWorkspaceController(wc: WorkspaceController): void { this.workspaceController = wc; }
     setGraphFilterView(view: GraphFilterView): void { this.graphFilterView = view; }
@@ -253,6 +255,25 @@ export class AppController {
         this.history.push({ type: "removeEdge", graphIdx, edgeId, edge });
     }
 
+    // ── Diagram editing ─────────────────────────────────────────────────────
+
+    /** Record a diagram source edit for global undo/redo. */
+    editDiagram(name: string, oldSource: string, newSource: string): void {
+        if (oldSource === newSource) return;
+        this.history.push({ type: "diagramEdit", diagramName: name, oldSource, newSource });
+        this.markDirty(name);
+    }
+
+    /** Register a callback to update a diagram view on undo/redo. */
+    registerDiagramCallback(name: string, cb: (source: string) => void): void {
+        this.diagramUpdateCallbacks.set(name, cb);
+    }
+
+    /** Unregister diagram callback (on unmount). */
+    unregisterDiagramCallback(name: string): void {
+        this.diagramUpdateCallbacks.delete(name);
+    }
+
     // ── Undo / Redo ───────────────────────────────────────────────────────────
 
     private recheckDirtyFile(name: string): void {
@@ -279,6 +300,12 @@ export class AppController {
     undo(): void {
         const action = this.history.undo();
         if (!action) return;
+        if (action.type === "diagramEdit") {
+            const cb = this.diagramUpdateCallbacks.get(action.diagramName);
+            if (cb) cb(action.oldSource);
+            this.recheckDirtyFile(action.diagramName);
+            return;
+        }
         if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows") {
             const table = this.knowledgeBase.tables[action.tableIdx];
             if (!table) return;
@@ -318,6 +345,12 @@ export class AppController {
     redo(): void {
         const action = this.history.redo();
         if (!action) return;
+        if (action.type === "diagramEdit") {
+            const cb = this.diagramUpdateCallbacks.get(action.diagramName);
+            if (cb) cb(action.newSource);
+            this.recheckDirtyFile(action.diagramName);
+            return;
+        }
         if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows") {
             const table = this.knowledgeBase.tables[action.tableIdx];
             if (!table) return;

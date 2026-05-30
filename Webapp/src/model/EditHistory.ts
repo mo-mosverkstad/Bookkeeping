@@ -11,7 +11,8 @@ export type EditAction =
     | { type: "addNode"; graphIdx: number; node: GraphNode }
     | { type: "removeNode"; graphIdx: number; nodeId: string; node: GraphNode }
     | { type: "addEdge"; graphIdx: number; edge: GraphEdge }
-    | { type: "removeEdge"; graphIdx: number; edgeId: string; edge: GraphEdge };
+    | { type: "removeEdge"; graphIdx: number; edgeId: string; edge: GraphEdge }
+    | { type: "diagramEdit"; diagramName: string; oldSource: string; newSource: string };
 
 export class EditHistory {
     private past: EditAction[] = [];
