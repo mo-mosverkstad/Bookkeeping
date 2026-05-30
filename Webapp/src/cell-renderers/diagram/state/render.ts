@@ -1,5 +1,5 @@
 import type { StateDiagramAST } from "./types.ts";
-import { findBackEdges } from "../graph-utils.ts";
+import { findBackEdges, findCycles } from "../graph-utils.ts";
 
 export function renderStateDiagram(ast: StateDiagramAST, W = 800, H = 600): SVGElement {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -17,8 +17,53 @@ export function renderStateDiagram(ast: StateDiagramAST, W = 800, H = 600): SVGE
     marker.appendChild(poly); defs.appendChild(marker); svg.appendChild(defs);
 
     const gapX = 40, gapY = 100;
-    const nodeIds = ast.states.map(s => s.id);
-    const edges = ast.transitions.map(t => ({ from: t.from, to: t.to }));
+
+    // Split [*] into start and end nodes if it appears as both source and target
+    const hasStart = ast.transitions.some(t => t.from === "[*]");
+    const hasEnd = ast.transitions.some(t => t.to === "[*]");
+    const splitStar = hasStart && hasEnd;
+
+    // Build working state/transition lists with split [*]
+    interface WState { id: string; label: string; isStart: boolean; isEnd: boolean }
+    const states: WState[] = [];
+    const transitions: { from: string; to: string; label: string }[] = [];
+
+    for (const s of ast.states) {
+        if (s.id === "[*]" && splitStar) {
+            states.push({ id: "[*]_start", label: "●", isStart: true, isEnd: false });
+            states.push({ id: "[*]_end", label: "●", isStart: false, isEnd: true });
+        } else {
+            states.push({ id: s.id, label: s.label, isStart: s.id === "[*]" && hasStart, isEnd: s.id === "[*]" && hasEnd });
+        }
+    }
+    for (const t of ast.transitions) {
+        let from = t.from, to = t.to;
+        if (splitStar) {
+            if (from === "[*]") from = "[*]_start";
+            if (to === "[*]") to = "[*]_end";
+        }
+        transitions.push({ from, to, label: t.label });
+    }
+
+    const nodeIds = states.map(s => s.id);
+    const edges = transitions.map(t => ({ from: t.from, to: t.to }));
+
+    // Compute sizes early (needed for both ring and layered layout)
+    const sizeMap = new Map<string, { w: number; h: number }>();
+    for (const s of states) {
+        const w = (s.isStart || s.isEnd) ? 20 : Math.max(80, s.label.length * 9 + 20);
+        const h = (s.isStart || s.isEnd) ? 20 : 36;
+        sizeMap.set(s.id, { w, h });
+    }
+
+    // Detect cycles — use ring layout if majority of nodes form a cycle
+    const sccs = findCycles(nodeIds, edges);
+    const mainCycle = sccs.length > 0 ? sccs.reduce((a, b) => a.length >= b.length ? a : b) : [];
+    const cycleSet = new Set(mainCycle);
+
+    if (cycleSet.size >= nodeIds.length * 0.5 && cycleSet.size >= 3) {
+        return renderStateRing(svg, states, transitions, cycleSet, sizeMap, W, H);
+    }
 
     // Layered layout using Sugiyama method
     const backEdges = findBackEdges(nodeIds, edges);
@@ -69,14 +114,6 @@ export function renderStateDiagram(ast: StateDiagramAST, W = 800, H = 600): SVGE
             const bB = pB.length > 0 ? pB.reduce((s, p) => s + prevPos.get(p)!, 0) / pB.length : 0;
             return bA - bB;
         });
-    }
-
-    // Compute sizes and positions
-    const sizeMap = new Map<string, { w: number; h: number }>();
-    for (const s of ast.states) {
-        const w = s.id === "[*]" ? 20 : Math.max(80, s.label.length * 9 + 20);
-        const h = s.id === "[*]" ? 20 : 36;
-        sizeMap.set(s.id, { w, h });
     }
 
     // Assign initial positions
@@ -132,14 +169,14 @@ export function renderStateDiagram(ast: StateDiagramAST, W = 800, H = 600): SVGE
 
     // Compute final positions (center-based for drawing)
     const positions = new Map<string, { x: number; y: number; w: number; h: number }>();
-    for (const s of ast.states) {
+    for (const s of states) {
         const pos = posMap.get(s.id)!;
         const sz = sizeMap.get(s.id)!;
         positions.set(s.id, { x: pos.x + offX + sz.w / 2, y: pos.y + offY + sz.h / 2, w: sz.w, h: sz.h });
     }
 
     // Draw edges with smooth bezier curves, routing back-edges around
-    for (const t of ast.transitions) {
+    for (const t of transitions) {
         const from = positions.get(t.from), to = positions.get(t.to);
         if (!from || !to) continue;
 
@@ -184,14 +221,21 @@ export function renderStateDiagram(ast: StateDiagramAST, W = 800, H = 600): SVGE
     }
 
     // Draw nodes
-    for (const s of ast.states) {
+    for (const s of states) {
         const pos = positions.get(s.id);
         if (!pos) continue;
-        if (s.id === "[*]") {
+        if (s.isStart || s.isEnd) {
             const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
             c.setAttribute("cx", String(pos.x)); c.setAttribute("cy", String(pos.y));
             c.setAttribute("r", "8"); c.setAttribute("fill", "#1e293b");
             svg.appendChild(c);
+            if (s.isEnd) {
+                // Double circle for end state
+                const c2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c2.setAttribute("cx", String(pos.x)); c2.setAttribute("cy", String(pos.y));
+                c2.setAttribute("r", "11"); c2.setAttribute("fill", "none"); c2.setAttribute("stroke", "#1e293b"); c2.setAttribute("stroke-width", "2");
+                svg.appendChild(c2);
+            }
         } else {
             const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             rect.setAttribute("x", String(pos.x - pos.w / 2)); rect.setAttribute("y", String(pos.y - pos.h / 2));
@@ -205,5 +249,109 @@ export function renderStateDiagram(ast: StateDiagramAST, W = 800, H = 600): SVGE
         }
     }
 
+    return svg;
+}
+
+interface WState { id: string; label: string; isStart: boolean; isEnd: boolean }
+
+function renderStateRing(
+    svg: SVGElement,
+    states: WState[],
+    transitions: { from: string; to: string; label: string }[],
+    cycleSet: Set<string>,
+    sizeMap: Map<string, { w: number; h: number }>,
+    W: number, H: number,
+): SVGElement {
+    // Order cycle nodes by walking edges
+    const cycleAdj = new Map<string, string>();
+    for (const t of transitions) {
+        if (cycleSet.has(t.from) && cycleSet.has(t.to)) cycleAdj.set(t.from, t.to);
+    }
+    const cycleNodes: string[] = [];
+    const visited = new Set<string>();
+    let cur = [...cycleSet][0];
+    while (cur && !visited.has(cur)) { cycleNodes.push(cur); visited.add(cur); cur = cycleAdj.get(cur) ?? ""; }
+    for (const id of cycleSet) if (!visited.has(id)) cycleNodes.push(id);
+
+    const totalPerimeter = cycleNodes.reduce((s, id) => s + sizeMap.get(id)!.w + 40, 0);
+    const radius = Math.max(100, totalPerimeter / (2 * Math.PI));
+    const cx = W / 2, cy = H / 2;
+
+    // Compute positions
+    const positions = new Map<string, { x: number; y: number; w: number; h: number }>();
+    cycleNodes.forEach((id, i) => {
+        const angle = -Math.PI / 2 + (2 * Math.PI * i) / cycleNodes.length;
+        const sz = sizeMap.get(id)!;
+        positions.set(id, { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle), w: sz.w, h: sz.h });
+    });
+    // Non-cycle nodes below
+    let offY = cy + radius + 60;
+    for (const s of states) {
+        if (cycleSet.has(s.id)) continue;
+        const sz = sizeMap.get(s.id)!;
+        positions.set(s.id, { x: cx, y: offY, w: sz.w, h: sz.h });
+        offY += sz.h + 40;
+    }
+
+    // Draw edges as arcs
+    for (const t of transitions) {
+        const from = positions.get(t.from), to = positions.get(t.to);
+        if (!from || !to) continue;
+        const dx = to.x - from.x, dy = to.y - from.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        // Control point pushed outward from center for ring edges
+        const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+        const outX = cx + (mx - cx) * 1.3, outY = cy + (my - cy) * 1.3;
+        const d = (cycleSet.has(t.from) && cycleSet.has(t.to))
+            ? `M ${from.x} ${from.y} Q ${outX} ${outY} ${to.x} ${to.y}`
+            : `M ${from.x} ${from.y} C ${from.x} ${(from.y + to.y) / 2}, ${to.x} ${(from.y + to.y) / 2}, ${to.x} ${to.y}`;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", d); path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#475569"); path.setAttribute("stroke-width", "1.5");
+        path.setAttribute("marker-end", "url(#state-arrow)");
+        svg.appendChild(path);
+        if (t.label) {
+            const lx = (from.x + to.x) / 2 + (cycleSet.has(t.from) && cycleSet.has(t.to) ? (outX - mx) * 0.5 : 0);
+            const ly = (from.y + to.y) / 2 + (cycleSet.has(t.from) && cycleSet.has(t.to) ? (outY - my) * 0.5 : 0);
+            const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            const lw = t.label.length * 7 + 8;
+            bg.setAttribute("x", String(lx - lw / 2)); bg.setAttribute("y", String(ly - 10));
+            bg.setAttribute("width", String(lw)); bg.setAttribute("height", "16");
+            bg.setAttribute("fill", "white"); bg.setAttribute("rx", "3");
+            svg.appendChild(bg);
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", String(lx)); text.setAttribute("y", String(ly + 3));
+            text.setAttribute("text-anchor", "middle"); text.setAttribute("font-size", "11"); text.setAttribute("fill", "#64748b");
+            text.textContent = t.label; svg.appendChild(text);
+        }
+    }
+
+    // Draw nodes
+    for (const s of states) {
+        const pos = positions.get(s.id);
+        if (!pos) continue;
+        if (s.isStart || s.isEnd) {
+            const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            c.setAttribute("cx", String(pos.x)); c.setAttribute("cy", String(pos.y));
+            c.setAttribute("r", "8"); c.setAttribute("fill", "#1e293b");
+            svg.appendChild(c);
+            if (s.isEnd) {
+                const c2 = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c2.setAttribute("cx", String(pos.x)); c2.setAttribute("cy", String(pos.y));
+                c2.setAttribute("r", "11"); c2.setAttribute("fill", "none"); c2.setAttribute("stroke", "#1e293b"); c2.setAttribute("stroke-width", "2");
+                svg.appendChild(c2);
+            }
+        } else {
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute("x", String(pos.x - pos.w / 2)); rect.setAttribute("y", String(pos.y - pos.h / 2));
+            rect.setAttribute("width", String(pos.w)); rect.setAttribute("height", String(pos.h));
+            rect.setAttribute("rx", "8"); rect.setAttribute("fill", "#f1f5f9"); rect.setAttribute("stroke", "#475569");
+            svg.appendChild(rect);
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", String(pos.x)); text.setAttribute("y", String(pos.y + 5));
+            text.setAttribute("text-anchor", "middle"); text.textContent = s.label;
+            svg.appendChild(text);
+        }
+    }
     return svg;
 }

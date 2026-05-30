@@ -1,5 +1,5 @@
 import type { FlowchartAST, FlowStatement, FlowNodeDef, FlowEdge } from "./types.ts";
-import { findBackEdges } from "../graph-utils.ts";
+import { findBackEdges, findCycles } from "../graph-utils.ts";
 
 interface LayoutNode { id: string; label: string; shape: string; x: number; y: number; w: number; h: number; }
 interface LayoutEdge { from: string; to: string; label: string; style: string; }
@@ -216,6 +216,17 @@ function layoutNodes(nodes: FlowNodeDef[], edges: FlowEdge[], direction: string,
         sizeMap.set(n.id, { w, h });
     }
 
+    // Detect cycles — if there's a cycle, use ring layout for cycle nodes
+    const sccs = findCycles(nodes.map(n => n.id), edges);
+    const mainCycle = sccs.length > 0 ? sccs.reduce((a, b) => a.length >= b.length ? a : b) : [];
+    const cycleSet = new Set(mainCycle);
+
+    // If most nodes are in a cycle, use ring layout for the whole graph
+    if (cycleSet.size >= nodes.length * 0.5 && cycleSet.size >= 3) {
+        return layoutRing(nodes, edges, cycleSet, sizeMap, W, H);
+    }
+
+    // Otherwise use layered layout (existing Sugiyama approach)
     // 1. Break cycles
     const backEdges = findBackEdges(nodes.map(n => n.id), edges);
     const dagEdges = edges.filter(e => !backEdges.has(`${e.from}->${e.to}`));
@@ -346,6 +357,61 @@ function layoutNodes(nodes: FlowNodeDef[], edges: FlowEdge[], direction: string,
         if (direction === "RL") x = W - x - sz.w;
         if (direction === "BT") y = H - y - sz.h;
         result.push({ id: n.id, label: n.label, shape: n.shape, x, y, w: sz.w, h: sz.h });
+    }
+
+    return result;
+}
+
+function layoutRing(
+    nodes: FlowNodeDef[],
+    edges: FlowEdge[],
+    cycleSet: Set<string>,
+    sizeMap: Map<string, { w: number; h: number }>,
+    W: number,
+    H: number,
+): LayoutNode[] {
+    // Order cycle nodes by walking edges within the cycle
+    const cycleAdj = new Map<string, string>();
+    for (const e of edges) {
+        if (cycleSet.has(e.from) && cycleSet.has(e.to)) cycleAdj.set(e.from, e.to);
+    }
+    const cycleNodes: string[] = [];
+    const visited = new Set<string>();
+    let cur = [...cycleSet][0];
+    while (cur && !visited.has(cur)) {
+        cycleNodes.push(cur);
+        visited.add(cur);
+        cur = cycleAdj.get(cur) ?? "";
+    }
+    for (const id of cycleSet) if (!visited.has(id)) cycleNodes.push(id);
+
+    // Compute ring radius based on total perimeter needed
+    const totalPerimeter = cycleNodes.reduce((s, id) => s + sizeMap.get(id)!.w + 40, 0);
+    const radius = Math.max(100, totalPerimeter / (2 * Math.PI));
+    const cx = W / 2, cy = H / 2;
+
+    const result: LayoutNode[] = [];
+
+    // Place cycle nodes on ring
+    cycleNodes.forEach((id, i) => {
+        const angle = -Math.PI / 2 + (2 * Math.PI * i) / cycleNodes.length;
+        const sz = sizeMap.get(id)!;
+        const node = nodes.find(n => n.id === id)!;
+        result.push({
+            id, label: node.label, shape: node.shape,
+            x: cx + radius * Math.cos(angle) - sz.w / 2,
+            y: cy + radius * Math.sin(angle) - sz.h / 2,
+            w: sz.w, h: sz.h,
+        });
+    });
+
+    // Place non-cycle nodes outside the ring
+    const nonCycle = nodes.filter(n => !cycleSet.has(n.id));
+    let offY = cy + radius + 80;
+    for (const n of nonCycle) {
+        const sz = sizeMap.get(n.id)!;
+        result.push({ id: n.id, label: n.label, shape: n.shape, x: cx - sz.w / 2, y: offY, w: sz.w, h: sz.h });
+        offY += sz.h + 40;
     }
 
     return result;
