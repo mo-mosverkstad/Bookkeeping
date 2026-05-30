@@ -50,6 +50,12 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
     defs.appendChild(marker);
     svg.appendChild(defs);
 
+    // Groups: nodes behind, edges+arrows on top so arrowheads are visible
+    const nodeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const edgeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(nodeGroup);
+    svg.appendChild(edgeGroup);
+
     // Draw edges
     for (const edge of edges) {
         const from = layoutMap.get(edge.from);
@@ -63,13 +69,15 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
 
         let d: string;
         if (bothOnRing) {
+            const startPt = nodeIntersect(tcx, tcy, from);
+            const endPt = nodeIntersect(fcx, fcy, to);
             const mx = (fcx + tcx) / 2, my = (fcy + tcy) / 2;
             const dx = mx - ringCx, dy = my - ringCy;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
             const push = 40;
             const qx = mx + (dx / dist) * push;
             const qy = my + (dy / dist) * push;
-            d = `M ${fcx} ${fcy} Q ${qx} ${qy} ${tcx} ${tcy}`;
+            d = `M ${startPt.x} ${startPt.y} Q ${qx} ${qy} ${endPt.x} ${endPt.y}`;
         } else {
             const isBack = isH
                 ? (ast.direction === "LR" ? tcx <= fcx : tcx >= fcx)
@@ -104,7 +112,7 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
         path.setAttribute("stroke-width", edge.style === "thick" ? "3" : "1.5");
         if (edge.style === "dotted") path.setAttribute("stroke-dasharray", "5,3");
         path.setAttribute("marker-end", "url(#arrowhead)");
-        svg.appendChild(path);
+        edgeGroup.appendChild(path);
 
         if (edge.label) {
             const mx = (from.x + from.w / 2 + to.x + to.w / 2) / 2;
@@ -114,7 +122,7 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
             bg.setAttribute("x", String(mx - lw / 2)); bg.setAttribute("y", String(my - 10));
             bg.setAttribute("width", String(lw)); bg.setAttribute("height", "16");
             bg.setAttribute("fill", "white"); bg.setAttribute("rx", "3");
-            svg.appendChild(bg);
+            edgeGroup.appendChild(bg);
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("x", String(mx));
             text.setAttribute("y", String(my + 3));
@@ -122,7 +130,7 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
             text.setAttribute("fill", "#64748b");
             text.setAttribute("font-size", "11");
             text.textContent = edge.label;
-            svg.appendChild(text);
+            edgeGroup.appendChild(text);
         }
     }
 
@@ -142,7 +150,7 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
         text.textContent = node.label;
         g.appendChild(text);
 
-        svg.appendChild(g);
+        nodeGroup.appendChild(g);
     }
 
     return svg;
@@ -208,6 +216,30 @@ function createShape(node: LayoutNode): SVGElement {
             return rect;
         }
     }
+}
+
+/** Compute intersection of a ray from (px,py) to node center with the node's border. */
+function nodeIntersect(px: number, py: number, node: LayoutNode): { x: number; y: number } {
+    const cx = node.x + node.w / 2, cy = node.y + node.h / 2;
+    const dx = cx - px, dy = cy - py;
+    if (dx === 0 && dy === 0) return { x: cx, y: cy };
+
+    if (node.shape === "circle") {
+        const r = Math.min(node.w, node.h) / 2;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        return { x: cx - (dx / dist) * r, y: cy - (dy / dist) * r };
+    }
+
+    // Rectangle intersection
+    const hw = node.w / 2, hh = node.h / 2;
+    const absDx = Math.abs(dx), absDy = Math.abs(dy);
+    let t: number;
+    if (absDx * hh > absDy * hw) {
+        t = hw / absDx;
+    } else {
+        t = hh / absDy;
+    }
+    return { x: cx - dx * t, y: cy - dy * t };
 }
 
 function layoutNodes(nodes: FlowNodeDef[], edges: FlowEdge[], direction: string, W: number, H: number): LayoutNode[] {
