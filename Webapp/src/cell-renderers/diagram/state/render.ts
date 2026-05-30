@@ -61,7 +61,7 @@ export function renderStateDiagram(ast: StateDiagramAST, W = 800, H = 600): SVGE
     const mainCycle = sccs.length > 0 ? sccs.reduce((a, b) => a.length >= b.length ? a : b) : [];
     const cycleSet = new Set(mainCycle);
 
-    if (cycleSet.size >= nodeIds.length * 0.5 && cycleSet.size >= 3) {
+    if (cycleSet.size >= nodeIds.length * 0.75 && cycleSet.size >= 4) {
         return renderStateRing(svg, states, transitions, cycleSet, sizeMap, W, H);
     }
 

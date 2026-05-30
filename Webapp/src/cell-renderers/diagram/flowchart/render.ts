@@ -84,11 +84,17 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
                 : (ast.direction === "BT" ? tcy >= fcy : tcy <= fcy);
             if (isBack) {
                 if (isH) {
-                    const topY = Math.min(from.y, to.y) - 30;
-                    d = `M ${fcx} ${from.y} C ${fcx} ${topY}, ${tcx} ${topY}, ${tcx} ${to.y}`;
+                    // LR/RL back-edge: route above the graph
+                    const topY = Math.min(from.y, to.y) - 50;
+                    const x1 = fcx, y1 = from.y;
+                    const x2 = tcx, y2 = to.y;
+                    d = `M ${x1} ${y1} C ${x1} ${topY}, ${x2} ${topY}, ${x2} ${y2}`;
                 } else {
-                    const rightX = Math.max(from.x + from.w, to.x + to.w) + 40;
-                    d = `M ${from.x + from.w} ${fcy} C ${rightX} ${fcy}, ${rightX} ${tcy}, ${to.x + to.w} ${tcy}`;
+                    // TD/BT back-edge: route to the right of the graph
+                    const rightX = Math.max(from.x + from.w, to.x + to.w) + 50;
+                    const x1 = from.x + from.w, y1 = fcy;
+                    const x2 = to.x + to.w, y2 = tcy;
+                    d = `M ${x1} ${y1} C ${rightX} ${y1}, ${rightX} ${y2}, ${x2} ${y2}`;
                 }
             } else {
                 if (isH) {
@@ -261,7 +267,7 @@ function layoutNodes(nodes: FlowNodeDef[], edges: FlowEdge[], direction: string,
     const cycleSet = new Set(mainCycle);
 
     // If most nodes are in a cycle, use ring layout for the whole graph
-    if (cycleSet.size >= nodes.length * 0.5 && cycleSet.size >= 3) {
+    if (cycleSet.size >= nodes.length * 0.75 && cycleSet.size >= 4) {
         return layoutRing(nodes, edges, cycleSet, sizeMap, W, H);
     }
 
@@ -323,6 +329,11 @@ function layoutNodes(nodes: FlowNodeDef[], edges: FlowEdge[], direction: string,
     const isHorizontal = direction === "LR" || direction === "RL";
     const posMap = new Map<string, { x: number; y: number }>();
 
+    // Compute layer spacing based on max node size in each layer
+    const layerSpacing = isHorizontal
+        ? Math.max(140, Math.min(200, W / (layers.length + 1)))
+        : nodeH + gapY;
+
     // Initial placement: evenly spaced within each layer
     for (let li = 0; li < layers.length; li++) {
         const layer = layers[li];
@@ -330,9 +341,9 @@ function layoutNodes(nodes: FlowNodeDef[], edges: FlowEdge[], direction: string,
         for (const id of layer) {
             const sz = sizeMap.get(id)!;
             if (isHorizontal) {
-                posMap.set(id, { x: 40 + li * (150 + gapY), y: crossOffset });
+                posMap.set(id, { x: li * layerSpacing, y: crossOffset });
             } else {
-                posMap.set(id, { x: crossOffset, y: 40 + li * (nodeH + gapY) });
+                posMap.set(id, { x: crossOffset, y: li * layerSpacing });
             }
             crossOffset += (isHorizontal ? sz.h : sz.w) + gapX;
         }
