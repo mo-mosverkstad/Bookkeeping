@@ -77,7 +77,7 @@ window.addEventListener("load", async () => {
             statusText.textContent = fileSystem.canSaveInPlace ? "" : "⇣ Download mode";
             statusText.style.color = "";
         }
-        // Mark/clear tabs and nav tree items
+        // Mark/clear tabs and nav tree items for all known file types
         const kb = controller.getKnowledgeBase();
         for (const table of kb.tables) {
             const fileName = table.name + ".csv";
@@ -87,6 +87,27 @@ window.addEventListener("load", async () => {
             } else {
                 workspace.clearTabDirty(table.name);
                 navTreeClearDirty(table.name);
+            }
+        }
+        for (const graph of kb.graphs) {
+            const fileName = graph.sourceFile ?? graph.name;
+            if (dirtyFiles.has(fileName)) {
+                workspace.markTabDirty(graph.name);
+                navTreeMarkDirty(graph.name);
+            } else {
+                workspace.clearTabDirty(graph.name);
+                navTreeClearDirty(graph.name);
+            }
+        }
+        // Diagram tabs: check all registered IDs ending in .diagram
+        for (const id of workspace.getRegisteredIds()) {
+            if (!id.endsWith(".diagram")) continue;
+            if (dirtyFiles.has(id)) {
+                workspace.markTabDirty(id);
+                navTreeMarkDirty(id);
+            } else {
+                workspace.clearTabDirty(id);
+                navTreeClearDirty(id);
             }
         }
     });

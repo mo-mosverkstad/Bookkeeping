@@ -225,7 +225,6 @@ export class AppShell {
         } else {
             this.loadPlainBatch(csvResults, graphResults, docResults);
         }
-        this.registerAllTabs();
     }
 
     private loadFiles(files: File[]): void {

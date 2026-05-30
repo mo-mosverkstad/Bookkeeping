@@ -23,6 +23,10 @@ export class AppController {
     private onDirtyChange: (() => void) | null = null;
     /** Callbacks for diagram undo/redo — keyed by diagram name */
     private diagramUpdateCallbacks = new Map<string, (source: string) => void>();
+    /** Getters for current diagram content — keyed by diagram name */
+    private diagramContentGetters = new Map<string, () => string>();
+    /** Per-file saved content baseline — compared against current to determine dirty */
+    private savedContent = new Map<string, string>();
 
     setWorkspaceController(wc: WorkspaceController): void { this.workspaceController = wc; }
     setGraphFilterView(view: GraphFilterView): void { this.graphFilterView = view; }
@@ -46,24 +50,17 @@ export class AppController {
 
     storeLoadedFile(name: string, text: string, handle: FileHandle | null): void {
         this.loadedFiles.set(name, { text, handle });
+        this.savedContent.set(name, text);
     }
 
     async saveFile(name: string): Promise<void> {
         if (!this.fileSystem) return;
         const entry = this.loadedFiles.get(name);
         if (!entry) return;
-        // Serialize current state
-        const table = this.knowledgeBase.tables.find(t => t.name + ".csv" === name || t.name === name);
-        let content: string;
-        if (table) {
-            content = table.toCSV();
-        } else {
-            const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);
-            if (graph) content = serializeGraph(graph);
-            else content = entry.text;
-        }
+        const content = this.getCurrentContent(name) ?? entry.text;
         const newHandle = await this.fileSystem.save(content, entry.handle, name);
         this.loadedFiles.set(name, { text: content, handle: newHandle });
+        this.savedContent.set(name, content);
         this.dirty.delete(name);
         this.onDirtyChange?.();
     }
@@ -265,35 +262,52 @@ export class AppController {
     }
 
     /** Register a callback to update a diagram view on undo/redo. */
-    registerDiagramCallback(name: string, cb: (source: string) => void): void {
+    registerDiagramCallback(name: string, cb: (source: string) => void, getContent?: () => string): void {
         this.diagramUpdateCallbacks.set(name, cb);
+        if (getContent) this.diagramContentGetters.set(name, getContent);
     }
 
     /** Unregister diagram callback (on unmount). */
     unregisterDiagramCallback(name: string): void {
         this.diagramUpdateCallbacks.delete(name);
+        this.diagramContentGetters.delete(name);
     }
 
     // ── Undo / Redo ───────────────────────────────────────────────────────────
 
     private recheckDirtyFile(name: string): void {
-        const entry = this.loadedFiles.get(name);
-        if (!entry) return;
-        // Compare current content to saved content
-        const table = this.knowledgeBase.tables.find(t => t.name + ".csv" === name || t.name === name);
-        let current: string;
-        if (table) {
-            current = table.toCSV();
-        } else {
-            const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);
-            if (graph) current = serializeGraph(graph);
-            else return;
+        const saved = this.savedContent.get(name);
+        if (saved === undefined) {
+            // No saved baseline — file is dirty if it was ever edited
+            return;
         }
-        if (current === entry.text) {
+        const current = this.getCurrentContent(name);
+        if (current === null) return;
+        if (current === saved) {
             this.dirty.delete(name);
         } else {
             this.dirty.add(name);
         }
+        this.onDirtyChange?.();
+    }
+
+    /** Get the current in-memory content of a file by name. */
+    private getCurrentContent(name: string): string | null {
+        const table = this.knowledgeBase.tables.find(t => t.name + ".csv" === name || t.name === name);
+        if (table) return table.toCSV();
+        const graph = this.knowledgeBase.graphs.find(g => g.sourceFile === name || g.name === name);
+        if (graph) return serializeGraph(graph);
+        // Diagram: get from callback (the DiagramView holds the source)
+        const diagramCb = this.diagramContentGetters.get(name);
+        if (diagramCb) return diagramCb();
+        return null;
+    }
+
+    /** Mark a file as saved at its current content. */
+    markFileSaved(name: string): void {
+        const content = this.getCurrentContent(name);
+        if (content !== null) this.savedContent.set(name, content);
+        this.dirty.delete(name);
         this.onDirtyChange?.();
     }
 

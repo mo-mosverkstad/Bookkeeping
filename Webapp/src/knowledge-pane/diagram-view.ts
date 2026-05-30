@@ -27,11 +27,11 @@ export class DiagramView implements WorkspaceView {
         container.style.overflow = "hidden";
         this.render();
         // Register for undo/redo callbacks
-        this.controller?.registerDiagramCallback(this.name, (src) => {
-            this.source = src;
-            this.render();
-            if (this.sourceEditor) this.sourceEditor.setText(src);
-        });
+        this.controller?.registerDiagramCallback(
+            this.name,
+            (src) => { this.source = src; this.render(); if (this.sourceEditor) this.sourceEditor.setText(src); },
+            () => this.source,
+        );
         if (this.sourceEditor) {
             requestAnimationFrame(() => {
                 this.sourceEditor!.setText(this.source);

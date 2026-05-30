@@ -185,6 +185,7 @@ export class WorkspaceController {
     }
 
     getActiveId(): string | null { return this.activeId; }
+    getRegisteredIds(): string[] { return [...this.registry.keys()]; }
     markTabDirty(id: string): void {
         const entry = this.tabs.get(id);
         if (!entry) return;
