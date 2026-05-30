@@ -6,8 +6,8 @@
       "id": "glycolysis-chart",
       "title": "Glycolysis Pathway",
       "block": {
-        "type": "graph",
-        "file": "glycolysis.graph.json",
+        "type": "graph_flowchart",
+        "file": "glycolysis.diagram",
         "labelStyle": "default"
       }
     },
@@ -23,17 +23,8 @@
       "id": "krebs-chart",
       "title": "Krebs Cycle",
       "block": {
-        "type": "graph",
-        "file": "krebs.graph.json",
-        "labelStyle": "default"
-      }
-    },
-    {
-      "id": "metabolism-overview",
-      "title": "Full Metabolism Overview",
-      "block": {
-        "type": "graph",
-        "file": "metabolism.graph.json",
+        "type": "graph_flowchart",
+        "file": "krebs.diagram",
         "labelStyle": "default"
       }
     }

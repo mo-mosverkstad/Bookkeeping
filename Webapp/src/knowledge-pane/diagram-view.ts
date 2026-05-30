@@ -20,6 +20,7 @@ export class DiagramView implements WorkspaceView {
 
     mount(container: HTMLElement, _data: WorkspaceData, _state?: ViewState): void {
         this.container = container;
+        container.style.overflow = "hidden";
         this.render();
         if (this.sourceEditor) {
             requestAnimationFrame(() => {
@@ -33,6 +34,7 @@ export class DiagramView implements WorkspaceView {
     }
 
     unmount(): ViewState {
+        if (this.container) this.container.style.overflow = "";
         this.sourceEditor?.setOnCellApply(null);
         this.sourceEditor?.clear();
         return {};
@@ -53,6 +55,22 @@ export class DiagramView implements WorkspaceView {
             const W = this.container.clientWidth || 800;
             const H = this.container.clientHeight || 600;
             const svg = result.render(W, H);
+            // Wrap content in a pannable group
+            const content = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            while (svg.firstChild) content.appendChild(svg.firstChild);
+            svg.appendChild(content);
+
+            let panX = 0, panY = 0, zoom = 1;
+            let dragging = false, lastX = 0, lastY = 0;
+            const apply = () => content.setAttribute("transform", `translate(${panX},${panY}) scale(${zoom})`);
+
+            svg.style.cursor = "grab";
+            svg.addEventListener("mousedown", (e) => { e.preventDefault(); dragging = true; lastX = e.clientX; lastY = e.clientY; svg.style.cursor = "grabbing"; });
+            svg.addEventListener("mousemove", (e) => { if (!dragging) return; panX += e.clientX - lastX; panY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; apply(); });
+            svg.addEventListener("mouseup", () => { dragging = false; svg.style.cursor = "grab"; });
+            svg.addEventListener("mouseleave", () => { dragging = false; svg.style.cursor = "grab"; });
+            svg.addEventListener("wheel", (e) => { e.preventDefault(); zoom = Math.max(0.2, Math.min(4, zoom * (e.deltaY < 0 ? 1.1 : 0.9))); apply(); }, { passive: false });
+
             this.container.appendChild(svg);
         } catch (e) {
             const pre = document.createElement("pre");

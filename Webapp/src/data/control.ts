@@ -110,7 +110,14 @@ export interface GraphFileDecl {
     file: string;
 }
 
-export type ControlEntry = TableDecl | FlowDecl | SequenceDecl | GraphFileDecl;
+/** References a standalone .diagram file — text-syntax diagram. */
+export interface DiagramFileDecl {
+    id: string;
+    view: "diagram";
+    file: string;
+}
+
+export type ControlEntry = TableDecl | FlowDecl | SequenceDecl | GraphFileDecl | DiagramFileDecl;
 
 export interface ControlFile {
     version: string;
@@ -190,6 +197,10 @@ function parseEntry(raw: unknown): ControlEntry {
 
     if (view === "graph") {
         return { id, view: "graph", file: String(e["file"] ?? "") };
+    }
+
+    if (view === "diagram") {
+        return { id, view: "diagram", file: String(e["file"] ?? "") };
     }
 
     if (view === "sequence") {

@@ -27,15 +27,25 @@ export function renderERDiagram(ast: ERDiagramAST, W = 800, H = 600): SVGElement
     for (const r of ast.relations) {
         const from = positions.get(r.from), to = positions.get(r.to);
         if (!from || !to) continue;
+        const x1 = from.x + boxW, y1 = from.y + boxH / 2;
+        const x2 = to.x, y2 = to.y + boxH / 2;
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", String(from.x + boxW)); line.setAttribute("y1", String(from.y + boxH / 2));
-        line.setAttribute("x2", String(to.x)); line.setAttribute("y2", String(to.y + boxH / 2));
+        line.setAttribute("x1", String(x1)); line.setAttribute("y1", String(y1));
+        line.setAttribute("x2", String(x2)); line.setAttribute("y2", String(y2));
         line.setAttribute("stroke", "#475569"); svg.appendChild(line);
-        const mx = (from.x + boxW + to.x) / 2, my = (from.y + to.y + boxH) / 2;
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", String(mx)); text.setAttribute("y", String(my - 5));
-        text.setAttribute("text-anchor", "middle"); text.setAttribute("font-size", "11");
-        text.textContent = r.label; svg.appendChild(text);
+        if (r.label) {
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            const lw = r.label.length * 7 + 8;
+            bg.setAttribute("x", String(mx - lw / 2)); bg.setAttribute("y", String(my - 12));
+            bg.setAttribute("width", String(lw)); bg.setAttribute("height", "16");
+            bg.setAttribute("fill", "white"); bg.setAttribute("rx", "3");
+            svg.appendChild(bg);
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", String(mx)); text.setAttribute("y", String(my));
+            text.setAttribute("text-anchor", "middle"); text.setAttribute("font-size", "11");
+            text.textContent = r.label; svg.appendChild(text);
+        }
     }
     return svg;
 }

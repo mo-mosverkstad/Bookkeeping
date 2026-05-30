@@ -67,7 +67,7 @@ export class AppShell {
         this.wireNavTree();
         this.wireFileLoading();
         this.wireSessionBanner();
-        this.elements.fileInput.setAttribute("accept", ".csv,.json,.md,.mmd,.flowchart");
+        this.elements.fileInput.setAttribute("accept", ".csv,.json,.diagram");
     }
 
     // ── Keyboard ──────────────────────────────────────────────────────────────
@@ -216,9 +216,9 @@ export class AppShell {
         const docResults = results.filter(r => isDocJson(r.name));
         const csvResults = results.filter(r => r.name.endsWith(".csv"));
         const graphResults = results.filter(r => isGraphJson(r.name));
-        const diagramResults = results.filter(r => r.name.endsWith(".mmd") || r.name.endsWith(".flowchart") || (r.name.endsWith(".md") && /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie)/m.test(r.text)));
+        const diagramResults = results.filter(r => r.name.endsWith(".diagram"));
         for (const d of diagramResults) {
-            this.diagramSources.set(d.name.replace(/\.[^.]+$/, ""), d.text);
+            this.diagramSources.set(d.name, d.text);
         }
         if (controlResult) {
             this.loadControlBatch(controlResult.text, csvResults, graphResults, docResults);
@@ -254,9 +254,9 @@ export class AppShell {
                 const csvResults    = results.filter(r => r.name.endsWith(".csv"));
                 const graphResults  = results.filter(r => isGraphJson(r.name));
 
-                const diagramResults = results.filter(r => r.name.endsWith(".mmd") || r.name.endsWith(".flowchart") || (r.name.endsWith(".md") && /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie)/m.test(r.text)));
+                const diagramResults = results.filter(r => r.name.endsWith(".diagram"));
                 for (const d of diagramResults) {
-                    this.diagramSources.set(d.name.replace(/\.[^.]+$/, ""), d.text);
+                    this.diagramSources.set(d.name, d.text);
                 }
 
                 if (controlResult) {
@@ -307,7 +307,7 @@ export class AppShell {
         );
 
         for (const { name, text } of docResults) {
-            const doc = parseDocJSON(name, JSON.parse(text) as unknown, tableMap, graphMap);
+            const doc = parseDocJSON(name, JSON.parse(text) as unknown, tableMap, graphMap, this.diagramSources);
             this.controller.loadDocument(doc);
         }
     }
@@ -331,6 +331,12 @@ export class AppShell {
                 const file = (entry as { file: string }).file;
                 const r = csvResults.find(r => r.name === file);
                 if (r) this.controller.loadCSV(file, r.text);
+            } else if (entry.view === "diagram") {
+                // Register diagram source from diagramSources map (loaded earlier)
+                const file = (entry as { file: string }).file;
+                if (!this.diagramSources.has(file)) {
+                    console.warn(`control.json: diagram file "${file}" not loaded`);
+                }
             }
         }
         this.controller.resolveAllDiagrams(controlFile, csvMap, graphMap);
@@ -375,14 +381,15 @@ export class AppShell {
         }
 
         // Register diagram files
-        for (const [name, entry] of this.diagramSources) {
+        for (const [name, source] of this.diagramSources) {
             this.workspace.registerView(
                 name,
-                () => new DiagramView(name, entry, this.sourceEditor),
+                () => new DiagramView(name, source, this.sourceEditor),
                 {},
             );
         }
 
+        this.navTree.diagramNames = [...this.diagramSources.keys()];
         this.workspace.openFirst();
         this.navTree.refresh();
     }

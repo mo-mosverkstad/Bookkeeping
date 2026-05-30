@@ -27,6 +27,12 @@ interface RawGraphBlock {
     labelStyle?: "default" | "numbered";
 }
 
+interface RawDiagramBlock {
+    type: `graph_${string}`;
+    file: string;
+    labelStyle?: "default" | "numbered";
+}
+
 interface RawReferenceMapping {
     chartSection: string;
     nodeIdColumn: string;
@@ -36,7 +42,7 @@ interface RawReferenceMapping {
 interface RawSection {
     id: string;
     title?: string;
-    block: RawTableBlock | RawGraphBlock;
+    block: RawTableBlock | RawGraphBlock | RawDiagramBlock;
     referenceMapping?: RawReferenceMapping;
 }
 
@@ -51,10 +57,11 @@ interface RawDocument {
 /**
  * Parse a .doc.json file into a Document model object.
  *
- * @param fileName  The name of the .doc.json file (used as fallback document name).
- * @param json      The parsed JSON object from the file.
- * @param tableMap  Map from filename → Table (already loaded).
- * @param graphMap  Map from filename → Graph (already loaded).
+ * @param fileName     The name of the .doc.json file (used as fallback document name).
+ * @param json         The parsed JSON object from the file.
+ * @param tableMap     Map from filename → Table (already loaded).
+ * @param graphMap     Map from filename → Graph (already loaded).
+ * @param diagramMap   Map from filename → source text (already loaded .diagram files).
  *
  * Sections whose referenced file is not found in the maps are skipped with
  * a console warning rather than throwing — this allows partial loading when
@@ -65,6 +72,7 @@ export function parseDocJSON(
     json: unknown,
     tableMap: Map<string, Table>,
     graphMap: Map<string, Graph>,
+    diagramMap: Map<string, string> = new Map(),
 ): Document {
     if (typeof json !== "object" || json === null)
         throw new Error(`${fileName}: .doc.json must be a JSON object`);
@@ -101,8 +109,23 @@ export function parseDocJSON(
                 graph,
                 labelStyle: rs.block.labelStyle ?? "default",
             };
+        } else if (rs.block.type.startsWith("graph_")) {
+            // Diagram block: graph_flowchart, graph_sequence, graph_class, etc.
+            const diagramType = rs.block.type.slice(6); // strip "graph_"
+            const source = diagramMap.get(rs.block.file);
+            if (!source) {
+                console.warn(`${fileName}: diagram file "${rs.block.file}" not loaded, skipping section "${rs.id}"`);
+                continue;
+            }
+            block = {
+                kind: "diagram",
+                file: rs.block.file,
+                source,
+                diagramType,
+                labelStyle: (rs.block as RawDiagramBlock).labelStyle ?? "default",
+            };
         } else {
-            console.warn(`${fileName}: unknown block type in section "${rs.id}", skipping`);
+            console.warn(`${fileName}: unknown block type "${rs.block.type}" in section "${rs.id}", skipping`);
             continue;
         }
 

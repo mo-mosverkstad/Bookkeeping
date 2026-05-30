@@ -29,7 +29,20 @@ export interface GraphBlock {
     readonly labelStyle?: "default" | "numbered";
 }
 
-export type Block = TableBlock | GraphBlock;
+/**
+ * DiagramBlock — a text-syntax diagram (.diagram file) rendered directly
+ * from its source. The diagramType is detected from the first keyword
+ * (flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie).
+ */
+export interface DiagramBlock {
+    readonly kind: "diagram";
+    readonly file: string;
+    readonly source: string;
+    readonly diagramType: string;
+    readonly labelStyle?: "default" | "numbered";
+}
+
+export type Block = TableBlock | GraphBlock | DiagramBlock;
 
 // ── Reference mapping ─────────────────────────────────────────────────────────
 
@@ -89,6 +102,6 @@ export class Document {
     }
 
     getGraphSections(): Section[] {
-        return this.sections.filter(s => s.block.kind === "graph");
+        return this.sections.filter(s => s.block.kind === "graph" || s.block.kind === "diagram");
     }
 }

@@ -14,7 +14,10 @@ Read these files to reconstruct full context:
 - **Phase 18 (Diagram Grammars)** — IN PROGRESS
   - 7 diagram types implemented: flowchart, sequence, class, state, ER, gantt, pie
   - All parse and render to SVG
-  - Standalone .md files loadable as diagram tabs
+  - **NEW: `.diagram` file extension** replaces `.md` and `.graph.json`
+  - **NEW: `.doc.json` integration** via `graph_flowchart`, `graph_sequence`, etc. block types
+  - **NEW: `control.json` integration** via `"view": "diagram"` entries
+  - Diagrams save their own Mermaid-compatible text syntax directly (not JSON)
   - Source editor bidirectional sync works
   - TODO: labeled edges in flowchart (`-->|text|`), class diagram members merging,
     subgraphs, more Mermaid syntax coverage
@@ -24,15 +27,48 @@ Read these files to reconstruct full context:
 
 ## Key Architecture Decisions Made Today
 
-1. **All cells are "rich"** — no type selector, universal `$type{content}` embedding
-2. **$type{content} syntax** with balanced braces (not backticks — backticks conflict with math grammar's left/right-skew identifiers)
-3. **Diagrams are standalone files** (.md/.mmd) — not embedded in tables
-4. **Graphs save as text syntax** (not JSON) via `serializeGraph()`
-5. **Per-file dirty tracking** — content comparison, not global history position
-6. **File System Access API** — `showOpenFilePicker` for handles, fallback to `<input type="file">`
-7. **Source editor always "rich" mode** — no type dropdown
-8. **Apply keeps cell active** — `editCell(silent=true)` avoids re-render
-9. **cancelActive = auto-apply** — leaving a cell commits changes
+1. **Diagrams use `.diagram` file extension** — NOT `.md` (they are not markdown)
+2. **Diagrams save their own text syntax** — NOT converted to `.graph.json`
+3. **`.graph.json` is removed** — replaced by `.diagram` files with Mermaid-compatible syntax
+4. **`.doc.json` block types are per-diagram-kind** — `graph_flowchart`, `graph_sequence`,
+   `graph_class`, `graph_state`, `graph_er`, `graph_gantt`, `graph_pie`
+5. **`control.json` uses `"view": "diagram"`** with `"file": "name.diagram"`
+6. **`DiagramView` is the sole view for diagram files** — renders directly from text source
+7. **`DiagramBlock` added to Document model** — `{ kind: "diagram", file, source, diagramType }`
+8. **`Graph` model + `FlowDiagramView` remain** for CSV-based graph entries in control.json
+   (flow/spatial/relation/sequence from CSV nodes+edges), but are no longer the file format
+
+## File Format Examples
+
+### .diagram file (raw text, Mermaid-compatible syntax):
+```
+flowchart TD
+    A[Start] --> B{Decision}
+    B --> C[OK]
+    B --> D[Fail]
+```
+
+### .doc.json section referencing a diagram:
+```json
+{
+  "id": "login-flow",
+  "title": "Login Flow",
+  "block": {
+    "type": "graph_flowchart",
+    "file": "login-flow.diagram",
+    "labelStyle": "default"
+  }
+}
+```
+
+### control.json entry for a diagram:
+```json
+{
+  "id": "glycolysis-map",
+  "view": "diagram",
+  "file": "glycolysis.diagram"
+}
+```
 
 ## Test Status
 
@@ -45,3 +81,5 @@ Read these files to reconstruct full context:
 - No `$diagram{...}` embedding in rich cells yet (diagrams are standalone only)
 - Sidebar resize was attempted but reverted (CSS issues)
 - Some Biology test resource files lost introductory text during Phase 16 rectification
+- `Graph` model + `FlowDiagramView` still exist for CSV-based control.json entries
+  (flow/spatial/relation/sequence from CSV nodes+edges) — may be removed in future

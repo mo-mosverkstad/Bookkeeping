@@ -415,6 +415,7 @@ export class AppController {
     ): void {
         for (const entry of controlFile.entries) {
             if (entry.view === "table") continue;
+            if (entry.view === "diagram") continue;
 
             // Native .graph.json reference
             if (entry.view === "graph") {

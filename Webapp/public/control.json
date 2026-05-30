@@ -13,8 +13,8 @@
     },
     {
       "id": "glycolysis-map",
-      "view": "graph",
-      "file": "glycolysis.graph.json"
+      "view": "diagram",
+      "file": "glycolysis.diagram"
     },
     {
       "id": "krebs-table",
@@ -23,13 +23,8 @@
     },
     {
       "id": "krebs-map",
-      "view": "graph",
-      "file": "krebs.graph.json"
-    },
-    {
-      "id": "metabolism-map",
-      "view": "graph",
-      "file": "metabolism.graph.json"
+      "view": "diagram",
+      "file": "krebs.diagram"
     }
   ]
 }

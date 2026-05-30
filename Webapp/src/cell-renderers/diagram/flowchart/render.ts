@@ -1,4 +1,5 @@
 import type { FlowchartAST, FlowStatement, FlowNodeDef, FlowEdge } from "./types.ts";
+import { findBackEdges } from "../graph-utils.ts";
 
 interface LayoutNode { id: string; label: string; shape: string; x: number; y: number; w: number; h: number; }
 interface LayoutEdge { from: string; to: string; label: string; style: string; }
@@ -36,28 +37,80 @@ export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): S
     svg.appendChild(defs);
 
     // Draw edges
+    // Draw edges — Mermaid-style smooth curves with back-edge routing
     for (const edge of edges) {
         const from = layoutMap.get(edge.from);
         const to = layoutMap.get(edge.to);
         if (!from || !to) continue;
 
-        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        line.setAttribute("x1", String(from.x + from.w / 2));
-        line.setAttribute("y1", String(from.y + from.h / 2));
-        line.setAttribute("x2", String(to.x + to.w / 2));
-        line.setAttribute("y2", String(to.y + to.h / 2));
-        line.setAttribute("stroke", "#475569");
-        line.setAttribute("stroke-width", edge.style === "thick" ? "3" : "1.5");
-        if (edge.style === "dotted") line.setAttribute("stroke-dasharray", "5,3");
-        line.setAttribute("marker-end", "url(#arrowhead)");
-        svg.appendChild(line);
+        const isH = ast.direction === "LR" || ast.direction === "RL";
+        const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2;
+        const tcx = to.x + to.w / 2, tcy = to.y + to.h / 2;
+
+        // Detect if this is a back-edge (target is at same or earlier layer)
+        const isBack = isH
+            ? (ast.direction === "LR" ? tcx <= fcx : tcx >= fcx)
+            : (ast.direction === "BT" ? tcy >= fcy : tcy <= fcy);
+
+        let d: string;
+        if (isBack) {
+            // Route back-edges around the outside of the graph
+            if (isH) {
+                const offset = 30;
+                const topY = Math.min(from.y, to.y) - offset;
+                const x1 = fcx, y1 = from.y;
+                const x2 = tcx, y2 = to.y;
+                d = `M ${x1} ${y1} C ${x1} ${topY}, ${x2} ${topY}, ${x2} ${y2}`;
+            } else {
+                const offset = 40;
+                const rightX = Math.max(from.x + from.w, to.x + to.w) + offset;
+                const x1 = from.x + from.w, y1 = fcy;
+                const x2 = to.x + to.w, y2 = tcy;
+                d = `M ${x1} ${y1} C ${rightX} ${y1}, ${rightX} ${y2}, ${x2} ${y2}`;
+            }
+        } else {
+            // Normal forward edge
+            let x1: number, y1: number, x2: number, y2: number;
+            if (isH) {
+                if (ast.direction === "RL") {
+                    x1 = from.x; y1 = fcy; x2 = to.x + to.w; y2 = tcy;
+                } else {
+                    x1 = from.x + from.w; y1 = fcy; x2 = to.x; y2 = tcy;
+                }
+                const mx = (x1 + x2) / 2;
+                d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+            } else {
+                if (ast.direction === "BT") {
+                    x1 = fcx; y1 = from.y; x2 = tcx; y2 = to.y + to.h;
+                } else {
+                    x1 = fcx; y1 = from.y + from.h; x2 = tcx; y2 = to.y;
+                }
+                const my = (y1 + y2) / 2;
+                d = `M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
+            }
+        }
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", d);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#475569");
+        path.setAttribute("stroke-width", edge.style === "thick" ? "3" : "1.5");
+        if (edge.style === "dotted") path.setAttribute("stroke-dasharray", "5,3");
+        path.setAttribute("marker-end", "url(#arrowhead)");
+        svg.appendChild(path);
 
         if (edge.label) {
             const mx = (from.x + from.w / 2 + to.x + to.w / 2) / 2;
             const my = (from.y + from.h / 2 + to.y + to.h / 2) / 2;
+            const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            const lw = edge.label.length * 7 + 8;
+            bg.setAttribute("x", String(mx - lw / 2)); bg.setAttribute("y", String(my - 10));
+            bg.setAttribute("width", String(lw)); bg.setAttribute("height", "16");
+            bg.setAttribute("fill", "white"); bg.setAttribute("rx", "3");
+            svg.appendChild(bg);
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("x", String(mx));
-            text.setAttribute("y", String(my - 5));
+            text.setAttribute("y", String(my + 3));
             text.setAttribute("text-anchor", "middle");
             text.setAttribute("fill", "#64748b");
             text.setAttribute("font-size", "11");
@@ -153,67 +206,172 @@ function createShape(node: LayoutNode): SVGElement {
 function layoutNodes(nodes: FlowNodeDef[], edges: FlowEdge[], direction: string, W: number, H: number): LayoutNode[] {
     if (nodes.length === 0) return [];
 
-    const nodeW = 120, nodeH = 40, gapX = 60, gapY = 60;
+    const nodeH = 40, gapX = 40, gapY = 70;
 
-    // Build adjacency for topological sort
-    const adj = new Map<string, string[]>();
+    // Pre-compute node sizes
+    const sizeMap = new Map<string, { w: number; h: number }>();
+    for (const n of nodes) {
+        const w = Math.max(100, n.label.length * 9 + 30);
+        const h = n.shape === "diamond" ? 60 : nodeH;
+        sizeMap.set(n.id, { w, h });
+    }
+
+    // 1. Break cycles
+    const backEdges = findBackEdges(nodes.map(n => n.id), edges);
+    const dagEdges = edges.filter(e => !backEdges.has(`${e.from}->${e.to}`));
+
+    // 2. Assign ranks (longest path from sources)
+    const dagAdj = new Map<string, string[]>();
+    const dagIn = new Map<string, string[]>();
     const inDeg = new Map<string, number>();
-    for (const n of nodes) { adj.set(n.id, []); inDeg.set(n.id, 0); }
-    for (const e of edges) {
-        adj.get(e.from)?.push(e.to);
+    for (const n of nodes) { dagAdj.set(n.id, []); dagIn.set(n.id, []); inDeg.set(n.id, 0); }
+    for (const e of dagEdges) {
+        dagAdj.get(e.from)?.push(e.to);
+        dagIn.get(e.to)?.push(e.from);
         inDeg.set(e.to, (inDeg.get(e.to) ?? 0) + 1);
     }
 
-    // Topological layers (BFS)
-    const layers: string[][] = [];
-    const queue = nodes.filter(n => (inDeg.get(n.id) ?? 0) === 0).map(n => n.id);
-    const visited = new Set<string>();
-
-    while (queue.length > 0) {
-        const layer = [...queue];
-        layers.push(layer);
-        queue.length = 0;
-        for (const id of layer) {
-            visited.add(id);
-            for (const next of adj.get(id) ?? []) {
-                inDeg.set(next, (inDeg.get(next) ?? 0) - 1);
-                if ((inDeg.get(next) ?? 0) <= 0 && !visited.has(next)) {
-                    queue.push(next);
-                    visited.add(next);
-                }
-            }
+    const rank = new Map<string, number>();
+    const queue: string[] = [];
+    for (const n of nodes) if ((inDeg.get(n.id) ?? 0) === 0) { queue.push(n.id); rank.set(n.id, 0); }
+    let head = 0;
+    while (head < queue.length) {
+        const id = queue[head++];
+        const r = rank.get(id)!;
+        for (const next of dagAdj.get(id) ?? []) {
+            if ((rank.get(next) ?? -1) < r + 1) rank.set(next, r + 1);
+            inDeg.set(next, (inDeg.get(next) ?? 0) - 1);
+            if ((inDeg.get(next) ?? 0) <= 0 && !queue.includes(next)) queue.push(next);
         }
     }
-    // Add any unvisited nodes (cycles)
+    for (const n of nodes) if (!rank.has(n.id)) rank.set(n.id, 0);
+
+    // 3. Group into layers
+    const layerMap = new Map<number, string[]>();
     for (const n of nodes) {
-        if (!visited.has(n.id)) layers.push([n.id]);
+        const r = rank.get(n.id)!;
+        if (!layerMap.has(r)) layerMap.set(r, []);
+        layerMap.get(r)!.push(n.id);
+    }
+    const sortedRanks = [...layerMap.keys()].sort((a, b) => a - b);
+    const layers = sortedRanks.map(r => layerMap.get(r)!);
+
+    // 4. Reduce crossings: order nodes in each layer by barycenter of parents
+    for (let i = 1; i < layers.length; i++) {
+        const prevLayer = layers[i - 1];
+        const prevPos = new Map(prevLayer.map((id, idx) => [id, idx]));
+        layers[i].sort((a, b) => {
+            const parentsA = (dagIn.get(a) ?? []).filter(p => prevPos.has(p));
+            const parentsB = (dagIn.get(b) ?? []).filter(p => prevPos.has(p));
+            const baryA = parentsA.length > 0 ? parentsA.reduce((s, p) => s + prevPos.get(p)!, 0) / parentsA.length : 0;
+            const baryB = parentsB.length > 0 ? parentsB.reduce((s, p) => s + prevPos.get(p)!, 0) / parentsB.length : 0;
+            return baryA - baryB;
+        });
     }
 
+    // 5. Assign coordinates — position nodes to minimize edge lengths
     const isHorizontal = direction === "LR" || direction === "RL";
-    const result: LayoutNode[] = [];
+    const posMap = new Map<string, { x: number; y: number }>();
 
+    // Initial placement: evenly spaced within each layer
     for (let li = 0; li < layers.length; li++) {
         const layer = layers[li];
-        for (let ni = 0; ni < layer.length; ni++) {
-            const id = layer[ni];
-            const node = nodes.find(n => n.id === id)!;
-            const w = Math.max(nodeW, node.label.length * 9 + 20);
-            const h = node.shape === "diamond" ? 60 : nodeH;
-
-            let x: number, y: number;
+        let crossOffset = 0;
+        for (const id of layer) {
+            const sz = sizeMap.get(id)!;
             if (isHorizontal) {
-                x = 40 + li * (nodeW + gapX);
-                y = (H - layer.length * (nodeH + gapY) + gapY) / 2 + ni * (nodeH + gapY);
+                posMap.set(id, { x: 40 + li * (150 + gapY), y: crossOffset });
             } else {
-                x = (W - layer.length * (w + gapX) + gapX) / 2 + ni * (w + gapX);
-                y = 40 + li * (nodeH + gapY);
+                posMap.set(id, { x: crossOffset, y: 40 + li * (nodeH + gapY) });
             }
-            if (direction === "RL") x = W - x - w;
-            if (direction === "BT") y = H - y - h;
-
-            result.push({ id, label: node.label, shape: node.shape, x, y, w, h });
+            crossOffset += (isHorizontal ? sz.h : sz.w) + gapX;
         }
+    }
+
+    // Iterative position refinement (like dagre's coordinate assignment)
+    // Multiple passes: down then up, each time moving nodes toward the median of their neighbors
+    for (let iter = 0; iter < 4; iter++) {
+        // Down pass: position each node at median of its parents
+        for (let li = 1; li < layers.length; li++) {
+            for (const id of layers[li]) {
+                const parents = (dagIn.get(id) ?? []).filter(p => posMap.has(p));
+                if (parents.length === 0) continue;
+                const parentCenters = parents.map(p => {
+                    const pp = posMap.get(p)!; const ps = sizeMap.get(p)!;
+                    return isHorizontal ? pp.y + ps.h / 2 : pp.x + ps.w / 2;
+                }).sort((a, b) => a - b);
+                const median = parentCenters[Math.floor(parentCenters.length / 2)];
+                const sz = sizeMap.get(id)!;
+                const pos = posMap.get(id)!;
+                if (isHorizontal) pos.y = median - sz.h / 2;
+                else pos.x = median - sz.w / 2;
+            }
+            resolveOverlaps(layers[li], posMap, sizeMap, gapX, isHorizontal);
+        }
+
+        // Up pass: position each node at median of its children
+        for (let li = layers.length - 2; li >= 0; li--) {
+            for (const id of layers[li]) {
+                const children = (dagAdj.get(id) ?? []).filter(c => posMap.has(c));
+                if (children.length === 0) continue;
+                const childCenters = children.map(c => {
+                    const cp = posMap.get(c)!; const cs = sizeMap.get(c)!;
+                    return isHorizontal ? cp.y + cs.h / 2 : cp.x + cs.w / 2;
+                }).sort((a, b) => a - b);
+                const median = childCenters[Math.floor(childCenters.length / 2)];
+                const sz = sizeMap.get(id)!;
+                const pos = posMap.get(id)!;
+                if (isHorizontal) pos.y = median - sz.h / 2;
+                else pos.x = median - sz.w / 2;
+            }
+            resolveOverlaps(layers[li], posMap, sizeMap, gapX, isHorizontal);
+        }
+    }
+
+    // Center the whole diagram in the viewport
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [id, pos] of posMap) {
+        const sz = sizeMap.get(id)!;
+        minX = Math.min(minX, pos.x); minY = Math.min(minY, pos.y);
+        maxX = Math.max(maxX, pos.x + sz.w); maxY = Math.max(maxY, pos.y + sz.h);
+    }
+    const offsetX = (W - (maxX - minX)) / 2 - minX;
+    const offsetY = (H - (maxY - minY)) / 2 - minY;
+
+    const result: LayoutNode[] = [];
+    for (const n of nodes) {
+        const pos = posMap.get(n.id)!;
+        const sz = sizeMap.get(n.id)!;
+        let x = pos.x + offsetX, y = pos.y + offsetY;
+        if (direction === "RL") x = W - x - sz.w;
+        if (direction === "BT") y = H - y - sz.h;
+        result.push({ id: n.id, label: n.label, shape: n.shape, x, y, w: sz.w, h: sz.h });
     }
 
     return result;
+}
+
+function resolveOverlaps(
+    layer: string[],
+    posMap: Map<string, { x: number; y: number }>,
+    sizeMap: Map<string, { w: number; h: number }>,
+    gap: number,
+    isHorizontal: boolean,
+): void {
+    const sorted = [...layer].sort((a, b) => {
+        const pa = posMap.get(a)!, pb = posMap.get(b)!;
+        return isHorizontal ? pa.y - pb.y : pa.x - pb.x;
+    });
+    for (let i = 1; i < sorted.length; i++) {
+        const prev = sorted[i - 1], curr = sorted[i];
+        const pPrev = posMap.get(prev)!, pCurr = posMap.get(curr)!;
+        const szPrev = sizeMap.get(prev)!;
+        if (isHorizontal) {
+            const minY = pPrev.y + szPrev.h + gap;
+            if (pCurr.y < minY) pCurr.y = minY;
+        } else {
+            const minX = pPrev.x + szPrev.w + gap;
+            if (pCurr.x < minX) pCurr.x = minX;
+        }
+    }
 }

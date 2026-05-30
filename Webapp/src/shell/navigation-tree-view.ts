@@ -14,13 +14,15 @@
 
 import type { AppController } from "../controller/index.ts";
 import type { WorkspaceController } from "../knowledge-pane/workspace-controller.ts";
-import type { Document, TableBlock, GraphBlock } from "../model/Document.ts";
+import type { Document, TableBlock, GraphBlock, DiagramBlock } from "../model/Document.ts";
 
 export class NavigationTreeView {
     private readonly container: HTMLElement;
     private readonly controller: AppController;
     private workspace: WorkspaceController | null = null;
     private collapsed = new Set<string>();
+    /** Standalone diagram file names (set by AppShell before refresh). */
+    diagramNames: string[] = [];
 
     constructor(container: HTMLElement, controller: AppController) {
         this.container = container;
@@ -48,9 +50,10 @@ export class NavigationTreeView {
             !docGraphFiles.has(g.sourceFile ?? g.name)
         );
         const standaloneTables = kb.tables.filter(t => !docTableNames.has(t.name));
+        const standaloneDiagrams = this.diagramNames.filter(n => !docGraphFiles.has(n));
 
-        if (standaloneGraphs.length > 0 || standaloneTables.length > 0) {
-            this.renderStandaloneGroup(standaloneGraphs, standaloneTables);
+        if (standaloneGraphs.length > 0 || standaloneTables.length > 0 || standaloneDiagrams.length > 0) {
+            this.renderStandaloneGroup(standaloneGraphs, standaloneTables, standaloneDiagrams);
         }
 
         if (this.container.children.length === 0) {
@@ -88,22 +91,32 @@ export class NavigationTreeView {
 
         for (const section of doc.sections) {
             const kind = section.block.kind;
-            const name = kind === "table"
-                ? (section.block as TableBlock).table.name
-                : (section.block as GraphBlock).graph.name;
-            const item = this.makeLeaf(
-                kind === "graph" ? "◈" : "▤",
-                section.title,
-                () => { this.workspace?.openTab(name); },
-            );
-            childrenEl.appendChild(item);
+            let tabName: string;
+            let icon: string;
 
             if (kind === "table") {
-                docTableNames.add((section.block as TableBlock).table.name);
+                tabName = (section.block as TableBlock).table.name;
+                icon = "▤";
+                docTableNames.add(tabName);
+            } else if (kind === "graph") {
+                const gb = section.block as GraphBlock;
+                tabName = gb.graph.name;
+                icon = "◈";
+                docGraphFiles.add(gb.graph.sourceFile ?? gb.graph.name);
             } else {
-                const sf = (section.block as GraphBlock).graph.sourceFile;
-                docGraphFiles.add(sf ?? (section.block as GraphBlock).graph.name);
+                // diagram block
+                const db = section.block as DiagramBlock;
+                tabName = db.file;
+                icon = "◈";
+                docGraphFiles.add(db.file);
             }
+
+            const item = this.makeLeaf(
+                icon,
+                section.title,
+                () => { this.workspace?.openTab(tabName); },
+            );
+            childrenEl.appendChild(item);
         }
 
         folderEl.appendChild(childrenEl);
@@ -115,6 +128,7 @@ export class NavigationTreeView {
     private renderStandaloneGroup(
         graphs: import("../model/Graph.ts").Graph[],
         tables: import("../model/Table.ts").Table[],
+        diagrams: string[] = [],
     ): void {
         const key = "standalone";
         const isCollapsed = this.collapsed.has(key);
@@ -137,6 +151,11 @@ export class NavigationTreeView {
         for (const graph of graphs) {
             childrenEl.appendChild(this.makeLeaf("◈", graph.name, () => {
                 this.workspace?.openTab(graph.name);
+            }));
+        }
+        for (const name of diagrams) {
+            childrenEl.appendChild(this.makeLeaf("◈", name, () => {
+                this.workspace?.openTab(name);
             }));
         }
         for (const table of tables) {

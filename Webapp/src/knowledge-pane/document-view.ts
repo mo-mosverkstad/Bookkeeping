@@ -14,6 +14,7 @@ import type { AppController } from "../controller/index.ts";
 import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
 import { TableView } from "./table-view.ts";
 import { FlowDiagramView } from "./flow-diagram-view.ts";
+import { DiagramView } from "./diagram-view.ts";
 import type { Document, Section } from "../model/Document.ts";
 
 interface DocumentState {
@@ -25,7 +26,7 @@ interface MountedSection {
     section: Section;
     headerEl: HTMLElement;
     bodyEl: HTMLElement;
-    view: TableView | FlowDiagramView;
+    view: TableView | FlowDiagramView | DiagramView;
 }
 
 export class DocumentView implements WorkspaceView {
@@ -138,7 +139,7 @@ export class DocumentView implements WorkspaceView {
         childContainer.className = "document-section-content";
         body.appendChild(childContainer);
 
-        let view: TableView | FlowDiagramView;
+        let view: TableView | FlowDiagramView | DiagramView;
 
         if (section.block.kind === "table") {
             const tv = new TableView(childContainer);
@@ -148,6 +149,10 @@ export class DocumentView implements WorkspaceView {
             if (this.sourceEditor) tv.setSourceEditor(this.sourceEditor);
             tv.mount(childContainer, { table: section.block.table });
             view = tv;
+        } else if (section.block.kind === "diagram") {
+            const dv = new DiagramView(section.id, section.block.source, this.sourceEditor ?? undefined);
+            dv.mount(childContainer, {});
+            view = dv;
         } else {
             const graph = section.block.graph;
             const fv = new FlowDiagramView(graph.viewType, this.controller);
