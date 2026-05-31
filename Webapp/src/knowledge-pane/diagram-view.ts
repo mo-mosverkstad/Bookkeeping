@@ -14,6 +14,10 @@ export class DiagramView implements WorkspaceView {
     private sourceEditor: SourceEditorView | null = null;
     private controller: AppController | null = null;
     private name: string;
+    private panX = 0;
+    private panY = 0;
+    private zoom = 1;
+    private contentGroup: SVGGElement | null = null;
 
     constructor(name: string, source: string, sourceEditor?: SourceEditorView, controller?: AppController) {
         this.name = name;
@@ -50,6 +54,7 @@ export class DiagramView implements WorkspaceView {
         this.controller?.unregisterDiagramCallback(this.name);
         this.sourceEditor?.setOnCellApply(null);
         this.sourceEditor?.clear();
+        this.contentGroup = null;
         return {};
     }
 
@@ -60,31 +65,70 @@ export class DiagramView implements WorkspaceView {
     getToolbarActions(): ToolbarAction[] { return []; }
     onToolbarAction(_id: string): void {}
 
+    private doZoom(id: string): void {
+        if (id === "zoom-in") {
+            this.zoom = Math.min(4, this.zoom * 1.25);
+        } else if (id === "zoom-out") {
+            this.zoom = Math.max(0.25, this.zoom * 0.8);
+        } else if (id === "zoom-reset") {
+            this.zoom = 1; this.panX = 0; this.panY = 0;
+        }
+        this.applyTransform();
+    }
+
+    private applyTransform(): void {
+        if (this.contentGroup) {
+            this.contentGroup.setAttribute("transform", `translate(${this.panX},${this.panY}) scale(${this.zoom})`);
+        }
+    }
+
     private render(): void {
         if (!this.container) return;
         this.container.innerHTML = "";
+        this.container.style.overflow = "hidden";
+        this.container.style.position = "relative";
+        this.container.style.width = "100%";
+        this.container.style.height = "100%";
+        this.contentGroup = null;
         try {
             const result = parseDiagram(this.source);
             const W = this.container.clientWidth || 800;
             const H = this.container.clientHeight || 600;
             const svg = result.render(W, H);
-            // Wrap content in a pannable group
-            const content = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            svg.setAttribute("width", String(W));
+            svg.setAttribute("height", String(H));
+            svg.style.display = "block";
+            const content = document.createElementNS("http://www.w3.org/2000/svg", "g") as SVGGElement;
             while (svg.firstChild) content.appendChild(svg.firstChild);
             svg.appendChild(content);
+            this.contentGroup = content;
+            this.applyTransform();
 
-            let panX = 0, panY = 0, zoom = 1;
             let dragging = false, lastX = 0, lastY = 0;
-            const apply = () => content.setAttribute("transform", `translate(${panX},${panY}) scale(${zoom})`);
-
             svg.style.cursor = "grab";
             svg.addEventListener("mousedown", (e) => { e.preventDefault(); dragging = true; lastX = e.clientX; lastY = e.clientY; svg.style.cursor = "grabbing"; });
-            svg.addEventListener("mousemove", (e) => { if (!dragging) return; panX += e.clientX - lastX; panY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; apply(); });
+            svg.addEventListener("mousemove", (e) => { if (!dragging) return; this.panX += e.clientX - lastX; this.panY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; this.applyTransform(); });
             svg.addEventListener("mouseup", () => { dragging = false; svg.style.cursor = "grab"; });
             svg.addEventListener("mouseleave", () => { dragging = false; svg.style.cursor = "grab"; });
-            svg.addEventListener("wheel", (e) => { e.preventDefault(); zoom = Math.max(0.2, Math.min(4, zoom * (e.deltaY < 0 ? 1.1 : 0.9))); apply(); }, { passive: false });
+            svg.addEventListener("wheel", (e) => {
+                e.preventDefault();
+                this.zoom = Math.max(0.25, Math.min(4, this.zoom * (e.deltaY < 0 ? 1.1 : 0.9)));
+                this.applyTransform();
+            }, { passive: false });
 
             this.container.appendChild(svg);
+
+            // Floating zoom controls at bottom-right
+            const controls = document.createElement("div");
+            controls.className = "diagram-zoom-controls";
+            for (const [id, label] of [["zoom-in", "+"], ["zoom-out", "\u2212"], ["zoom-reset", "\u27F2"]] as const) {
+                const btn = document.createElement("button");
+                btn.textContent = label;
+                btn.title = id === "zoom-in" ? "Zoom in" : id === "zoom-out" ? "Zoom out" : "Reset";
+                btn.addEventListener("click", () => this.doZoom(id));
+                controls.appendChild(btn);
+            }
+            this.container.appendChild(controls);
         } catch (e) {
             const pre = document.createElement("pre");
             pre.className = "cell-error";
