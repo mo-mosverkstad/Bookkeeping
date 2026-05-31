@@ -3,14 +3,34 @@ import type { Grammar } from "../../engine/types.ts";
 import type { MathNode, NumberLiteralNode, IdentifierNode } from "./types.ts";
 
 const grammar: Grammar = {
-    Expression: { peg: { type: "rule", name: "Relational" } },
+    Expression: { peg: { type: "rule", name: "Logical" } },
+
+    Logical: {
+        peg: { type: "sequence", parts: [
+            { type: "rule", name: "Relational" },
+            { type: "repeat", expr: { type: "sequence", parts: [
+                { type: "rule", name: "LogicalOp" },
+                { type: "rule", name: "Relational" },
+            ] } },
+        ] },
+        build([left, rest]: [MathNode, [string, MathNode][]]): MathNode {
+            let node = left;
+            for (const [operator, right] of rest) node = { type: "BinaryExpression", operator, left: node, right };
+            return node;
+        },
+    },
+
+    LogicalOp: {
+        peg: { type: "regex", regex: /^\\(and|or|implies|iff)\b/, name: "logical operator" },
+        build(v: string): string { return v.slice(1); },
+    },
 
     Relational: {
         peg: { type: "sequence", parts: [
-            { type: "rule", name: "Additive" },
+            { type: "rule", name: "SetOp" },
             { type: "repeat", expr: { type: "sequence", parts: [
                 { type: "rule", name: "RelationalOp" },
-                { type: "rule", name: "Additive" },
+                { type: "rule", name: "SetOp" },
             ] } },
         ] },
         build([left, rest]: [MathNode, [string, MathNode][]]): MathNode {
@@ -27,7 +47,28 @@ const grammar: Grammar = {
         { type: "literal", value: ">>" }, { type: "literal", value: "->" },
         { type: "literal", value: "<" },  { type: "literal", value: ">" },
         { type: "literal", value: "=" },  { type: "literal", value: "~" },
-    ] } },
+        { type: "regex", regex: /^\\(in|notin|subset|supset)\b/, name: "set relation" },
+    ] }, build(v: string): string { return typeof v === "string" && v.startsWith("\\") ? v.slice(1) : v; } },
+
+    SetOp: {
+        peg: { type: "sequence", parts: [
+            { type: "rule", name: "Additive" },
+            { type: "repeat", expr: { type: "sequence", parts: [
+                { type: "rule", name: "SetOperator" },
+                { type: "rule", name: "Additive" },
+            ] } },
+        ] },
+        build([left, rest]: [MathNode, [string, MathNode][]]): MathNode {
+            let node = left;
+            for (const [operator, right] of rest) node = { type: "BinaryExpression", operator, left: node, right };
+            return node;
+        },
+    },
+
+    SetOperator: {
+        peg: { type: "regex", regex: /^\\(union|inter|setminus)\b/, name: "set operator" },
+        build(v: string): string { return v.slice(1); },
+    },
 
     Additive: {
         peg: { type: "sequence", parts: [
@@ -70,7 +111,7 @@ const grammar: Grammar = {
         peg: { type: "choice", options: [
             { type: "literal", value: "*" }, { type: "literal", value: "/" },
             { type: "literal", value: "." },
-            { type: "regex", regex: /^\\(mod|div)\b/, name: "multiplicative operator" },
+            { type: "regex", regex: /^\\(mod|div|cross|oring|tensor)\b/, name: "multiplicative operator" },
         ] },
         build(node: any): string {
             return typeof node === "string" && node.startsWith("\\") ? node.slice(1) : node;
@@ -112,12 +153,19 @@ const grammar: Grammar = {
     Unary: {
         peg: { type: "choice", options: [
             { type: "sequence", parts: [
-                { type: "choice", options: [{ type: "literal", value: "-" }, { type: "literal", value: "+" }] },
+                { type: "choice", options: [
+                    { type: "literal", value: "-" }, { type: "literal", value: "+" },
+                    { type: "regex", regex: /^\\not\b/, name: "\\not" },
+                ] },
                 { type: "rule", name: "Unary" },
             ] },
             { type: "rule", name: "Postfix" },
         ] },
-        build(node: any): MathNode { return Array.isArray(node) ? { type: "UnaryExpression", operator: node[0], operand: node[1] } : node; },
+        build(node: any): MathNode {
+            if (!Array.isArray(node)) return node;
+            const op = typeof node[0] === "string" && node[0].startsWith("\\") ? node[0].slice(1) : node[0];
+            return { type: "UnaryExpression", operator: op, operand: node[1] };
+        },
     },
 
     Postfix: {
