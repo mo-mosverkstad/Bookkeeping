@@ -38,7 +38,7 @@ export class TableView implements WorkspaceView {
         cancel: () => void;
         onCommit: (value: string) => void;
     } | null = null;
-    private _committing = false;
+
 
     constructor(container: HTMLElement) {
         this.container = container;
@@ -342,7 +342,7 @@ export class TableView implements WorkspaceView {
      */
     private dragRows: Row[] = [];
 
-    private attachDragHandlers(tr: HTMLTableRowElement, tbody: HTMLElement, tableIdx: number, table: Table, row: Row): void {
+    private attachDragHandlers(tr: HTMLTableRowElement, tbody: HTMLElement, _tableIdx: number, table: Table, row: Row): void {
         tr.addEventListener("dragstart", (e) => {
             // `row` is the Row object for this tr, passed from the render loop.
             // If it's in the selection, drag the whole selection; otherwise just this row.
@@ -448,7 +448,7 @@ export class TableView implements WorkspaceView {
     }
 
     /** Reposition (or create) the blue drop-indicator line inside the tbody. */
-    private showDropIndicator(tbody: HTMLElement, insertIdx: number, table: Table): void {
+    private showDropIndicator(tbody: HTMLElement, insertIdx: number, _table: Table): void {
         const container = tbody.closest("table")!.parentElement!;
         container.style.position = "relative";
 

@@ -5,14 +5,14 @@ import type { AppController } from "../controller/index.ts";
  * Graph Filter View — renders filter controls and association detail panel.
  */
 export class GraphFilterView {
-    private container: HTMLElement;
+
     private relSelect: HTMLSelectElement;
     private targetSelect: HTMLSelectElement;
     private detailPanel: HTMLElement;
     private controller: AppController;
 
     constructor(container: HTMLElement, controller: AppController) {
-        this.container = container;
+
         this.controller = controller;
 
         const filterDiv = document.createElement("div");

@@ -1,4 +1,4 @@
-import type { GanttAST, GanttSection, GanttTask } from "./types.ts";
+import type { GanttAST, GanttSection } from "./types.ts";
 
 export function parseGantt(source: string): GanttAST {
     const lines = source.split(/\r?\n/).map(l => l.trim()).filter(l => l);

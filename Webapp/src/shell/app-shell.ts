@@ -118,7 +118,7 @@ export class AppShell {
     // ── Dynamic toolbar ───────────────────────────────────────────────────────
 
     private wireDynamicToolbar(): void {
-        this.workspace.setToolbarChangeHandler((actions, view) => {
+        this.workspace.setToolbarChangeHandler((_actions, view) => {
             const rebuild = () => {
                 const el = this.elements.dynamicToolbar;
                 el.innerHTML = "";

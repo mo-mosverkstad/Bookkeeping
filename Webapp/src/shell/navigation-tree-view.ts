@@ -238,7 +238,6 @@ export class NavigationTreeView {
         return item;
     }
     markDirty(name: string): void {
-        const label = this.container.querySelector(`.nav-leaf-label`) as HTMLElement | null;
         // Find by text content
         for (const el of this.container.querySelectorAll(".nav-leaf-label")) {
             if (el.textContent === name && !el.textContent.startsWith("● ")) {

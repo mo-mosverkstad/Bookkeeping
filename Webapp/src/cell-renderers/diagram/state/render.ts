@@ -297,8 +297,6 @@ function renderStateRing(
     for (const t of transitions) {
         const from = positions.get(t.from), to = positions.get(t.to);
         if (!from || !to) continue;
-        const dx = to.x - from.x, dy = to.y - from.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         // Control point pushed outward from center for ring edges
         const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
         const outX = cx + (mx - cx) * 1.3, outY = cy + (my - cy) * 1.3;

@@ -1,5 +1,5 @@
 import type { AppController } from "../controller/index.ts";
-import type { SearchHit, NeighbourHit } from "../search/index.ts";
+import type { SearchHit } from "../search/index.ts";
 
 /**
  * Search View — Phase 7.
@@ -7,13 +7,13 @@ import type { SearchHit, NeighbourHit } from "../search/index.ts";
  * Also renders the graph neighbourhood panel triggered from entity clicks.
  */
 export class SearchView {
-    private container: HTMLElement;
+
     private controller: AppController;
     private resultsPanel: HTMLElement;
     private neighbourPanel: HTMLElement;
 
     constructor(container: HTMLElement, controller: AppController) {
-        this.container = container;
+
         this.controller = controller;
 
         // ── Search bar ────────────────────────────────────────────────────────

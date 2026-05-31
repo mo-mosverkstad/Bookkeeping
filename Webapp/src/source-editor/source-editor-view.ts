@@ -52,7 +52,7 @@ class LocalHistory {
 // ── SourceEditorView ──────────────────────────────────────────────────────────
 
 export class SourceEditorView {
-    private readonly controller: AppController;
+
     private panel: HTMLElement;
     private textarea: HTMLTextAreaElement;
     private highlight: HTMLPreElement;
@@ -72,8 +72,8 @@ export class SourceEditorView {
 
     get focused(): boolean { return this._focused; }
 
-    constructor(controller: AppController, container: HTMLElement) {
-        this.controller = controller;
+    constructor(_controller: AppController, container: HTMLElement) {
+
         this.panel = this.build(container);
         this.textarea = this.panel.querySelector(".se-textarea") as HTMLTextAreaElement;
         this.highlight = this.panel.querySelector(".se-highlight") as HTMLPreElement;

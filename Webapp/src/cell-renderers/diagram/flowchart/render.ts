@@ -1,8 +1,7 @@
-import type { FlowchartAST, FlowStatement, FlowNodeDef, FlowEdge } from "./types.ts";
+import type { FlowchartAST, FlowNodeDef, FlowEdge } from "./types.ts";
 import { findBackEdges, findCycles } from "../graph-utils.ts";
 
 interface LayoutNode { id: string; label: string; shape: string; x: number; y: number; w: number; h: number; }
-interface LayoutEdge { from: string; to: string; label: string; style: string; }
 
 export function renderFlowchart(ast: FlowchartAST, width = 800, height = 600): SVGElement {
     const nodes = ast.statements.filter(s => s.type === "node") as FlowNodeDef[];

@@ -1,7 +1,7 @@
 import { renderGeometry } from "../geometry/render.ts";
 import { svgEl, svgText } from "../geometry/el.ts";
 import { renderMath } from "../math/render.ts";
-import type { PhysicsProgram, PhysicsStatement, ConstraintType } from "./types.ts";
+import type { PhysicsProgram } from "./types.ts";
 
 // ── Viewport constants (must match geometry renderer) ─────────────────────────
 
@@ -165,7 +165,6 @@ function drawDamper(g: SVGElement, pts: Map<string, Pt>, s: any): void {
     if (!a || !b) return;
     const dx = b.x - a.x, dy = b.y - a.y;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
-    const nx = -dy / len * 5, ny = dx / len * 5;
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     // Line from a to midpoint, rectangle at midpoint, line to b
     g.appendChild(svgEl("line", { x1: a.x, y1: a.y, x2: mx - dx / len * 8, y2: my - dy / len * 8, class: "phys-damper" }));

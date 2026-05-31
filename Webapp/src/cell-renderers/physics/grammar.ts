@@ -17,11 +17,10 @@ import type { Grammar } from "../../engine/types.ts";
 import { parser as mathParser } from "../math/grammar.ts";
 import { parseGeometry } from "../geometry/grammar.ts";
 import type { MathNode } from "../math/types.ts";
-import type { GeoStatement } from "../geometry/types.ts";
 import type {
     PhysicsProgram, PhysicsStatement,
     BodyDeclNode, ForceNode, VelocityNode, AngularNode,
-    TorqueNode, ConstraintNode, ConstraintType,
+    TorqueNode, ConstraintNode,
     FrameDeclNode, InertialDeclNode, EOMNode,
 } from "./types.ts";
 

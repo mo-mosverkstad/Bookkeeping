@@ -1,6 +1,6 @@
 import { KnowledgeBase, Table, Row, EditHistory, Graph, TypedValue } from "../model/index.ts";
 import { serializeGraph } from "../data/graph-source.ts";
-import type { FileSystemStrategy, FileHandle, OpenedFile } from "../data/file-system.ts";
+import type { FileSystemStrategy, FileHandle } from "../data/file-system.ts";
 import type { Document } from "../model/index.ts";
 import { parseCSV } from "../data/csv.ts";
 import { parseControlFile, resolveNodes, resolveEdges, resolveActors, resolveMessages } from "../data/control.ts";
