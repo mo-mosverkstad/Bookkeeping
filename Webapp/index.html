@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/fonts/SangBleuSunrise-light/SangBleuSunrise-light.css" />
+    <link rel="stylesheet" href="/fonts/SangBleuEmpire/SangBleuEmpire.css" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="native-math.css" />
     <script type="module" src="/src/main.ts"></script>
@@ -11,18 +13,18 @@
   </head>
   <body>
 
-    <!-- 1. Menu bar: file operations -->
-    <div id="menu-bar">
-      <span class="app-title">Bookkeeping</span>
-      <label id="btn-open-label" class="menu-btn" title="Open files">
-        Open
-        <input type="file" id="file-input" accept=".csv,.json,.mmd,.md,.flowchart" multiple hidden />
-      </label>
-      <div id="session-banner" class="session-banner" hidden></div>
-    </div>
+    <!-- 1. Menu bar (hidden, kept for DOM compat) -->
+    <div id="menu-bar" hidden></div>
 
-    <!-- 2. Toolbar: dynamic (view-specific) | static (common) | filter | search -->
+    <!-- 2. Toolbar: open | dynamic | static | filter | search -->
     <div id="toolbar">
+      <div class="toolbar-group">
+        <label id="btn-open-label" class="toolbar-open-btn" title="Open files">
+          Open
+          <input type="file" id="file-input" accept=".csv,.json,.mmd,.md,.flowchart" multiple hidden />
+        </label>
+      </div>
+      <div class="toolbar-sep"></div>
       <div id="dynamic-toolbar" class="toolbar-group"></div>
       <div class="toolbar-sep"></div>
       <div id="static-toolbar" class="toolbar-group">
@@ -73,6 +75,7 @@
     <!-- 5. Status bar -->
     <div id="status-bar">
       <span id="status-text"></span>
+      <div id="session-banner" class="session-banner" hidden></div>
     </div>
 
   </body>
