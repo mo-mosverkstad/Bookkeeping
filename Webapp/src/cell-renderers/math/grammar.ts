@@ -207,11 +207,56 @@ const grammar: Grammar = {
     },
 
     Primary: { peg: { type: "choice", options: [
-        { type: "rule", name: "RolloutExpression" }, { type: "rule", name: "Ellipsis" },
-        { type: "rule", name: "AbsoluteValue" }, { type: "rule", name: "BracketExpression" },
-        { type: "rule", name: "Number" }, { type: "rule", name: "Identifier" },
-        { type: "rule", name: "ParenExpression" },
+        { type: "rule", name: "CasesExpression" }, { type: "rule", name: "RolloutExpression" },
+        { type: "rule", name: "Ellipsis" }, { type: "rule", name: "AbsoluteValue" },
+        { type: "rule", name: "BracketExpression" }, { type: "rule", name: "Number" },
+        { type: "rule", name: "Identifier" }, { type: "rule", name: "ParenExpression" },
     ] } },
+
+    CasesExpression: {
+        peg: { type: "sequence", parts: [
+            { type: "regex", regex: /^\\cases\{/, name: "\\cases{" },
+            { type: "rule", name: "CaseBranch" },
+            { type: "repeat", expr: { type: "sequence", parts: [
+                { type: "literal", value: "," }, { type: "rule", name: "CaseBranch" },
+            ] } },
+            { type: "literal", value: "}" },
+        ] },
+        build([, first, rest]: [string, any, [string, any][]]): MathNode {
+            const cases = [first]; for (const [, b] of rest) cases.push(b);
+            return { type: "Piecewise", cases };
+        },
+    },
+
+    CaseBranch: {
+        peg: { type: "sequence", parts: [
+            { type: "rule", name: "CaseCondition" },
+            { type: "literal", value: ":" },
+            { type: "rule", name: "Expression" },
+        ] },
+        build([condition, , expr]: [MathNode, string, MathNode]) { return { condition, expr }; },
+    },
+
+    CaseCondition: {
+        peg: { type: "choice", options: [
+            { type: "regex", regex: /^_/, name: "default" },
+            { type: "sequence", parts: [
+                { type: "literal", value: "(" },
+                { type: "rule", name: "Expression" },
+                { type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Expression" }] } },
+                { type: "literal", value: ")" },
+            ] },
+            { type: "rule", name: "Expression" },
+        ] },
+        build(node: any): MathNode {
+            if (node === "_") return { type: "Identifier", name: "_", prefix: "plain" } as IdentifierNode;
+            if (!Array.isArray(node)) return node;
+            const [, first, rest] = node;
+            if (rest.length === 0) return first;
+            const conditions = [first]; for (const [, e] of rest) conditions.push(e);
+            return { type: "Matrix", rows: [conditions] };
+        },
+    },
 
     RolloutExpression: {
         peg: { type: "sequence", parts: [{ type: "regex", regex: /^[+*]\{/, name: "rollout" }, { type: "rule", name: "ArgumentList" }, { type: "literal", value: "}" }] },

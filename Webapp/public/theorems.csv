@@ -4,7 +4,8 @@ Fundamental Theorem of Calculus,"$math{\int{a, b, f'(x)} = f(b) - f(a)}",Calculu
 Integration by Parts,"$math{\int{a, b, u*v'} = u*v - \int{a, b, u'*v}}
 
 $math{\int{a, b, `1v}}
-$math{f'(x) = \lim{h->0, (f(x+h) - f(x))/h}}",Calculus,uses:integral;uses:product-rule
+$math{f'(x) = \lim{h->0, (f(x+h) - f(x))/h}}
+Oh no!",Calculus,uses:integral;uses:product-rule
 Chain Rule,$math{f(g(x))' = f'(g(x))*g'(x)},Calculus,uses:derivative;uses:composition
 Pythagorean Theorem,$math{a^2 + b^2 = c^2},Geometry,uses:right-triangle
 Binomial Theorem,"$math{+{k=0, n, \binom{n, k}*a^(n-k)*b^k}}",Algebra,uses:binomial-coefficient;uses:factorial
