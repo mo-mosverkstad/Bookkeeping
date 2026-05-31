@@ -904,3 +904,119 @@ body {
 .diagram-zoom-controls button:hover {
   background: var(--accent-light);
 }
+
+/* ── Responsive: small screens ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Toolbar: wrap */
+  #toolbar {
+    height: auto;
+    min-height: 2.4em;
+    flex-wrap: wrap;
+    padding: 0.2em 0.3em;
+  }
+  .toolbar-group { flex-wrap: wrap; }
+  .toolbar-sep { display: none; }
+
+  /* Tab bar: wrap */
+  #tab-bar {
+    height: auto;
+    min-height: 1.8em;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-size: 0.82em;
+    padding: 2px 8px;
+  }
+
+  /* Both panels become bottom sheets */
+  #nav-tree-panel,
+  #sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100% !important;
+    height: 45vh;
+    z-index: 100;
+    border-right: none;
+    border-left: none;
+    border-top: 2px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+    transform: translateY(0);
+    overflow: auto;
+  }
+
+  #nav-tree-panel.nav-collapsed,
+  #sidebar.sidebar-collapsed {
+    transform: translateY(100%);
+    pointer-events: none;
+  }
+
+  /* Mobile header visible */
+  .panel-mobile-header {
+    display: flex;
+    align-items: center;
+    padding: 0.4em 0.75em;
+    font-size: 0.85em;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--accent-light);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .panel-mobile-header span { flex: 1; }
+
+  .panel-close-btn {
+    display: inline-block;
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 1.2em;
+    line-height: 1;
+    padding: 2px 8px;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+  .panel-close-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  #nav-tree-header {
+    display: flex;
+    align-items: center;
+  }
+}
+
+@media (max-width: 480px) {
+  #toolbar button,
+  .toolbar-open-btn {
+    font-size: 0.8em;
+    padding: 2px 5px;
+  }
+
+  .knowledge-table th,
+  .knowledge-table td {
+    padding: 3px 4px;
+    font-size: 0.82em;
+  }
+
+  #nav-tree-panel,
+  #sidebar {
+    height: 50vh;
+  }
+}
+
+/* ── Panel close button (hidden on desktop) ───────────────────────────── */
+.panel-close-btn {
+  display: none;
+}
+.panel-mobile-header {
+  display: none;
+}

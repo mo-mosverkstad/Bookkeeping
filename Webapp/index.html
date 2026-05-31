@@ -53,7 +53,7 @@
 
       <!-- 4a. Navigation tree: hierarchical structure of loaded content -->
       <div id="nav-tree-panel">
-        <div id="nav-tree-header">Contents</div>
+        <div id="nav-tree-header">Contents <button class="panel-close-btn" data-closes="nav-tree-panel">&times;</button></div>
         <div id="nav-tree"></div>
       </div>
 
@@ -66,6 +66,7 @@
 
       <!-- 4c. Source editor sidebar -->
       <div id="sidebar">
+        <div class="panel-mobile-header"><span>Editor</span><button class="panel-close-btn" data-closes="sidebar">&times;</button></div>
         <div id="source-editor-container"></div>
         <pre id="error-message" class="error-message"></pre>
       </div>

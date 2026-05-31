@@ -67,6 +67,7 @@ export class AppShell {
         this.wireNavTree();
         this.wireFileLoading();
         this.wireSessionBanner();
+        this.wirePanelCloseButtons();
         this.elements.fileInput.setAttribute("accept", ".csv,.json,.diagram");
     }
 
@@ -149,6 +150,11 @@ export class AppShell {
             const collapsed = sidebar.classList.toggle("sidebar-collapsed");
             btn.classList.toggle("sidebar-open", !collapsed);
             btn.textContent = collapsed ? "\u25B6 Editor" : "\u25C0 Editor";
+            // On small screens, close nav if opening sidebar
+            if (!collapsed && window.innerWidth <= 768) {
+                this.elements.navTreePanel.classList.add("nav-collapsed");
+                this.elements.btnToggleNav.classList.remove("nav-open");
+            }
         });
     }
 
@@ -161,6 +167,28 @@ export class AppShell {
         btn.addEventListener("click", () => {
             const collapsed = panel.classList.toggle("nav-collapsed");
             btn.classList.toggle("nav-open", !collapsed);
+            // On small screens, close sidebar if opening nav
+            if (!collapsed && window.innerWidth <= 768) {
+                this.elements.sidebarEl.classList.add("sidebar-collapsed");
+                this.elements.btnToggleSidebar.classList.remove("sidebar-open");
+                this.elements.btnToggleSidebar.textContent = "\u25B6 Editor";
+            }
+        });
+    }
+
+    private wirePanelCloseButtons(): void {
+        document.querySelectorAll<HTMLButtonElement>(".panel-close-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const targetId = btn.dataset.closes;
+                if (targetId === "nav-tree-panel") {
+                    this.elements.navTreePanel.classList.add("nav-collapsed");
+                    this.elements.btnToggleNav.classList.remove("nav-open");
+                } else if (targetId === "sidebar") {
+                    this.elements.sidebarEl.classList.add("sidebar-collapsed");
+                    this.elements.btnToggleSidebar.classList.remove("sidebar-open");
+                    this.elements.btnToggleSidebar.textContent = "\u25B6 Editor";
+                }
+            });
         });
     }
 
