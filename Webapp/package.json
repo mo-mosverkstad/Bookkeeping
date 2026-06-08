@@ -13,7 +13,7 @@
   "devDependencies": {
     "happy-dom": "^20.9.0",
     "typescript": "~6.0.2",
-    "vite": "^8.0.12",
+    "vite": "^8.0.14",
     "vitest": "^3.2.4"
   }
 }
