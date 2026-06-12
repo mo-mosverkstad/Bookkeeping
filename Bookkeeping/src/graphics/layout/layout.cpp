@@ -98,7 +98,7 @@ void LayoutNode::compute(float avail_width, float avail_height) {
 
 void LayoutNode::render(RenderBackend* backend, float offset_x, float offset_y) {
     float abs_x = offset_x + x;
-    float abs_y = offset_y + y;
+    float abs_y = offset_y + y + y_offset;
 
     for (uint16_t i = 0; i < element_count; i++) {
         Element& e = elements[i];
@@ -127,7 +127,7 @@ void LayoutNode::render(RenderBackend* backend, float offset_x, float offset_y) 
 
 HitResult LayoutNode::hit_surface(float px, float py, float offset_x, float offset_y) {
     float abs_x = offset_x + x;
-    float abs_y = offset_y + y;
+    float abs_y = offset_y + y + y_offset;
     if (px < abs_x || px >= abs_x + width || py < abs_y || py >= abs_y + height)
         return {nullptr, 0, 0};
 
@@ -143,7 +143,7 @@ HitResult LayoutNode::hit_surface(float px, float py, float offset_x, float offs
 
 int LayoutNode::hit_deep(float px, float py, HitResult* results, int capacity, float offset_x, float offset_y) {
     float abs_x = offset_x + x;
-    float abs_y = offset_y + y;
+    float abs_y = offset_y + y + y_offset;
     if (px < abs_x || px >= abs_x + width || py < abs_y || py >= abs_y + height)
         return 0;
 

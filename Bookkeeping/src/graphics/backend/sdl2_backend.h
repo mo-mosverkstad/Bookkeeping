@@ -11,6 +11,7 @@ struct SDL2Backend : RenderBackend {
     SDL_Renderer* renderer;
     TTF_Font* font;
     TTF_Font* font_bold;
+    TTF_Font* font_math;
 
     SDL2Backend(const char* title, int w, int h) {
         SDL_Init(SDL_INIT_VIDEO);
@@ -18,14 +19,17 @@ struct SDL2Backend : RenderBackend {
         window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                   w, h, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-        // Try common font paths
         font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 13);
         if (!font) font = TTF_OpenFont("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 13);
-        if (!font) font = TTF_OpenFont("/usr/share/fonts/TTF/DejaVuSans.ttf", 13);
         font_bold = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 13);
         if (!font_bold) font_bold = font;
+        // Math font: prefer DejaVu Math TeX Gyre (has √, Greek, etc.)
+        font_math = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuMathTeXGyre.ttf", 16);
+        if (!font_math) font_math = TTF_OpenFont("/usr/share/fonts/opentype/stix/STIXGeneral-Regular.otf", 16);
+        if (!font_math) font_math = font; // fallback
     }
     ~SDL2Backend() override {
+        if (font_math && font_math != font) TTF_CloseFont(font_math);
         if (font_bold && font_bold != font) TTF_CloseFont(font_bold);
         if (font) TTF_CloseFont(font);
         SDL_DestroyRenderer(renderer);
@@ -92,15 +96,37 @@ struct SDL2Backend : RenderBackend {
 
     void render_text(float abs_x, float abs_y, const Text& t) override {
         if (!t.content || !t.content[0] || !font) return;
-        TTF_Font* f = (t.style & TEXT_BOLD) ? font_bold : font;
-        TTF_SetFontSize(f, (int)t.size);
+        TTF_Font* f;
+        if (t.font && strcmp(t.font, "math") == 0) f = font_math;
+        else if (t.style & TEXT_BOLD) f = font_bold;
+        else f = font;
+        TTF_SetFontSize(f, (int)t.size > 0 ? (int)t.size : 12);
+        if (t.style & TEXT_ITALIC) TTF_SetFontStyle(f, TTF_STYLE_ITALIC);
+        else TTF_SetFontStyle(f, TTF_STYLE_NORMAL);
         SDL_Color col = {t.color.r, t.color.g, t.color.b, t.color.a};
-        SDL_Surface* surf = TTF_RenderUTF8_Blended(f, t.content, col);
-        if (!surf) return;
-        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
-        SDL_Rect dst = {(int)(abs_x + t.x), (int)(abs_y + t.y), surf->w, surf->h};
-        SDL_RenderCopy(renderer, tex, nullptr, &dst);
-        SDL_DestroyTexture(tex);
-        SDL_FreeSurface(surf);
+        // Render line by line (TTF_RenderUTF8 doesn't handle \n)
+        const char* str = t.content;
+        int py = (int)(abs_y + t.y);
+        while (*str) {
+            const char* nl = strchr(str, '\n');
+            int seg_len = nl ? (int)(nl - str) : (int)strlen(str);
+            if (seg_len > 0) {
+                char buf[256];
+                int l = seg_len > 255 ? 255 : seg_len;
+                memcpy(buf, str, l); buf[l] = 0;
+                SDL_Surface* surf = TTF_RenderUTF8_Blended(f, buf, col);
+                if (surf) {
+                    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+                    SDL_Rect dst = {(int)(abs_x + t.x), py, surf->w, surf->h};
+                    SDL_RenderCopy(renderer, tex, nullptr, &dst);
+                    SDL_DestroyTexture(tex);
+                    py += surf->h;
+                    SDL_FreeSurface(surf);
+                }
+            } else {
+                py += (int)t.size;
+            }
+            if (nl) str = nl + 1; else break;
+        }
     }
 };

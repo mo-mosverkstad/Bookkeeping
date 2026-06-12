@@ -8,6 +8,7 @@
 #include "src/graphics/layout/virtual_layout.h"
 #include "src/graphics/backend/backend.h"
 #include "src/graphics/backend/software_backend.h"
+#include "src/core/parser/rich/rich_render.h"
 #include "src/platform/platform.h"
 #include <cstdio>
 #include <cstring>
@@ -112,7 +113,11 @@ inline int run_demo() {
     Table* demo_table = csv_parse(&arena, arena_str_cstr(&arena, "Demo"), csv_data, strlen(csv_data));
     TableViewConfig tvcfg;
     tvcfg.viewport_width = 500;
-    tvcfg.viewport_height = 100;
+    tvcfg.viewport_height = 80;
+
+    // ── Rich text with embeddings ────────────────────────────────────────────
+    const char* rich_src = "Pythagorean: $math{a^2 + b^2 = c^2}\nWater: $chem{2H2 + O2 -> 2H2O}\nEnergy: $phys{E = m*c^2}";
+    LayoutNode* rich_node = rich_render(&arena, rich_src, strlen(rich_src), 13, COLOR_WHITE);
     LayoutNode* table_view = table_view_build(&arena, demo_table, tvcfg);
 
     // ── Root layout ──────────────────────────────────────────────────────────
@@ -121,19 +126,20 @@ inline int run_demo() {
         .child(hrow)
         .child(grid);
 
-    // Manually add table_view, scroll, coord, virtual, sprite
+    // Manually add table_view, rich, scroll, coord, virtual, sprite
     LayoutNode* vl_tree = virtual_render(&vl);
     {
         uint16_t n = root_ui.node.child_count;
-        auto** new_kids = (LayoutNode**)arena_alloc(&arena, sizeof(LayoutNode*) * (n + 5), 8);
+        auto** new_kids = (LayoutNode**)arena_alloc(&arena, sizeof(LayoutNode*) * (n + 6), 8);
         for (uint16_t i = 0; i < n; i++) new_kids[i] = root_ui.node.children[i];
         new_kids[n] = table_view;
-        new_kids[n+1] = build(scroll);
-        new_kids[n+2] = build(coord);
-        new_kids[n+3] = vl_tree;
-        new_kids[n+4] = sprite_node;
+        new_kids[n+1] = rich_node;
+        new_kids[n+2] = build(scroll);
+        new_kids[n+3] = build(coord);
+        new_kids[n+4] = vl_tree;
+        new_kids[n+5] = sprite_node;
         root_ui.node.children = new_kids;
-        root_ui.node.child_count = n + 5;
+        root_ui.node.child_count = n + 6;
     }
 
     LayoutNode* root = build(root_ui);

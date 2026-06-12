@@ -56,6 +56,10 @@ struct LayoutNode {
     float content_width = 0;
     float content_height = 0;
 
+    // Baseline offset: shifts this node vertically relative to its computed y.
+    // Positive = down, negative = up. Used for superscripts/subscripts.
+    float y_offset = 0;
+
     // Computed
     float x = 0, y = 0;
     float width = 0, height = 0;
