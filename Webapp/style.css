@@ -379,6 +379,14 @@ body {
   font-size: 0.88em;
   z-index: 2;
 }
+.knowledge-table thead th.row-check-col {
+  left: 0;
+  z-index: 4;
+}
+.knowledge-table thead th:last-child {
+  right: 0;
+  z-index: 4;
+}
 .knowledge-table tbody tr:hover > td { background: var(--bg); }
 .knowledge-table td .cell-error { color: #ef4444; font-size: 0.85em; font-family: monospace; }
 .rich-cell { line-height: 1.6; }
@@ -402,6 +410,10 @@ body {
   text-align: center;
   padding: 0 4px !important;
   user-select: none;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--surface, #fff);
 }
 .row-check-col input[type="checkbox"] {
   cursor: pointer;
@@ -426,6 +438,10 @@ body {
   padding: 0 2px !important;
   border-left: 1px solid var(--border) !important;
   white-space: nowrap;
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background: var(--surface, #fff);
 }
 .row-insert-btn, .row-delete-btn {
   background: none;
