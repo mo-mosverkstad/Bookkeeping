@@ -393,3 +393,58 @@ Custom lightweight test framework in `test/test.h`:
 | editor_move_selection | Move cell value to dest | PASS |
 | editor_multiple_edits_undo_all | 3 edits, 3 undos restores all | PASS |
 | editor_cancel_edit_no_change | Cancel discards buffer | PASS |
+
+
+---
+
+## Phase 6 — Renderer tests (34 tests)
+
+### Chemistry (12 tests)
+| Test | Description | Result |
+|---|---|---|
+| chem_simple_formula | H2O renders | PASS |
+| chem_reaction | 2H2 + O2 -> 2H2O | PASS |
+| chem_ionic | Na+ + Cl- | PASS |
+| chem_parenthesized | Ca(OH)2 | PASS |
+| chem_complex_reaction | KMnO4 + HCl reaction | PASS |
+| chem_render_computes | H2SO4 computes width>0 | PASS |
+| chem_single_element | Fe | PASS |
+| chem_multi_subscript | C6H12O6 | PASS |
+| chem_only_arrow | -> | PASS |
+| chem_coefficient_only | 3Fe + 4H2O | PASS |
+| chem_empty_string | "" | PASS |
+| chem_nested_parentheses | Al2(SO4)3 | PASS |
+
+### Physics (6 tests)
+| Test | Description | Result |
+|---|---|---|
+| physics_basic_equation | F = m*a | PASS |
+| physics_kinetic_energy | E = 1/2 m v^2 | PASS |
+| physics_ohms_law | V = I*R | PASS |
+| physics_einstein | E = m*c^2 | PASS |
+| physics_wave_equation | v = f * lambda | PASS |
+| physics_coulombs_law | F = k*q1*q2/r^2 | PASS |
+
+### Geometry (4 tests)
+| Test | Description | Result |
+|---|---|---|
+| geometry_pythagorean | a^2 + b^2 = c^2 | PASS |
+| geometry_area_circle | A = pi * r^2 | PASS |
+| geometry_distance | sqrt((x2-x1)^2 + (y2-y1)^2) | PASS |
+| geometry_angle_sum | alpha + beta + gamma = 180 | PASS |
+
+### Rich text (12 tests)
+| Test | Description | Result |
+|---|---|---|
+| rich_plain_text | Single line | PASS |
+| rich_multiline_text | 3 lines | PASS |
+| rich_math_embed | $math{x^2+y^2=r^2} | PASS |
+| rich_chem_embed | $chem{H2O} | PASS |
+| rich_multiline_math | Newlines inside $math{} | PASS |
+| rich_mixed_embeds | Physics + chemistry on 2 lines | PASS |
+| rich_empty | Empty string | PASS |
+| rich_renders_to_pixels | No crash on render | PASS |
+| rich_text_before_and_after | Text surrounding embed | PASS |
+| rich_multiple_embeds_one_line | 3 embeds on 1 line | PASS |
+| rich_nested_braces | $math{\sqrt{x+1}} | PASS |
+| rich_geom_embed | $geom{a^2+b^2=c^2} | PASS |

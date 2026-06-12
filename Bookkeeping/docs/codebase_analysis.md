@@ -231,3 +231,26 @@ Key design points:
 - Escape → cancels edit
 - Ctrl+Z/Y → undo/redo
 - Table view rebuilds on every committed change
+
+
+---
+
+### Phase 6 — Chemistry/Physics/Geometry/Rich text renderers (completed)
+
+**Files added:**
+- `src/core/parser/chem/chem_render.h` — Chemistry formula renderer (single text label)
+- `src/core/parser/physics_render.h` — Physics renderer (delegates to math)
+- `src/core/parser/geometry_render.h` — Geometry renderer (delegates to math)
+- `src/core/parser/rich/rich_render.h` — Rich text parser with $math{}, $chem{}, $phys{}, $geom{} embeddings + multiline
+- `test/test_renderers.cpp` — 34 tests
+
+**Phase 4 revision — Proper math rendering:**
+- Added `y_offset` field to LayoutNode for baseline shifting
+- Superscripts: 70% size, shifted up by 40% of font size
+- Subscripts: 70% size, shifted down by 30% of font size
+- Fractions: VStack(numerator, bar, denominator)
+- √ rendered with actual Unicode character from math font
+- SDL2 backend loads DejaVu Math TeX Gyre for math font
+- Font selection by `font` field: "math" → math font, bold flag → bold font
+- Italic style applied via TTF_SetFontStyle
+- Text render handles multiline (\n splitting per segment)

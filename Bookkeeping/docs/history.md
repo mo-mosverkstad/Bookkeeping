@@ -160,3 +160,30 @@ across phases.
 
 **Bug fixed:**
 - Arena too small at -O2 caused segfault in tests → increased arena sizes
+
+
+---
+
+## Phase 6 — Renderers + proper math — 2026-06-12
+
+**Added:**
+- Chemistry, physics, geometry, rich text renderers
+- 34 renderer tests
+- Proper math rendering with baseline offsets (y_offset on LayoutNode)
+- DejaVu Math TeX Gyre font loaded in SDL2 backend
+- Font style (italic) applied via TTF_SetFontStyle
+- Multiline text rendering (split on \n)
+- Demo shows rich text with math/chem/physics embeddings
+- Environment setup documentation for all platforms
+
+**Decisions:**
+- Chemistry rendered as plain text (formulas like "H2O" are readable as-is)
+- Physics/Geometry delegate to math renderer (same notation)
+- Rich text uses VStack of HStack lines (like the Webapp)
+- y_offset applied in render() and hit_surface()/hit_deep() for consistency
+- Math font: DejaVu Math TeX Gyre (has √, Greek, etc.) — fallback to STIX, then DejaVu Sans
+- Surrogate text approach replaced with proper structural rendering
+
+**Bug fixed:**
+- UTF-8 symbols (√, →) not rendering → ensured math font loaded, ASCII fallback for chem arrows
+- Previous "scrambled ASCII" was from many tiny text nodes → redesigned renderer with proper structure + y_offset

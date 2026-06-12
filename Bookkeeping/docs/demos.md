@@ -190,3 +190,32 @@ make clean && make
 - Edit + undo cycle: edit cell, commit, undo → value restored
 - Cancel: type text, press Escape → original value preserved
 - Multi-cell: selection + clear works (tested programmatically)
+
+
+---
+
+## Phase 6 — Renderers + proper math rendering
+
+### Prerequisites
+- SDL2 + SDL2_ttf + math fonts installed (see environment_setup.md)
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Math expressions rendered with DejaVu Math TeX Gyre font:
+  - `a² + b² = c²` with superscripts visually shifted up and smaller
+  - Fractions stacked vertically with horizontal bar
+  - √ symbol rendered from actual Unicode glyph
+- Chemistry: `2H2 + O2 -> 2H2O` as readable text
+- Physics: `E = mc²` with proper superscript
+- Rich text section shows all three embedded on separate lines
+
+### Verification
+- `make test` → 277 tests pass (102 + 23 + 27 + 18 + 50 + 23 + 34)
+- Superscripts appear smaller and above baseline
+- Fractions show numerator above denominator with a line between
+- Math font renders Greek/√ correctly (requires DejaVu Math TeX Gyre)
