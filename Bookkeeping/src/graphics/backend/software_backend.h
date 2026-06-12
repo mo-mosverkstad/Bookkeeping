@@ -5,26 +5,39 @@
 #include <cstring>
 #include <cmath>
 
-// Software rasterizer — renders to an in-memory RGBA pixel buffer.
-// Used for headless testing: capture framebuffer, compare pixels.
 struct SoftwareBackend : RenderBackend {
-    uint8_t* pixels;   // RGBA, row-major, top-left origin
+    uint8_t* pixels;
     int buf_w, buf_h;
+    int clip_x0, clip_y0, clip_x1, clip_y1; // active scissor rect
+    bool clipping;
 
-    SoftwareBackend(int w, int h) : buf_w(w), buf_h(h) {
+    SoftwareBackend(int w, int h) : buf_w(w), buf_h(h), clip_x0(0), clip_y0(0), clip_x1(w), clip_y1(h), clipping(false) {
         pixels = new uint8_t[w * h * 4];
     }
     ~SoftwareBackend() override { delete[] pixels; }
 
     void begin_frame(float, float) override {
-        memset(pixels, 0, buf_w * buf_h * 4); // clear to black transparent
+        memset(pixels, 0, buf_w * buf_h * 4);
+        clipping = false;
+        clip_x0 = 0; clip_y0 = 0; clip_x1 = buf_w; clip_y1 = buf_h;
     }
     void end_frame() override {}
 
+    void set_clip(ClipRect r) override {
+        clipping = true;
+        clip_x0 = (int)r.x < 0 ? 0 : (int)r.x;
+        clip_y0 = (int)r.y < 0 ? 0 : (int)r.y;
+        clip_x1 = (int)(r.x + r.w) > buf_w ? buf_w : (int)(r.x + r.w);
+        clip_y1 = (int)(r.y + r.h) > buf_h ? buf_h : (int)(r.y + r.h);
+    }
+    void reset_clip() override {
+        clipping = false;
+        clip_x0 = 0; clip_y0 = 0; clip_x1 = buf_w; clip_y1 = buf_h;
+    }
+
     void set_pixel(int x, int y, Color c) {
-        if (x < 0 || x >= buf_w || y < 0 || y >= buf_h) return;
+        if (x < clip_x0 || x >= clip_x1 || y < clip_y0 || y >= clip_y1) return;
         int idx = (y * buf_w + x) * 4;
-        // Simple alpha-over compositing
         if (c.a == 255) {
             pixels[idx] = c.r; pixels[idx+1] = c.g; pixels[idx+2] = c.b; pixels[idx+3] = 255;
         } else if (c.a > 0) {
@@ -42,18 +55,12 @@ struct SoftwareBackend : RenderBackend {
         return {pixels[idx], pixels[idx+1], pixels[idx+2], pixels[idx+3]};
     }
 
-    // Fill axis-aligned rectangle
     void fill_rect(int x, int y, int w, int h, Color c) {
-        int x0 = x < 0 ? 0 : x;
-        int y0 = y < 0 ? 0 : y;
-        int x1 = (x + w) > buf_w ? buf_w : (x + w);
-        int y1 = (y + h) > buf_h ? buf_h : (y + h);
-        for (int py = y0; py < y1; py++)
-            for (int px = x0; px < x1; px++)
+        for (int py = y; py < y + h; py++)
+            for (int px = x; px < x + w; px++)
                 set_pixel(px, py, c);
     }
 
-    // Stroke axis-aligned rectangle border
     void stroke_rect(int x, int y, int w, int h, Color c, int thickness) {
         for (int t = 0; t < thickness; t++) {
             for (int px = x-t; px < x+w+t; px++) { set_pixel(px, y-t, c); set_pixel(px, y+h-1+t, c); }
@@ -61,12 +68,10 @@ struct SoftwareBackend : RenderBackend {
         }
     }
 
-    // Draw line (Bresenham)
     void draw_line(int x0, int y0, int x1, int y1, Color c) {
         int dx = x1 - x0, dy = y1 - y0;
         int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1;
-        dx = dx < 0 ? -dx : dx;
-        dy = dy < 0 ? -dy : dy;
+        dx = dx < 0 ? -dx : dx; dy = dy < 0 ? -dy : dy;
         int err = dx - dy;
         while (true) {
             set_pixel(x0, y0, c);
@@ -77,20 +82,13 @@ struct SoftwareBackend : RenderBackend {
         }
     }
 
-    // --- RenderBackend interface ---
-
     void render_rect(float abs_x, float abs_y, const Rect& r) override {
-        int px = (int)(abs_x + r.x);
-        int py = (int)(abs_y + r.y);
-        int pw = (int)r.w;
-        int ph = (int)r.h;
+        int px = (int)(abs_x + r.x), py = (int)(abs_y + r.y), pw = (int)r.w, ph = (int)r.h;
         if (r.fill.a > 0) fill_rect(px, py, pw, ph, r.fill);
-        if (r.stroke.a > 0 && r.stroke_width > 0)
-            stroke_rect(px, py, pw, ph, r.stroke, (int)r.stroke_width);
+        if (r.stroke.a > 0 && r.stroke_width > 0) stroke_rect(px, py, pw, ph, r.stroke, (int)r.stroke_width);
     }
 
     void render_ellipse(float abs_x, float abs_y, const Ellipse& e) override {
-        // Midpoint ellipse algorithm (simplified: fill only)
         int cx = (int)(abs_x + e.cx), cy = (int)(abs_y + e.cy);
         int rx = (int)e.rx, ry = (int)e.ry;
         for (int y = -ry; y <= ry; y++) {
@@ -101,19 +99,16 @@ struct SoftwareBackend : RenderBackend {
     }
 
     void render_line(float abs_x, float abs_y, const Line& l) override {
-        draw_line((int)(abs_x + l.x1), (int)(abs_y + l.y1),
-                  (int)(abs_x + l.x2), (int)(abs_y + l.y2), l.color);
+        draw_line((int)(abs_x + l.x1), (int)(abs_y + l.y1), (int)(abs_x + l.x2), (int)(abs_y + l.y2), l.color);
     }
 
     void render_polyline(float abs_x, float abs_y, const Polyline& p) override {
-        for (uint16_t i = 0; i + 1 < p.count; i++) {
+        for (uint16_t i = 0; i + 1 < p.count; i++)
             draw_line((int)(abs_x + p.points[i].x), (int)(abs_y + p.points[i].y),
                       (int)(abs_x + p.points[i+1].x), (int)(abs_y + p.points[i+1].y), p.color);
-        }
     }
 
     void render_polygon(float abs_x, float abs_y, const Polygon& p) override {
-        // Simplified: draw edges only (full scanline fill is complex)
         for (uint16_t i = 0; i < p.count; i++) {
             uint16_t j = (i + 1) % p.count;
             draw_line((int)(abs_x + p.points[i].x), (int)(abs_y + p.points[i].y),
@@ -122,13 +117,9 @@ struct SoftwareBackend : RenderBackend {
     }
 
     void render_text(float abs_x, float abs_y, const Text& t) override {
-        // Software text rendering requires font rasterization (stb_truetype).
-        // For Phase 1 testing, mark text bounding box with a placeholder.
-        // TODO: integrate stb_truetype for real glyph rendering.
-        int px = (int)(abs_x + t.x);
-        int py = (int)(abs_y + t.y);
-        int pw = t.max_width > 0 ? (int)t.max_width : 80;
-        int ph = (int)t.size;
+        int px = (int)(abs_x + t.x), py = (int)(abs_y + t.y);
+        TextMeasure m = measure_text(t.content, t.content ? (uint32_t)strlen(t.content) : 0, t.font, t.size, t.style);
+        int pw = (int)m.width, ph = (int)m.height;
         fill_rect(px, py, pw, ph, {t.color.r, t.color.g, t.color.b, 64});
     }
 };

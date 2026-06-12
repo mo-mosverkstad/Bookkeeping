@@ -1,5 +1,11 @@
 #pragma once
-#include "src/graphics/elements/shapes.h"
+#include "src/graphics/elements/rect.h"
+#include "src/graphics/elements/ellipse.h"
+#include "src/graphics/elements/line.h"
+#include "src/graphics/elements/polyline.h"
+#include "src/graphics/elements/polygon.h"
+#include "src/graphics/elements/text.h"
+#include <cstdint>
 
 // Element type tag — 3 bits (6 types)
 enum ElementType : uint8_t {
@@ -11,7 +17,7 @@ enum ElementType : uint8_t {
     ELEM_TEXT,
 };
 
-// A renderable element — tagged union
+// Tagged union — one renderable element
 struct Element {
     ElementType type;
     union {

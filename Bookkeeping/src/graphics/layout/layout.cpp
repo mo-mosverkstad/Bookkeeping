@@ -1,5 +1,28 @@
 #include "src/graphics/layout/layout.h"
-#include <algorithm>
+#include <cstring>
+
+// ── Text measurement hook ────────────────────────────────────────────────────
+
+static TextMeasure default_measure(const char* text, uint32_t len, const char*, float size, uint8_t) {
+    // Mock: count characters (handle newlines for multiline)
+    uint32_t max_line = 0, cur_line = 0, lines = 1;
+    for (uint32_t i = 0; i < len; i++) {
+        if (text[i] == '\n') { if (cur_line > max_line) max_line = cur_line; cur_line = 0; lines++; }
+        else cur_line++;
+    }
+    if (cur_line > max_line) max_line = cur_line;
+    return { max_line * size * 0.6f, lines * size };
+}
+
+static TextMeasureFn g_measure_fn = default_measure;
+
+void set_text_measure_hook(TextMeasureFn fn) { g_measure_fn = fn ? fn : default_measure; }
+
+TextMeasure measure_text(const char* text, uint32_t len, const char* font, float size, uint8_t style) {
+    return g_measure_fn(text, len, font, size, style);
+}
+
+// ── Layout algorithms ────────────────────────────────────────────────────────
 
 static void layout_coordinate(LayoutNode* node) {
     float max_w = 0, max_h = 0;
@@ -60,7 +83,6 @@ static void layout_grid(LayoutNode* node, float avail_width) {
     float cursor_y = node->padding;
     for (uint16_t r = 0; r < rows; r++) {
         float row_h = 0;
-        // First pass: compute children sizes for this row
         for (uint16_t c = 0; c < cols; c++) {
             uint16_t idx = r * cols + c;
             if (idx >= node->child_count) break;
@@ -69,7 +91,6 @@ static void layout_grid(LayoutNode* node, float avail_width) {
             layout_compute(child, cw, child->req_height);
             if (child->height > row_h) row_h = child->height;
         }
-        // Second pass: position children
         float cursor_x = node->padding;
         for (uint16_t c = 0; c < cols; c++) {
             uint16_t idx = r * cols + c;
@@ -87,6 +108,30 @@ static void layout_grid(LayoutNode* node, float avail_width) {
     if (node->req_height <= 0) node->height = cursor_y - node->gap + node->padding;
 }
 
+static void layout_scroll(LayoutNode* node, float avail_width, float avail_height) {
+    // Viewport size is fixed (req_width/req_height or available)
+    if (node->req_width > 0) node->width = node->req_width;
+    else node->width = avail_width;
+    if (node->req_height > 0) node->height = node->req_height;
+    else node->height = avail_height;
+
+    // Layout children as if in a vertical stack (content can be larger than viewport)
+    float cursor = 0;
+    float max_w = 0;
+    for (uint16_t i = 0; i < node->child_count; i++) {
+        LayoutNode* child = node->children[i];
+        float cw = child->req_width > 0 ? child->req_width : node->width;
+        float ch = child->req_height > 0 ? child->req_height : 0;
+        layout_compute(child, cw, ch);
+        child->x = 0;
+        child->y = cursor;
+        cursor += child->height + node->gap;
+        if (child->width > max_w) max_w = child->width;
+    }
+    node->content_width = max_w;
+    node->content_height = cursor > 0 ? cursor - node->gap : 0;
+}
+
 void layout_compute(LayoutNode* root, float avail_width, float avail_height) {
     if (root->req_width > 0) root->width = root->req_width;
     else root->width = avail_width;
@@ -98,5 +143,72 @@ void layout_compute(LayoutNode* root, float avail_width, float avail_height) {
         case LAYOUT_LINEAR_H:   layout_linear_h(root, avail_width); break;
         case LAYOUT_LINEAR_V:   layout_linear_v(root, avail_width); break;
         case LAYOUT_GRID:       layout_grid(root, avail_width); break;
+        case LAYOUT_SCROLL:     layout_scroll(root, avail_width, avail_height); break;
     }
+}
+
+// ── Hit testing ──────────────────────────────────────────────────────────────
+
+HitResult hit_test_surface(LayoutNode* root, float x, float y, float offset_x, float offset_y) {
+    HitResult best = {nullptr, 0, 0};
+    float abs_x = offset_x + root->x;
+    float abs_y = offset_y + root->y;
+
+    if (x < abs_x || x >= abs_x + root->width || y < abs_y || y >= abs_y + root->height)
+        return best;
+
+    // For scroll nodes, adjust coordinates by scroll offset
+    float child_ox = abs_x;
+    float child_oy = abs_y;
+    if (root->type == LAYOUT_SCROLL) {
+        child_ox -= root->scroll_x;
+        child_oy -= root->scroll_y;
+    }
+
+    // Check children in reverse order (last rendered = topmost)
+    for (int i = root->child_count - 1; i >= 0; i--) {
+        HitResult child_hit = hit_test_surface(root->children[i], x, y, child_ox, child_oy);
+        if (child_hit.node) return child_hit;
+    }
+
+    // No child hit — this node itself is the hit
+    best.node = root;
+    best.local_x = x - abs_x;
+    best.local_y = y - abs_y;
+    return best;
+}
+
+int hit_test_deep(LayoutNode* root, float x, float y, HitResult* results, int capacity, float offset_x, float offset_y) {
+    float abs_x = offset_x + root->x;
+    float abs_y = offset_y + root->y;
+
+    if (x < abs_x || x >= abs_x + root->width || y < abs_y || y >= abs_y + root->height)
+        return 0;
+
+    int count = 0;
+
+    // Add this node
+    if (count < capacity) {
+        results[count].node = root;
+        results[count].local_x = x - abs_x;
+        results[count].local_y = y - abs_y;
+        count++;
+    }
+
+    // For scroll nodes, adjust coordinates by scroll offset
+    float child_ox = abs_x;
+    float child_oy = abs_y;
+    if (root->type == LAYOUT_SCROLL) {
+        child_ox -= root->scroll_x;
+        child_oy -= root->scroll_y;
+    }
+
+    // Recurse into children
+    for (uint16_t i = 0; i < root->child_count; i++) {
+        int n = hit_test_deep(root->children[i], x, y, results + count, capacity - count, child_ox, child_oy);
+        count += n;
+        if (count >= capacity) break;
+    }
+
+    return count;
 }

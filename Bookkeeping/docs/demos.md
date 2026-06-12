@@ -30,6 +30,31 @@ make clean && make
 
 ---
 
+## Phase 1 Extension — Scroll, hit testing, text measurement, clipping
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Window opens (800×600, dark background)
+- Title text at top: "Scroll Demo (wheel=scroll, click=hit test)"
+- Scrollable list of 20 colored items (viewport clips to 300px)
+- Mouse wheel scrolls the list
+- Click on items prints to terminal: "Surface hit: Item N" and "Deep hit: M node(s)"
+- Below the scroll area: a blue ellipse and a green diagonal line
+- Terminal shows text measurement: `Text measure 'Hello World' @ 16px: 105.6 x 16.0`
+- Press Escape to exit
+
+### Verification
+- Automated: `make test` runs 90 tests (67 graphics + 23 table)
+- Scroll: items outside viewport are clipped (not visible)
+- Hit test: clicking different items reports different IDs
+
+---
+
 ## Phase 2 — Table model + CSV parser
 
 ### Build & Run

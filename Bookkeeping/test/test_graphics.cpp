@@ -1,7 +1,6 @@
 #include "test/test.h"
 #include "src/core/arena.h"
 #include "src/core/color.h"
-#include "src/graphics/elements/shapes.h"
 #include "src/graphics/elements/element.h"
 #include "src/graphics/layout/layout.h"
 #include "src/graphics/backend/backend.h"
@@ -684,6 +683,404 @@ TEST(bench_arena_alloc_10000) {
     } BENCH_END("arena_10000_allocs", 1000)
     arena_destroy(&a);
     ASSERT_TRUE(true);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCROLL LAYOUT TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(scroll_layout_content_size) {
+    LayoutNode c[5] = {};
+    LayoutNode* ptrs[5];
+    for (int i = 0; i < 5; i++) { c[i].req_width = 100; c[i].req_height = 40; ptrs[i] = &c[i]; }
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 200;
+    scroll.req_height = 100;
+    scroll.gap = 5;
+    scroll.children = ptrs;
+    scroll.child_count = 5;
+
+    layout_compute(&scroll, 200, 100);
+    ASSERT_NEAR(scroll.width, 200.0f, 0.01f);
+    ASSERT_NEAR(scroll.height, 100.0f, 0.01f);
+    // Content: 5 * 40 + 4 * 5 = 220
+    ASSERT_NEAR(scroll.content_height, 220.0f, 0.01f);
+}
+
+TEST(scroll_layout_children_positioned_sequentially) {
+    LayoutNode c[3] = {};
+    LayoutNode* ptrs[3];
+    for (int i = 0; i < 3; i++) { c[i].req_width = 80; c[i].req_height = 30; ptrs[i] = &c[i]; }
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 100;
+    scroll.req_height = 50;
+    scroll.gap = 10;
+    scroll.children = ptrs;
+    scroll.child_count = 3;
+
+    layout_compute(&scroll, 100, 50);
+    ASSERT_NEAR(c[0].y, 0.0f, 0.01f);
+    ASSERT_NEAR(c[1].y, 40.0f, 0.01f); // 30 + 10
+    ASSERT_NEAR(c[2].y, 80.0f, 0.01f); // 30 + 10 + 30 + 10
+}
+
+TEST(scroll_layout_clipping_hides_content) {
+    SoftwareBackend sw(200, 200);
+    sw.begin_frame(200, 200);
+
+    // Two children, each 60px tall, viewport is 50px
+    Element e1[1], e2[1];
+    e1[0] = elem_rect({0, 0, 100, 60, COLOR_RED, COLOR_TRANSPARENT, 0, 0});
+    e2[0] = elem_rect({0, 0, 100, 60, COLOR_BLUE, COLOR_TRANSPARENT, 0, 0});
+
+    LayoutNode c1 = {}; c1.req_width = 100; c1.req_height = 60; c1.elements = e1; c1.element_count = 1;
+    LayoutNode c2 = {}; c2.req_width = 100; c2.req_height = 60; c2.elements = e2; c2.element_count = 1;
+    LayoutNode* ptrs[] = {&c1, &c2};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 100;
+    scroll.req_height = 50;
+    scroll.gap = 0;
+    scroll.scroll_y = 0;
+    scroll.children = ptrs;
+    scroll.child_count = 2;
+
+    layout_compute(&scroll, 200, 200);
+    render_tree(&sw, &scroll);
+    sw.end_frame();
+
+    // Inside viewport: red (first child visible)
+    ASSERT_PIXEL(sw, 50, 25, COLOR_RED);
+    // Below viewport (y=55 > scroll.height=50): should be clipped (transparent)
+    Color outside = sw.get_pixel(50, 55);
+    ASSERT_EQ(outside.a, (uint8_t)0);
+}
+
+TEST(scroll_layout_scrolled_offset) {
+    SoftwareBackend sw(200, 200);
+    sw.begin_frame(200, 200);
+
+    Element e1[1], e2[1];
+    e1[0] = elem_rect({0, 0, 100, 50, COLOR_RED, COLOR_TRANSPARENT, 0, 0});
+    e2[0] = elem_rect({0, 0, 100, 50, COLOR_GREEN, COLOR_TRANSPARENT, 0, 0});
+
+    LayoutNode c1 = {}; c1.req_width = 100; c1.req_height = 50; c1.elements = e1; c1.element_count = 1;
+    LayoutNode c2 = {}; c2.req_width = 100; c2.req_height = 50; c2.elements = e2; c2.element_count = 1;
+    LayoutNode* ptrs[] = {&c1, &c2};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 100;
+    scroll.req_height = 50;
+    scroll.gap = 0;
+    scroll.scroll_y = 50; // scroll past first child
+    scroll.children = ptrs;
+    scroll.child_count = 2;
+
+    layout_compute(&scroll, 200, 200);
+    render_tree(&sw, &scroll);
+    sw.end_frame();
+
+    // After scrolling 50px, second child (green) should be visible
+    ASSERT_PIXEL(sw, 50, 25, COLOR_GREEN);
+}
+
+TEST(scroll_layout_empty_content) {
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 100;
+    scroll.req_height = 100;
+    scroll.children = nullptr;
+    scroll.child_count = 0;
+
+    layout_compute(&scroll, 100, 100);
+    ASSERT_NEAR(scroll.content_height, 0.0f, 0.01f);
+    ASSERT_NEAR(scroll.width, 100.0f, 0.01f);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HIT TESTING TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(hit_surface_direct) {
+    LayoutNode root = {};
+    root.type = LAYOUT_COORDINATE;
+    root.x = 0; root.y = 0;
+    root.width = 100; root.height = 100;
+
+    HitResult r = hit_test_surface(&root, 50, 50);
+    ASSERT_TRUE(r.node == &root);
+    ASSERT_NEAR(r.local_x, 50.0f, 0.01f);
+}
+
+TEST(hit_surface_miss) {
+    LayoutNode root = {};
+    root.type = LAYOUT_COORDINATE;
+    root.x = 10; root.y = 10;
+    root.width = 50; root.height = 50;
+
+    HitResult r = hit_test_surface(&root, 5, 5);
+    ASSERT_EQ(r.node, (LayoutNode*)nullptr);
+}
+
+TEST(hit_surface_topmost_child) {
+    LayoutNode c1 = {}; c1.x = 0; c1.y = 0; c1.width = 80; c1.height = 80;
+    LayoutNode c2 = {}; c2.x = 20; c2.y = 20; c2.width = 60; c2.height = 60;
+    c2.id = "top";
+    LayoutNode* children[] = {&c1, &c2};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_COORDINATE;
+    root.width = 100; root.height = 100;
+    root.children = children;
+    root.child_count = 2;
+
+    // Point (40,40) is inside both c1 and c2 — c2 is topmost (last in array)
+    HitResult r = hit_test_surface(&root, 40, 40);
+    ASSERT_TRUE(r.node == &c2);
+}
+
+TEST(hit_surface_non_overlapping) {
+    LayoutNode c1 = {}; c1.x = 0; c1.y = 0; c1.width = 40; c1.height = 40; c1.id = "left";
+    LayoutNode c2 = {}; c2.x = 60; c2.y = 0; c2.width = 40; c2.height = 40; c2.id = "right";
+    LayoutNode* children[] = {&c1, &c2};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_COORDINATE;
+    root.width = 100; root.height = 100;
+    root.children = children;
+    root.child_count = 2;
+
+    HitResult r1 = hit_test_surface(&root, 20, 20);
+    ASSERT_TRUE(r1.node == &c1);
+    HitResult r2 = hit_test_surface(&root, 80, 20);
+    ASSERT_TRUE(r2.node == &c2);
+}
+
+TEST(hit_surface_in_scroll_with_offset) {
+    LayoutNode c1 = {}; c1.x = 0; c1.y = 0; c1.width = 100; c1.height = 50; c1.id = "first";
+    LayoutNode c2 = {}; c2.x = 0; c2.y = 50; c2.width = 100; c2.height = 50; c2.id = "second";
+    LayoutNode* children[] = {&c1, &c2};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.width = 100; scroll.height = 50;
+    scroll.scroll_y = 50; // scrolled to show second child
+    scroll.children = children;
+    scroll.child_count = 2;
+
+    // Click at y=25 (within viewport). With scroll_y=50, this maps to content y=75 → inside c2
+    HitResult r = hit_test_surface(&scroll, 50, 25);
+    ASSERT_TRUE(r.node == &c2);
+}
+
+TEST(hit_deep_returns_all) {
+    LayoutNode c1 = {}; c1.x = 10; c1.y = 10; c1.width = 80; c1.height = 80; c1.id = "child";
+    LayoutNode* children[] = {&c1};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_COORDINATE;
+    root.width = 100; root.height = 100;
+    root.children = children;
+    root.child_count = 1;
+    root.id = "root";
+
+    HitResult results[8];
+    int n = hit_test_deep(&root, 50, 50, results, 8);
+    ASSERT_EQ(n, 2); // root + child
+    ASSERT_TRUE(results[0].node == &root);
+    ASSERT_TRUE(results[1].node == &c1);
+}
+
+TEST(hit_deep_nested) {
+    LayoutNode leaf = {}; leaf.x = 5; leaf.y = 5; leaf.width = 20; leaf.height = 20; leaf.id = "leaf";
+    LayoutNode* leaf_arr[] = {&leaf};
+    LayoutNode mid = {}; mid.x = 10; mid.y = 10; mid.width = 40; mid.height = 40; mid.id = "mid";
+    mid.children = leaf_arr; mid.child_count = 1;
+    LayoutNode* mid_arr[] = {&mid};
+    LayoutNode root = {}; root.width = 100; root.height = 100; root.id = "root";
+    root.children = mid_arr; root.child_count = 1;
+
+    HitResult results[8];
+    int n = hit_test_deep(&root, 20, 20, results, 8);
+    ASSERT_EQ(n, 3); // root, mid, leaf
+}
+
+TEST(hit_deep_clipped_child_not_hittable) {
+    // Scroll viewport is 50px tall, child at y=200 is entirely clipped out
+    LayoutNode c1 = {}; c1.x = 0; c1.y = 0; c1.width = 100; c1.height = 50; c1.id = "visible";
+    LayoutNode c2 = {}; c2.x = 0; c2.y = 200; c2.width = 100; c2.height = 50; c2.id = "clipped";
+    LayoutNode* children[] = {&c1, &c2};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.width = 100; scroll.height = 50;
+    scroll.scroll_x = 0; scroll.scroll_y = 0;
+    scroll.children = children;
+    scroll.child_count = 2;
+
+    // Click at y=25 (inside viewport)
+    HitResult results[8];
+    int n = hit_test_deep(&scroll, 50, 25, results, 8);
+    // Should hit: scroll node + c1 (visible). NOT c2 (clipped out).
+    ASSERT_EQ(n, 2);
+    ASSERT_TRUE(results[0].node == &scroll);
+    ASSERT_TRUE(results[1].node == &c1);
+}
+
+TEST(hit_surface_clipped_child_not_hittable) {
+    LayoutNode c1 = {}; c1.x = 0; c1.y = 0; c1.width = 100; c1.height = 50; c1.id = "visible";
+    LayoutNode c2 = {}; c2.x = 0; c2.y = 200; c2.width = 100; c2.height = 50; c2.id = "clipped";
+    LayoutNode* children[] = {&c1, &c2};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.width = 100; scroll.height = 50;
+    scroll.scroll_x = 0; scroll.scroll_y = 0;
+    scroll.children = children;
+    scroll.child_count = 2;
+
+    // Surface hit at y=25 should hit c1, not c2
+    HitResult r = hit_test_surface(&scroll, 50, 25);
+    ASSERT_TRUE(r.node == &c1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TEXT MEASUREMENT TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(text_measure_default_single_line) {
+    TextMeasure m = measure_text("Hello", 5, "sans", 16, TEXT_NORMAL);
+    // 5 chars * 16 * 0.6 = 48 width, 16 height
+    ASSERT_NEAR(m.width, 48.0f, 0.01f);
+    ASSERT_NEAR(m.height, 16.0f, 0.01f);
+}
+
+TEST(text_measure_multiline) {
+    TextMeasure m = measure_text("AB\nCDE", 6, "sans", 10, TEXT_NORMAL);
+    // max line = 3 chars (CDE), width = 3 * 10 * 0.6 = 18, height = 2 * 10 = 20
+    ASSERT_NEAR(m.width, 18.0f, 0.01f);
+    ASSERT_NEAR(m.height, 20.0f, 0.01f);
+}
+
+TEST(text_measure_empty) {
+    TextMeasure m = measure_text("", 0, "sans", 14, TEXT_NORMAL);
+    ASSERT_NEAR(m.width, 0.0f, 0.01f);
+    ASSERT_NEAR(m.height, 14.0f, 0.01f);
+}
+
+TEST(text_measure_custom_hook) {
+    // Set a custom hook that always returns 100x50
+    set_text_measure_hook([](const char*, uint32_t, const char*, float, uint8_t) -> TextMeasure {
+        return {100.0f, 50.0f};
+    });
+    TextMeasure m = measure_text("anything", 8, "any", 12, TEXT_NORMAL);
+    ASSERT_NEAR(m.width, 100.0f, 0.01f);
+    ASSERT_NEAR(m.height, 50.0f, 0.01f);
+    // Reset to default
+    set_text_measure_hook(nullptr);
+}
+
+TEST(text_measure_after_hook_reset) {
+    set_text_measure_hook(nullptr);
+    TextMeasure m = measure_text("AB", 2, "mono", 20, TEXT_NORMAL);
+    ASSERT_NEAR(m.width, 24.0f, 0.01f); // 2 * 20 * 0.6
+    ASSERT_NEAR(m.height, 20.0f, 0.01f);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CLIPPING TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(clip_restricts_rendering) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+    sw.set_clip({20, 20, 30, 30}); // only 20-49 x 20-49 visible
+    Rect r = {0, 0, 100, 100, COLOR_RED, COLOR_TRANSPARENT, 0, 0};
+    sw.render_rect(0, 0, r);
+    sw.reset_clip();
+    sw.end_frame();
+
+    // Inside clip: red
+    ASSERT_PIXEL(sw, 30, 30, COLOR_RED);
+    // Outside clip: transparent
+    Color c = sw.get_pixel(10, 10);
+    ASSERT_EQ(c.a, (uint8_t)0);
+    c = sw.get_pixel(60, 60);
+    ASSERT_EQ(c.a, (uint8_t)0);
+}
+
+TEST(clip_reset_allows_full_render) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+    sw.set_clip({0, 0, 10, 10});
+    sw.reset_clip();
+    Rect r = {0, 0, 100, 100, COLOR_GREEN, COLOR_TRANSPARENT, 0, 0};
+    sw.render_rect(0, 0, r);
+    sw.end_frame();
+    ASSERT_PIXEL(sw, 50, 50, COLOR_GREEN);
+    ASSERT_PIXEL(sw, 90, 90, COLOR_GREEN);
+}
+
+TEST(clip_line_clipped) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+    sw.set_clip({40, 40, 20, 20}); // 40-59 x 40-59
+    Line l = {0, 50, 99, 50, COLOR_BLUE, 1};
+    sw.render_line(0, 0, l);
+    sw.reset_clip();
+    sw.end_frame();
+
+    // Inside clip
+    ASSERT_PIXEL(sw, 50, 50, COLOR_BLUE);
+    // Outside clip
+    Color c = sw.get_pixel(10, 50);
+    ASSERT_EQ(c.a, (uint8_t)0);
+    c = sw.get_pixel(70, 50);
+    ASSERT_EQ(c.a, (uint8_t)0);
+}
+
+TEST(clip_ellipse_clipped) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+    sw.set_clip({45, 45, 10, 10}); // tiny window
+    Ellipse e = {50, 50, 30, 30, COLOR_RED, COLOR_TRANSPARENT, 0};
+    sw.render_ellipse(0, 0, e);
+    sw.reset_clip();
+    sw.end_frame();
+
+    // Center (inside clip)
+    ASSERT_PIXEL(sw, 50, 50, COLOR_RED);
+    // Edge of ellipse outside clip
+    Color c = sw.get_pixel(25, 50);
+    ASSERT_EQ(c.a, (uint8_t)0);
+}
+
+TEST(clip_multiple_regions) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+
+    // First clip region
+    sw.set_clip({0, 0, 30, 30});
+    Rect r1 = {0, 0, 100, 100, COLOR_RED, COLOR_TRANSPARENT, 0, 0};
+    sw.render_rect(0, 0, r1);
+
+    // Second clip region
+    sw.set_clip({70, 70, 30, 30});
+    Rect r2 = {0, 0, 100, 100, COLOR_BLUE, COLOR_TRANSPARENT, 0, 0};
+    sw.render_rect(0, 0, r2);
+    sw.reset_clip();
+    sw.end_frame();
+
+    ASSERT_PIXEL(sw, 10, 10, COLOR_RED);
+    ASSERT_PIXEL(sw, 80, 80, COLOR_BLUE);
+    Color c = sw.get_pixel(50, 50);
+    ASSERT_EQ(c.a, (uint8_t)0);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

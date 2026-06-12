@@ -42,6 +42,25 @@ across phases.
 
 ---
 
+## Phase 1 Extension — ScrollLayout, hit testing, text measurement, clipping — 2026-06-12
+
+**Added:**
+- ScrollLayout type (`LAYOUT_SCROLL`) with scroll offset and content size tracking
+- Hit testing: `hit_test_surface()` (topmost) and `hit_test_deep()` (all overlapping)
+- Text measurement hook with default mock implementation
+- Scissor-rect clipping in both SoftwareBackend and SDL2Backend
+- `src/demo.h` — interactive demo (scroll + click + shapes)
+- `main.cpp` simplified to just call `run_demo()`
+- 22 new tests: scroll (5), hit testing (7), text measurement (5), clipping (5)
+
+**Decisions:**
+- Text measurement uses a pluggable hook (function pointer) — default mock, replaceable with stb_truetype/SDL2_ttf later
+- Hit testing accounts for scroll offsets
+- Demo kept as a separate header for future reuse/customer demos
+- Clipping implemented at pixel level in SoftwareBackend, via SDL API in SDL2Backend
+
+---
+
 ## Phase 2 — Table model + CSV parser — 2026-06-12
 
 **Added:**

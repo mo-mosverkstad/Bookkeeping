@@ -78,7 +78,39 @@ Key design points:
 
 ---
 
-### Phase 2 — Table model + CSV parser (completed)
+### Phase 1 Extension — ScrollLayout, hit testing, text measurement, clipping (completed)
+
+**Files modified:**
+- `src/graphics/layout/layout.h` — Added `LAYOUT_SCROLL`, scroll fields, hit testing API, text measurement hook
+- `src/graphics/layout/layout.cpp` — Scroll layout algorithm, surface/deep hit testing, text measurement with hook
+- `src/graphics/backend/backend.h` — Added `ClipRect`, `set_clip()`/`reset_clip()` to RenderBackend
+- `src/graphics/backend/backend.cpp` — `render_tree` handles scroll nodes (clip + offset)
+- `src/graphics/backend/software_backend.h` — Scissor rect clipping in all draw calls
+- `src/graphics/backend/sdl2_backend.h` — `SDL_RenderSetClipRect` for clipping
+
+**Files added:**
+- `src/demo.h` — Self-contained demo showcasing scroll, hit testing, shapes, text measurement
+
+**ScrollLayout:**
+- Children positioned relative to content (not viewport)
+- `scroll_x`/`scroll_y` offsets shift content within viewport
+- `content_width`/`content_height` computed for scroll bounds
+- Clipping applied automatically during render_tree traversal
+
+**Hit testing:**
+- Surface hit: returns topmost node at (x,y) — traverses children in reverse (last = topmost)
+- Deep hit: returns all overlapping nodes in an array (parent first, deepest last)
+- Both respect scroll offsets (adjusts coordinates before recursing into scroll children)
+
+**Text measurement:**
+- Hook pattern: `set_text_measure_hook(fn)` to plug in real font metrics
+- Default mock: `width = chars * size * 0.6`, `height = lines * size`
+- Used by SoftwareBackend and SDL2Backend for placeholder text rendering
+
+**Clipping:**
+- `set_clip(ClipRect)` restricts all subsequent drawing to the scissor rect
+- `reset_clip()` restores full-buffer rendering
+- SoftwareBackend checks bounds in `set_pixel()`; SDL2Backend uses `SDL_RenderSetClipRect`
 
 **Files added:**
 - `src/core/str.h` — Arena-backed string: pointer + length, null-terminated for C compat

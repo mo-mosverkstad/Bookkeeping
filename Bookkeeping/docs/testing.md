@@ -114,6 +114,48 @@ Custom lightweight test framework in `test/test.h`:
 
 ---
 
+## Phase 1 Extension — Scroll, hit testing, text measurement, clipping (22 tests)
+
+### ScrollLayout (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| scroll_layout_content_size | Computes content_height from children | PASS |
+| scroll_layout_children_positioned_sequentially | Children at y=0, 40, 80 with gap | PASS |
+| scroll_layout_clipping_hides_content | Content below viewport is clipped | PASS |
+| scroll_layout_scrolled_offset | Scrolling reveals second child | PASS |
+| scroll_layout_empty_content | No children → content_height=0 | PASS |
+
+### Hit testing (7 tests)
+| Test | Description | Result |
+|---|---|---|
+| hit_surface_direct | Hit root node directly | PASS |
+| hit_surface_miss | Point outside root returns nullptr | PASS |
+| hit_surface_topmost_child | Overlapping children: last wins | PASS |
+| hit_surface_non_overlapping | Separate children: correct one hit | PASS |
+| hit_surface_in_scroll_with_offset | Scroll offset adjusts hit coordinates | PASS |
+| hit_deep_returns_all | Returns root + child (2 nodes) | PASS |
+| hit_deep_nested | 3-level nesting returns all 3 | PASS |
+
+### Text measurement (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| text_measure_default_single_line | 5 chars × 0.6 × size | PASS |
+| text_measure_multiline | Max line width, N × height | PASS |
+| text_measure_empty | Empty string → 0 width, 1×height | PASS |
+| text_measure_custom_hook | Custom hook returns fixed value | PASS |
+| text_measure_after_hook_reset | Reset restores default mock | PASS |
+
+### Clipping (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| clip_restricts_rendering | Rect only visible inside clip | PASS |
+| clip_reset_allows_full_render | Reset restores full buffer | PASS |
+| clip_line_clipped | Line only visible inside clip | PASS |
+| clip_ellipse_clipped | Ellipse only visible inside clip | PASS |
+| clip_multiple_regions | Two sequential clips each work | PASS |
+
+---
+
 ## Phase 2 — Table model + CSV parser tests (23 tests)
 
 ### String (4 tests)
