@@ -1566,6 +1566,219 @@ TEST(reg_scroll_inside_linear) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// FUNCTIONAL LAYOUT + VIRTUAL LAYOUT TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+#include "src/graphics/layout/functional_layout.h"
+#include "src/graphics/layout/virtual_layout.h"
+
+TEST(functional_layout_init_and_dirty) {
+    LayoutNode source = {};
+    source.type = LAYOUT_COORDINATE;
+    source.req_width = 50; source.req_height = 50;
+
+    FunctionalLayout fl = {};
+    functional_init(&fl, &source, 50, 50);
+    ASSERT_TRUE(fl.dirty);
+    ASSERT_TRUE(fl.cache != nullptr);
+    ASSERT_EQ(fl.cache_w, 50);
+    functional_destroy(&fl);
+}
+
+TEST(functional_layout_render_caches) {
+    // Create source with a red rect
+    Element e[1] = {elem_rect({0, 0, 40, 40, COLOR_RED, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode source = {};
+    source.type = LAYOUT_COORDINATE;
+    source.req_width = 40; source.req_height = 40;
+    source.elements = e; source.element_count = 1;
+
+    FunctionalLayout fl = {};
+    functional_init(&fl, &source, 40, 40);
+
+    // Render into cache using SoftwareBackend
+    SoftwareBackend sw(40, 40);
+    sw.begin_frame(40, 40);
+    layout_compute(fl.source, fl.cache_w, fl.cache_h);
+    render_tree(&sw, fl.source);
+    sw.end_frame();
+    memcpy(fl.cache, sw.pixels, 40 * 40 * 4);
+    fl.dirty = false;
+
+    // Verify cache pixel
+    int idx = (20 * 40 + 20) * 4;
+    ASSERT_EQ(fl.cache[idx], (uint8_t)255); // red channel
+    ASSERT_TRUE(!fl.dirty);
+
+    functional_destroy(&fl);
+}
+
+TEST(functional_layout_invalidate) {
+    LayoutNode source = {};
+    FunctionalLayout fl = {};
+    functional_init(&fl, &source, 10, 10);
+    fl.dirty = false;
+    functional_invalidate(&fl);
+    ASSERT_TRUE(fl.dirty);
+    functional_destroy(&fl);
+}
+
+TEST(virtual_layout_init) {
+    auto render_fn = [](void*, Arena* a) -> LayoutNode* {
+        LayoutNode* node = arena_new<LayoutNode>(a);
+        node->type = LAYOUT_COORDINATE;
+        node->req_width = 100; node->req_height = 50;
+        return node;
+    };
+    VirtualLayout vl = {};
+    virtual_init(&vl, render_fn, nullptr, nullptr, 4096);
+    ASSERT_TRUE(vl.dirty);
+    ASSERT_TRUE(vl.render_arena != nullptr);
+    virtual_destroy(&vl);
+}
+
+TEST(virtual_layout_render_produces_tree) {
+    struct State { int count; };
+    State s = {3};
+
+    auto render_fn = [](void* state, Arena* a) -> LayoutNode* {
+        State* s = (State*)state;
+        LayoutNode* root = arena_new<LayoutNode>(a);
+        root->type = LAYOUT_LINEAR;
+        root->direction = LINEAR_VERTICAL;
+        root->children = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * s->count, 8);
+        root->child_count = s->count;
+        for (int i = 0; i < s->count; i++) {
+            root->children[i] = arena_new<LayoutNode>(a);
+            root->children[i]->req_width = 80;
+            root->children[i]->req_height = 20;
+        }
+        return root;
+    };
+
+    VirtualLayout vl = {};
+    virtual_init(&vl, render_fn, nullptr, &s, 8192);
+
+    LayoutNode* tree = virtual_render(&vl);
+    ASSERT_TRUE(tree != nullptr);
+    ASSERT_EQ(tree->child_count, (uint16_t)3);
+    ASSERT_TRUE(!vl.dirty); // no longer dirty after render
+
+    virtual_destroy(&vl);
+}
+
+TEST(virtual_layout_rerender_on_dirty) {
+    struct State { int value; };
+    State s = {10};
+    static int render_count = 0;
+
+    auto render_fn = [](void* state, Arena* a) -> LayoutNode* {
+        render_count++;
+        State* s = (State*)state;
+        LayoutNode* node = arena_new<LayoutNode>(a);
+        node->req_height = (float)s->value;
+        return node;
+    };
+
+    VirtualLayout vl = {};
+    virtual_init(&vl, render_fn, nullptr, &s, 4096);
+    render_count = 0;
+
+    virtual_render(&vl);
+    ASSERT_EQ(render_count, 1);
+
+    // Not dirty — should not re-render
+    virtual_render(&vl);
+    ASSERT_EQ(render_count, 1);
+
+    // Mark dirty, change state
+    s.value = 20;
+    virtual_set_dirty(&vl);
+    LayoutNode* tree = virtual_render(&vl);
+    ASSERT_EQ(render_count, 2);
+    ASSERT_NEAR(tree->req_height, 20.0f, 0.01f);
+
+    virtual_destroy(&vl);
+}
+
+TEST(virtual_layout_event_dispatch) {
+    struct State { int click_count; };
+    State s = {0};
+
+    auto event_fn = [](void* state, const UIEvent* ev) -> bool {
+        if (ev->type == EVENT_CLICK) { ((State*)state)->click_count++; return true; }
+        return false;
+    };
+
+    VirtualLayout vl = {};
+    virtual_init(&vl, nullptr, event_fn, &s, 1024);
+    vl.dirty = false;
+
+    UIEvent click = {EVENT_CLICK, 50, 50, 0, 0, nullptr};
+    bool handled = virtual_dispatch(&vl, &click);
+    ASSERT_TRUE(handled);
+    ASSERT_EQ(s.click_count, 1);
+    ASSERT_TRUE(vl.dirty); // event marked it dirty
+
+    UIEvent move = {EVENT_MOUSE_MOVE, 10, 10, 0, 0, nullptr};
+    handled = virtual_dispatch(&vl, &move);
+    ASSERT_TRUE(!handled); // mouse move not handled
+
+    virtual_destroy(&vl);
+}
+
+TEST(virtual_layout_full_cycle) {
+    // Full React-like cycle: render → interact → re-render
+    struct TodoState { int items[8]; int count; };
+    TodoState s = {{1, 2, 3}, 3};
+
+    auto render_fn = [](void* state, Arena* a) -> LayoutNode* {
+        TodoState* s = (TodoState*)state;
+        LayoutNode* root = arena_new<LayoutNode>(a);
+        root->type = LAYOUT_LINEAR;
+        root->direction = LINEAR_VERTICAL;
+        root->gap = 2;
+        root->children = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * s->count, 8);
+        root->child_count = s->count;
+        for (int i = 0; i < s->count; i++) {
+            root->children[i] = arena_new<LayoutNode>(a);
+            root->children[i]->req_width = 100;
+            root->children[i]->req_height = 20;
+        }
+        return root;
+    };
+
+    auto event_fn = [](void* state, const UIEvent* ev) -> bool {
+        if (ev->type == EVENT_CLICK) {
+            TodoState* s = (TodoState*)state;
+            s->items[s->count] = s->count + 1;
+            s->count++;
+            return true;
+        }
+        return false;
+    };
+
+    VirtualLayout vl = {};
+    virtual_init(&vl, render_fn, event_fn, &s, 16384);
+
+    // Initial render: 3 items
+    LayoutNode* tree = virtual_render(&vl);
+    ASSERT_EQ(tree->child_count, (uint16_t)3);
+
+    // Simulate click → adds item
+    UIEvent click = {EVENT_CLICK, 50, 10, 0, 0, nullptr};
+    virtual_dispatch(&vl, &click);
+    ASSERT_EQ(s.count, 4);
+    ASSERT_TRUE(vl.dirty);
+
+    // Re-render: now 4 items
+    tree = virtual_render(&vl);
+    ASSERT_EQ(tree->child_count, (uint16_t)4);
+
+    virtual_destroy(&vl);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 
 int main() {
     return run_all_tests();

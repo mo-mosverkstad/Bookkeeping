@@ -2,7 +2,10 @@
 #include "src/core/arena.h"
 #include "src/graphics/elements/element.h"
 #include "src/graphics/layout/layout.h"
+#include "src/graphics/layout/functional_layout.h"
+#include "src/graphics/layout/virtual_layout.h"
 #include "src/graphics/backend/backend.h"
+#include "src/graphics/backend/software_backend.h"
 #include "src/graphics/backend/sdl2_backend.h"
 #include <cstdio>
 #include <SDL2/SDL.h>
@@ -129,23 +132,109 @@ inline int run_demo() {
     // SECTION 5: Title
     // ══════════════════════════════════════════════════════════════════════════
     LayoutNode title_node = {};
-    title_node.req_width = 370;
+    title_node.req_width = 760;
     title_node.req_height = 22;
     title_node.elements = arena_array<Element>(&arena, 1);
     title_node.element_count = 1;
-    title_node.elements[0] = elem_text({5, 3, "Demo: Scroll | LinearH | Grid | Coordinate (wheel=scroll, click=hit)", "sans", 12, COLOR_WHITE, TEXT_BOLD, ALIGN_LEFT, 0});
+    title_node.elements[0] = elem_text({5, 3, "Demo: All Layouts + FunctionalLayout(cached) + VirtualLayout(reactive)", "sans", 11, COLOR_WHITE, TEXT_BOLD, ALIGN_LEFT, 0});
     title_node.id = "title";
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SECTION 6: VirtualLayout — reactive counter (click to increment)
+    // ══════════════════════════════════════════════════════════════════════════
+    struct CounterState { int count; Arena* a; };
+    CounterState counter_state = {0, &arena};
+
+    auto counter_render = [](void* state, Arena* a) -> LayoutNode* {
+        CounterState* cs = (CounterState*)state;
+        LayoutNode* box = arena_new<LayoutNode>(a);
+        box->type = LAYOUT_LINEAR; box->direction = LINEAR_VERTICAL;
+        box->req_width = 370; box->req_height = 50; box->gap = 4;
+        box->elements = arena_array<Element>(a, 1);
+        box->element_count = 1;
+        box->elements[0] = elem_rect({0, 0, 370, 48, color_rgba(50, 30, 80), color_rgba(180, 100, 255), 1, 0});
+        box->id = "virtual-counter";
+
+        LayoutNode* label = arena_new<LayoutNode>(a);
+        label->req_width = 370; label->req_height = 44;
+        label->elements = arena_array<Element>(a, 1);
+        label->element_count = 1;
+        char* txt = (char*)arena_alloc(a, 64, 1);
+        snprintf(txt, 64, "VirtualLayout counter: %d (click anywhere to +1)", cs->count);
+        label->elements[0] = elem_text({8, 14, txt, "sans", 14, COLOR_WHITE, TEXT_NORMAL, ALIGN_LEFT, 0});
+        label->id = "counter-label";
+
+        box->children = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*), 8);
+        box->children[0] = label;
+        box->child_count = 1;
+        return box;
+    };
+
+    auto counter_event = [](void* state, const UIEvent* ev) -> bool {
+        if (ev->type == EVENT_CLICK) { ((CounterState*)state)->count++; return true; }
+        return false;
+    };
+
+    VirtualLayout vl = {};
+    virtual_init(&vl, counter_render, counter_event, &counter_state, 8192);
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SECTION 7: FunctionalLayout — cached static sprite
+    // ══════════════════════════════════════════════════════════════════════════
+    // Create a static pattern (checkerboard) rendered once into cache
+    LayoutNode sprite_source = {};
+    sprite_source.type = LAYOUT_COORDINATE;
+    sprite_source.req_width = 100; sprite_source.req_height = 50;
+    sprite_source.elements = arena_array<Element>(&arena, 5);
+    sprite_source.element_count = 5;
+    for (int i = 0; i < 5; i++) {
+        sprite_source.elements[i] = elem_rect({(float)(i * 20), 0, 18, 48,
+            (i % 2 == 0) ? color_rgba(255, 200, 0) : color_rgba(80, 0, 120),
+            COLOR_TRANSPARENT, 0, 0});
+    }
+    FunctionalLayout fl = {};
+    functional_init(&fl, &sprite_source, 100, 50);
+
+    // Pre-render the sprite into its cache
+    {
+        SoftwareBackend cache_sw(fl.cache_w, fl.cache_h);
+        cache_sw.begin_frame(fl.cache_w, fl.cache_h);
+        layout_compute(fl.source, fl.cache_w, fl.cache_h);
+        render_tree(&cache_sw, fl.source);
+        cache_sw.end_frame();
+        memcpy(fl.cache, cache_sw.pixels, fl.cache_w * fl.cache_h * 4);
+        fl.dirty = false;
+    }
+    printf("FunctionalLayout: cached %dx%d sprite (dirty=%d)\n", fl.cache_w, fl.cache_h, fl.dirty);
+
+    // Wrap functional layout source as a regular node for display
+    LayoutNode fl_node = {};
+    fl_node.type = LAYOUT_COORDINATE;
+    fl_node.req_width = 100; fl_node.req_height = 50;
+    fl_node.elements = sprite_source.elements;
+    fl_node.element_count = sprite_source.element_count;
+    fl_node.id = "functional-sprite";
 
     // ══════════════════════════════════════════════════════════════════════════
     // ROOT: Vertical LinearLayout stacking all sections
     // ══════════════════════════════════════════════════════════════════════════
-    LayoutNode* root_children[] = {&title_node, &hrow, &grid, &scroll, &coord};
+    LayoutNode* root_children[7];
+    root_children[0] = &title_node;
+    root_children[1] = &hrow;
+    root_children[2] = &grid;
+    root_children[3] = &scroll;
+    root_children[4] = &coord;
+    // VirtualLayout's tree will go in slot 5
+    // FunctionalLayout sprite in slot 6
+    root_children[5] = virtual_render(&vl);
+    root_children[6] = &fl_node;
+
     LayoutNode root = {};
     root.type = LAYOUT_LINEAR; root.direction = LINEAR_VERTICAL;
-    root.gap = 10;
-    root.padding = 20;
+    root.gap = 8;
+    root.padding = 15;
     root.children = root_children;
-    root.child_count = 5;
+    root.child_count = 7;
     root.id = "root";
 
     layout_compute(&root, 800, 600);
@@ -175,10 +264,18 @@ inline int run_demo() {
                 if (scroll.scroll_y > max_scroll) scroll.scroll_y = max_scroll;
             }
 
-            // Click → hit test
+            // Click → hit test + VirtualLayout event dispatch
             if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
                 float mx = (float)event.button.x;
                 float my = (float)event.button.y;
+
+                // Dispatch to VirtualLayout counter
+                UIEvent ui_click = {EVENT_CLICK, mx, my, 0, 0, nullptr};
+                if (virtual_dispatch(&vl, &ui_click)) {
+                    // Re-render the virtual tree and update root
+                    root_children[5] = virtual_render(&vl);
+                    layout_compute(&root, 800, 600);
+                }
 
                 // Surface hit
                 HitResult surface = hit_test_surface(&root, mx, my);
@@ -219,5 +316,7 @@ inline int run_demo() {
     }
 
     arena_destroy(&arena);
+    virtual_destroy(&vl);
+    functional_destroy(&fl);
     return 0;
 }
