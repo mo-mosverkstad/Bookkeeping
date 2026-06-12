@@ -224,6 +224,10 @@
 }
 
 /* Identifier variants */
+.native-math .math-text {
+  font-style: normal;
+  white-space: pre;
+}
 .native-math .ident-plain {
   font-style: normal;
   display: inline-block;

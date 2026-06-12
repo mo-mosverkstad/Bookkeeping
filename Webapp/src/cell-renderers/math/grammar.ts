@@ -222,7 +222,8 @@ const grammar: Grammar = {
     Primary: { peg: { type: "choice", options: [
         { type: "rule", name: "CasesExpression" }, { type: "rule", name: "RolloutExpression" },
         { type: "rule", name: "Ellipsis" }, { type: "rule", name: "AbsoluteValue" },
-        { type: "rule", name: "BracketExpression" }, { type: "rule", name: "Number" },
+        { type: "rule", name: "BracketExpression" }, { type: "rule", name: "TextLiteral" },
+        { type: "rule", name: "Number" },
         { type: "rule", name: "Identifier" }, { type: "rule", name: "ParenExpression" },
         { type: "rule", name: "SetExpression" },
     ] } },
@@ -337,6 +338,8 @@ const grammar: Grammar = {
             return { type: "Matrix", rows: elements.map((e: MathNode) => [e]) };
         },
     },
+
+    TextLiteral: { peg: { type: "regex", regex: /^"([^"]*)"/, name: "text literal" }, build(v: string): MathNode { return { type: "TextLiteral", text: v.slice(1, -1) }; } },
 
     Number: { peg: { type: "regex", regex: /^([0-9]+(\.[0-9]*)?|\.[0-9]+)/, name: "number" }, build(v: string): NumberLiteralNode { return { type: "NumberLiteral", value: Number(v) }; } },
 

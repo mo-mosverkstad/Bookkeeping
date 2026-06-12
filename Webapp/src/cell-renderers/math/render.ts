@@ -28,6 +28,7 @@ export function render(node: MathNode): HTMLElement {
         case "Ellipsis": return el("span", "", ["…"]);
         case "Piecewise": return renderPiecewise(node);
         case "Set": return renderSet(node);
+        case "TextLiteral": return el("span", "math-text", [node.text]);
         default: throw new Error("Unknown node");
     }
 }
