@@ -196,3 +196,46 @@ Custom lightweight test framework in `test/test.h`:
 | Benchmark | Iterations | Time/iter |
 |---|---|---|
 | csv_parse_1000_rows (5 cols) | 1,000 | ~67 μs |
+
+---
+
+## Phase 1 Refactoring — UI builder + platform tests (27 tests)
+
+### UI Fluent Builder (15 tests)
+| Test | Description | Result |
+|---|---|---|
+| ui_box_creates_node | Box factory sets dimensions | PASS |
+| ui_vstack_type | VStack sets LINEAR + VERTICAL | PASS |
+| ui_hstack_type | HStack sets LINEAR + HORIZONTAL | PASS |
+| ui_grid_type | Grid sets type + cols | PASS |
+| ui_scroll_type | Scroll sets type + dimensions | PASS |
+| ui_absolute_type | Absolute sets COORDINATE | PASS |
+| ui_child_adds_to_tree | child() appends to children array | PASS |
+| ui_children_bulk | children() sets array from items | PASS |
+| ui_bg_adds_element | bg() appends RECT element | PASS |
+| ui_text_adds_element | text() appends TEXT element | PASS |
+| ui_multiple_elements | Multiple element decorations | PASS |
+| ui_chaining_modifiers | size/padding/gap/id chain | PASS |
+| ui_colorbox_convenience | ColorBox creates box + bg | PASS |
+| ui_label_measures_text | Label auto-sizes from text | PASS |
+| ui_build_returns_arena_node | build() returns valid pointer | PASS |
+
+### Method-based API (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| method_compute_sets_dimensions | compute() fills dimensions | PASS |
+| method_render_draws | render() draws to backend | PASS |
+| method_hit_surface_finds_node | hit_surface() finds correct child | PASS |
+| method_hit_deep_returns_hierarchy | hit_deep() returns parent+child | PASS |
+| method_render_nested | Nested render with offset | PASS |
+
+### Integration (7 tests)
+| Test | Description | Result |
+|---|---|---|
+| ui_scroll_clips_children | Scroll viewport clips | PASS |
+| ui_scroll_with_offset | Scroll offset reveals content | PASS |
+| ui_virtual_render_cycle | VirtualLayout state→render | PASS |
+| ui_virtual_event_updates_state | Event dispatch mutates state | PASS |
+| ui_functional_cache_content | FunctionalLayout caches pixels | PASS |
+| ui_full_tree_render_and_hit | Full VStack+HStack render+hit | PASS |
+| ui_grid_render_and_hit | Grid render + hit test cells | PASS |

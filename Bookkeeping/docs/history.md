@@ -78,3 +78,27 @@ across phases.
 ---
 
 (Further entries added as phases are completed)
+
+---
+
+## Phase 1 Refactoring — Clean OOP, UI builder, platform abstraction — 2026-06-12
+
+**Added:**
+- React-like fluent UI builder (`src/graphics/ui.h`)
+- Platform abstraction (`src/platform/platform.h` + `sdl2_platform.cpp`)
+- One-file-per-shape structure in `src/graphics/elements/`
+- Methods on LayoutNode (compute, render, hit_surface, hit_deep)
+- 27 new UI tests (`test/test_ui.cpp`)
+- Demo rewritten with clean fluent API, no platform-specific code
+
+**Decisions:**
+- struct methods = zero cost (same assembly as free functions)
+- virtual only at platform boundary (RenderBackend, PlatformWindow)
+- UI builder uses rvalue overload for chaining temporaries
+- Old free-function API kept as wrappers for backward compat with 102 existing tests
+- Counter demo fixed: only dispatches on click within counter node (hit-test gated)
+- Segfault fix: print hit results before dispatch (avoids dangling pointers after arena reset)
+
+**Bug fixed:**
+- Counter incrementing on any click → gated by hit-test checking for "counter" id in deep hit
+- Segfault on repeated clicks → deep hit results printed before VirtualLayout arena reset

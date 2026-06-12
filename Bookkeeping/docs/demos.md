@@ -78,3 +78,32 @@ Results: 23 passed, 0 failed, 23 total
 - All 23 tests pass programmatically
 - Round-trip test proves parse→serialize→compare fidelity
 - Benchmark shows 1000-row CSV parses in <100μs
+
+---
+
+## Phase 1 Refactoring — Clean OOP + UI builder
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Window shows all layout types stacked vertically:
+  - Title label
+  - Horizontal row of 5 colored boxes
+  - 3×2 grid of cells
+  - Scrollable list (wheel to scroll)
+  - Coordinate layout with ellipse + rect
+  - VirtualLayout counter (click the purple bar → bars appear)
+  - Striped sprite (FunctionalLayout)
+- Terminal prints hit info on click
+- Counter only increments when clicking the purple counter bar
+- Press Escape to exit
+
+### Verification
+- `make test` runs 152 tests (102 graphics + 23 table + 27 UI)
+- Counter: colored bars appear only on purple-bar clicks
+- Scroll: items clip at viewport boundary
+- Hit test: correct node IDs printed for each click target

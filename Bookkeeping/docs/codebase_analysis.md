@@ -128,3 +128,25 @@ Key design points:
 - All allocations from arena — no per-object free
 - Rows stored as contiguous array with memmove for insert/remove/move
 - `row_capacity` pre-allocated to avoid reallocation
+
+---
+
+### Phase 1 Refactoring — Clean OOP, UI builder, platform abstraction (completed)
+
+**Files added:**
+- `src/graphics/ui.h` — React-like fluent builder API (VStack, HStack, Grid, Scroll, Box, Label, ColorBox, Absolute, build())
+- `src/graphics/node_builder.h` — Lower-level Node builder (superseded by ui.h)
+- `src/platform/platform.h` — Platform-agnostic window/event interface (PlatformWindow, InputEvent)
+- `src/platform/sdl2_platform.cpp` — SDL2 implementation of PlatformWindow
+- `src/graphics/elements/rect.h, ellipse.h, line.h, polyline.h, polygon.h, text.h` — One file per shape
+- `test/test_ui.cpp` — 27 tests for UI builder, method API, VirtualLayout, FunctionalLayout
+
+**Refactored:**
+- `LayoutNode` now has methods: `compute()`, `render()`, `hit_surface()`, `hit_deep()`
+- Demo uses only platform-agnostic `PlatformWindow` — zero SDL in app code
+- UI builder reads like React: `VStack(&a, 8).child(Box(...).bg(...))`
+
+**Zero-cost OOP:**
+- Methods on structs compile to identical code as free functions
+- Only RenderBackend and PlatformWindow use virtual (platform boundary)
+- No vtable for shapes, layout nodes, or UI builder
