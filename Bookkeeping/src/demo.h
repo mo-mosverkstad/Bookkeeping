@@ -9,6 +9,7 @@
 #include "src/graphics/backend/backend.h"
 #include "src/graphics/backend/software_backend.h"
 #include "src/core/parser/rich/rich_render.h"
+#include "src/app/graph_view.h"
 #include "src/platform/platform.h"
 #include <cstdio>
 #include <cstring>
@@ -118,6 +119,21 @@ inline int run_demo() {
     // ── Rich text with embeddings ────────────────────────────────────────────
     const char* rich_src = "Pythagorean: $math{a^2 + b^2 = c^2}\nWater: $chem{2H2 + O2 -> 2H2O}\nEnergy: $phys{E = m*c^2}";
     LayoutNode* rich_node = rich_render(&arena, rich_src, strlen(rich_src), 13, COLOR_WHITE);
+
+    // ── Graph diagram ────────────────────────────────────────────────────────
+    Graph demo_graph; demo_graph.init(&arena, "demo");
+    demo_graph.add_node("Start", "Start");
+    demo_graph.add_node("Process", "Process");
+    demo_graph.add_node("Decision", "Decision?");
+    demo_graph.add_node("End", "End");
+    demo_graph.add_edge(0, 1);
+    demo_graph.add_edge(1, 2);
+    demo_graph.add_edge(2, 3, "yes");
+    demo_graph.add_edge(2, 1, "no");
+    demo_graph.layout_grid(10, 5, 140, 45, 4);
+    GraphViewConfig gvcfg;
+    gvcfg.viewport_width = 580; gvcfg.viewport_height = 55;
+    LayoutNode* graph_node = graph_view_build(&arena, &demo_graph, gvcfg);
     LayoutNode* table_view = table_view_build(&arena, demo_table, tvcfg);
 
     // ── Root layout ──────────────────────────────────────────────────────────
@@ -126,20 +142,21 @@ inline int run_demo() {
         .child(hrow)
         .child(grid);
 
-    // Manually add table_view, rich, scroll, coord, virtual, sprite
+    // Manually add table_view, rich, graph, scroll, coord, virtual, sprite
     LayoutNode* vl_tree = virtual_render(&vl);
     {
         uint16_t n = root_ui.node.child_count;
-        auto** new_kids = (LayoutNode**)arena_alloc(&arena, sizeof(LayoutNode*) * (n + 6), 8);
+        auto** new_kids = (LayoutNode**)arena_alloc(&arena, sizeof(LayoutNode*) * (n + 7), 8);
         for (uint16_t i = 0; i < n; i++) new_kids[i] = root_ui.node.children[i];
         new_kids[n] = table_view;
         new_kids[n+1] = rich_node;
-        new_kids[n+2] = build(scroll);
-        new_kids[n+3] = build(coord);
-        new_kids[n+4] = vl_tree;
-        new_kids[n+5] = sprite_node;
+        new_kids[n+2] = graph_node;
+        new_kids[n+3] = build(scroll);
+        new_kids[n+4] = build(coord);
+        new_kids[n+5] = vl_tree;
+        new_kids[n+6] = sprite_node;
         root_ui.node.children = new_kids;
-        root_ui.node.child_count = n + 6;
+        root_ui.node.child_count = n + 7;
     }
 
     LayoutNode* root = build(root_ui);
