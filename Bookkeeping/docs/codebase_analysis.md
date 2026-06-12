@@ -204,3 +204,30 @@ Key design points:
 - Sqrt → HStack(√, body)
 - Set → HStack({, elem, comma, elem, ..., })
 - Paren → HStack( (, expr, ) )
+
+
+---
+
+### Phase 5 — Cell editing + undo/redo (completed)
+
+**Files added:**
+- `src/app/edit_history.h` — EditHistory: fixed-capacity push/undo/redo stack, arena-allocated
+- `src/app/table_editor.h` — TableEditor: cell editing, text input, cursor, undo/redo, multi-cell selection, clear/move operations
+- `test/test_editor.cpp` — 23 tests
+
+**TableEditor design:**
+- `begin_edit(row, col)` → loads cell value into 512-byte edit buffer
+- `insert_char`, `delete_back`, `delete_forward` → manipulate buffer with memmove
+- `commit_edit()` → pushes EditAction to history, updates table model
+- `cancel_edit()` → discards buffer changes
+- `undo()/redo()` → restores/reapplies cell values from history
+- `CellSelection` supports single, toggle (Ctrl+click), and range (Shift+click)
+- `clear_selected_cells()` / `move_selection(dest_row, dest_col)` for multi-cell ops
+
+**Demo integration:**
+- Click table cell → activates editor, shows current value in terminal
+- Type → inserts characters into edit buffer (live feedback in terminal)
+- Enter → commits edit, table re-renders with updated value
+- Escape → cancels edit
+- Ctrl+Z/Y → undo/redo
+- Table view rebuilds on every committed change

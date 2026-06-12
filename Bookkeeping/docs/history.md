@@ -140,3 +140,23 @@ across phases.
 - Greek identifiers via `\name` prefix, stored with style=3
 - Renderer uses 70% font size for subscripts/superscripts
 - Arena allocated — all nodes from a single arena, no per-node free
+
+
+---
+
+## Phase 5 — Cell editing + undo/redo — 2026-06-12
+
+**Added:**
+- `src/app/edit_history.h` — EditHistory (push/undo/redo, fixed-capacity)
+- `src/app/table_editor.h` — TableEditor (edit buffer, cursor, commit/cancel, undo/redo, selection, multi-cell ops)
+- 23 tests for history, selection, and editor operations
+- Demo wired: click cells to edit, type, Enter to commit, Escape to cancel, Ctrl+Z/Y
+
+**Decisions:**
+- Edit buffer is 512 bytes on stack (no heap in hot path)
+- History capacity pre-allocated in arena (no malloc during editing)
+- Selection uses flat array with linear search (sufficient for <512 cells)
+- Demo shows editing state in terminal (printf) since text cursor rendering needs Phase 1 text improvements
+
+**Bug fixed:**
+- Arena too small at -O2 caused segfault in tests → increased arena sizes

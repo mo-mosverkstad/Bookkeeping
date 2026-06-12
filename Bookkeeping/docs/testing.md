@@ -353,3 +353,43 @@ Custom lightweight test framework in `test/test.h`:
 | Benchmark | Iterations | Time/iter |
 |---|---|---|
 | math_parse 100x complex expr | 1,000 | ~35 μs |
+
+
+---
+
+## Phase 5 — Editor tests (23 tests)
+
+### Edit history (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| history_push_and_undo | Push then undo toggles flags | PASS |
+| history_redo | Undo then redo restores | PASS |
+| history_push_clears_redo | New push after undo clears future | PASS |
+| history_multiple_undo | 3 pushes, 3 undos = empty | PASS |
+| history_empty_undo_returns_null | Undo on empty = nullptr | PASS |
+
+### Cell selection (4 tests)
+| Test | Description | Result |
+|---|---|---|
+| selection_single | Select one cell | PASS |
+| selection_toggle | Add/remove cells | PASS |
+| selection_range | 3×3 range = 9 cells | PASS |
+| selection_clear | Clear resets to 0 | PASS |
+
+### Table editor (14 tests)
+| Test | Description | Result |
+|---|---|---|
+| editor_begin_edit_loads_value | Buffer = cell value | PASS |
+| editor_commit_changes_cell | Commit updates table | PASS |
+| editor_commit_no_change_no_history | Same value = no action | PASS |
+| editor_undo_restores_value | Undo reverts cell | PASS |
+| editor_redo_reapplies | Redo restores change | PASS |
+| editor_insert_char | Append char at cursor | PASS |
+| editor_insert_char_mid | Insert in middle | PASS |
+| editor_delete_back | Backspace removes prev char | PASS |
+| editor_delete_forward | Delete removes next char | PASS |
+| editor_cursor_movement | Home/End/Left/Right | PASS |
+| editor_clear_selected_cells | Multi-cell clear | PASS |
+| editor_move_selection | Move cell value to dest | PASS |
+| editor_multiple_edits_undo_all | 3 edits, 3 undos restores all | PASS |
+| editor_cancel_edit_no_change | Cancel discards buffer | PASS |

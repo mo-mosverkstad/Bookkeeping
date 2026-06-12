@@ -164,3 +164,29 @@ Results: 50 passed, 0 failed, 50 total
 - Parser handles: numbers, vars, Greek, operators, fractions, powers, subscripts, sqrt, sets, text literals, implicit multiplication, parentheses
 - Renderer produces correct tree structures (verified by child_count, type checks, dimension checks)
 - Benchmark: 100 complex expression parses in ~35μs
+
+
+---
+
+## Phase 5 — Cell editing + undo/redo
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Click a table cell → terminal shows: `Edit cell [0,1] = "30"`
+- Type characters → terminal shows live: `Editing [0,1]: "305" cursor=3`
+- Press Enter → table re-renders with new value visible on screen
+- Press Escape → cancels, cell reverts
+- Ctrl+Z → undoes last committed edit (table updates)
+- Ctrl+Y → redoes
+- All previous features still work (scroll, counter, hit testing)
+
+### Verification
+- `make test` → 243 tests pass (102 + 23 + 27 + 18 + 50 + 23)
+- Edit + undo cycle: edit cell, commit, undo → value restored
+- Cancel: type text, press Escape → original value preserved
+- Multi-cell: selection + clear works (tested programmatically)
