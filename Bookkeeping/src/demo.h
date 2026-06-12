@@ -32,11 +32,13 @@ inline int run_demo() {
         items[i]->id = label;
     }
 
-    // Scroll viewport (300px tall, content is 20*42 = 840px)
+    // ══════════════════════════════════════════════════════════════════════════
+    // SECTION 1: ScrollLayout — scrollable list of items
+    // ══════════════════════════════════════════════════════════════════════════
     LayoutNode scroll = {};
     scroll.type = LAYOUT_SCROLL;
     scroll.req_width = 370;
-    scroll.req_height = 300;
+    scroll.req_height = 150;
     scroll.gap = 2;
     scroll.scroll_x = 0;
     scroll.scroll_y = 0;
@@ -44,33 +46,106 @@ inline int run_demo() {
     scroll.child_count = ITEM_COUNT;
     scroll.id = "scroll-viewport";
 
-    // Title area
+    // ══════════════════════════════════════════════════════════════════════════
+    // SECTION 2: LinearLayout (Horizontal) — row of colored boxes
+    // ══════════════════════════════════════════════════════════════════════════
+    const int HBOX_COUNT = 5;
+    LayoutNode* hboxes[HBOX_COUNT];
+    for (int i = 0; i < HBOX_COUNT; i++) {
+        hboxes[i] = arena_new<LayoutNode>(&arena);
+        hboxes[i]->req_width = 60;
+        hboxes[i]->req_height = 40;
+        hboxes[i]->elements = arena_array<Element>(&arena, 1);
+        hboxes[i]->element_count = 1;
+        hboxes[i]->elements[0] = elem_rect({0, 0, 60, 40,
+            color_rgba(200 - i*40, 50 + i*40, 100), COLOR_WHITE, 1, 0});
+        char* hlabel = (char*)arena_alloc(&arena, 16, 1);
+        snprintf(hlabel, 16, "H%d", i+1);
+        hboxes[i]->id = hlabel;
+    }
+    LayoutNode hrow = {};
+    hrow.type = LAYOUT_LINEAR;
+    hrow.direction = LINEAR_HORIZONTAL;
+    hrow.gap = 8;
+    hrow.children = hboxes;
+    hrow.child_count = HBOX_COUNT;
+    hrow.id = "linear-h-row";
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SECTION 3: GridLayout — 3×2 grid of cells
+    // ══════════════════════════════════════════════════════════════════════════
+    const int GRID_CELLS = 6;
+    LayoutNode* gcells[GRID_CELLS];
+    for (int i = 0; i < GRID_CELLS; i++) {
+        gcells[i] = arena_new<LayoutNode>(&arena);
+        gcells[i]->req_height = 35;
+        gcells[i]->elements = arena_array<Element>(&arena, 2);
+        gcells[i]->element_count = 2;
+        gcells[i]->elements[0] = elem_rect({0, 0, 100, 33, color_rgba(60, 60, 80 + i*25), COLOR_WHITE, 1, 0});
+        char* glabel = (char*)arena_alloc(&arena, 16, 1);
+        snprintf(glabel, 16, "Cell %d", i+1);
+        gcells[i]->elements[1] = elem_text({4, 8, glabel, "sans", 13, COLOR_WHITE, TEXT_NORMAL, ALIGN_LEFT, 0});
+        gcells[i]->id = glabel;
+    }
+    LayoutNode grid = {};
+    grid.type = LAYOUT_GRID;
+    grid.grid_cols = 3;
+    grid.gap = 4;
+    grid.req_width = 370;
+    grid.children = gcells;
+    grid.child_count = GRID_CELLS;
+    grid.id = "grid-3x2";
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SECTION 4: CoordinateLayout — shapes at absolute positions
+    // ══════════════════════════════════════════════════════════════════════════
+    LayoutNode coord_child1 = {};
+    coord_child1.x = 20; coord_child1.y = 10;
+    coord_child1.req_width = 80; coord_child1.req_height = 60;
+    coord_child1.elements = arena_array<Element>(&arena, 1);
+    coord_child1.element_count = 1;
+    coord_child1.elements[0] = elem_ellipse({40, 30, 35, 25, COLOR_BLUE, COLOR_WHITE, 1});
+    coord_child1.id = "coord-ellipse";
+
+    LayoutNode coord_child2 = {};
+    coord_child2.x = 150; coord_child2.y = 5;
+    coord_child2.req_width = 180; coord_child2.req_height = 60;
+    coord_child2.elements = arena_array<Element>(&arena, 2);
+    coord_child2.element_count = 2;
+    coord_child2.elements[0] = elem_rect({0, 0, 180, 60, color_rgba(40, 80, 40), COLOR_GREEN, 1, 0});
+    coord_child2.elements[1] = elem_line({0, 30, 180, 30, COLOR_GREEN, 2});
+    coord_child2.id = "coord-rect-line";
+
+    LayoutNode* coord_kids[] = {&coord_child1, &coord_child2};
+    LayoutNode coord = {};
+    coord.type = LAYOUT_COORDINATE;
+    coord.req_width = 370;
+    coord.req_height = 70;
+    coord.children = coord_kids;
+    coord.child_count = 2;
+    coord.id = "coordinate-layout";
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SECTION 5: Title
+    // ══════════════════════════════════════════════════════════════════════════
     LayoutNode title_node = {};
     title_node.req_width = 370;
-    title_node.req_height = 30;
+    title_node.req_height = 22;
     title_node.elements = arena_array<Element>(&arena, 1);
     title_node.element_count = 1;
-    title_node.elements[0] = elem_text({5, 5, "Scroll Demo (wheel=scroll, click=hit test)", "sans", 14, COLOR_WHITE, TEXT_BOLD, ALIGN_LEFT, 0});
+    title_node.elements[0] = elem_text({5, 3, "Demo: Scroll | LinearH | Grid | Coordinate (wheel=scroll, click=hit)", "sans", 12, COLOR_WHITE, TEXT_BOLD, ALIGN_LEFT, 0});
     title_node.id = "title";
 
-    // An ellipse to show shapes work
-    LayoutNode shape_node = {};
-    shape_node.req_width = 370;
-    shape_node.req_height = 100;
-    shape_node.elements = arena_array<Element>(&arena, 2);
-    shape_node.element_count = 2;
-    shape_node.elements[0] = elem_ellipse({80, 50, 60, 35, COLOR_BLUE, COLOR_WHITE, 1});
-    shape_node.elements[1] = elem_line({160, 10, 350, 90, COLOR_GREEN, 2});
-    shape_node.id = "shapes";
-
-    // Root vertical layout
-    LayoutNode* root_children[] = {&title_node, &scroll, &shape_node};
+    // ══════════════════════════════════════════════════════════════════════════
+    // ROOT: Vertical LinearLayout stacking all sections
+    // ══════════════════════════════════════════════════════════════════════════
+    LayoutNode* root_children[] = {&title_node, &hrow, &grid, &scroll, &coord};
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR; root.direction = LINEAR_VERTICAL;
     root.gap = 10;
     root.padding = 20;
     root.children = root_children;
-    root.child_count = 3;
+    root.child_count = 5;
     root.id = "root";
 
     layout_compute(&root, 800, 600);
@@ -78,6 +153,8 @@ inline int run_demo() {
     // Text measurement demo
     TextMeasure tm = measure_text("Hello World", 11, "sans", 16, TEXT_NORMAL);
     printf("Text measure 'Hello World' @ 16px: %.1f x %.1f\n", tm.width, tm.height);
+    printf("Layout: LinearH row width=%.0f | Grid height=%.0f | Scroll content=%.0f\n",
+        hrow.width, grid.height, scroll.content_height);
 
     // Open window
     SDL2Backend gfx("Bookkeeping Demo — Phase 1 Extension", 800, 600);

@@ -94,7 +94,7 @@ TEST(layout_linear_h_positions) {
     LayoutNode* children[] = {&c1, &c2};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_H;
+    root.type = LAYOUT_LINEAR;
     root.gap = 10;
     root.children = children;
     root.child_count = 2;
@@ -112,7 +112,7 @@ TEST(layout_linear_h_auto_height) {
     LayoutNode* children[] = {&c1, &c2};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_H;
+    root.type = LAYOUT_LINEAR;
     root.gap = 0;
     root.children = children;
     root.child_count = 2;
@@ -126,7 +126,7 @@ TEST(layout_linear_h_with_padding) {
     LayoutNode* children[] = {&c1};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_H;
+    root.type = LAYOUT_LINEAR;
     root.padding = 10;
     root.children = children;
     root.child_count = 1;
@@ -142,7 +142,8 @@ TEST(layout_linear_v_positions) {
     LayoutNode* children[] = {&c1, &c2};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
     root.gap = 5;
     root.children = children;
     root.child_count = 2;
@@ -159,7 +160,8 @@ TEST(layout_linear_v_auto_width) {
     LayoutNode* children[] = {&c1, &c2};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
     root.children = children;
     root.child_count = 2;
 
@@ -172,7 +174,8 @@ TEST(layout_linear_v_with_padding) {
     LayoutNode* children[] = {&c1};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
     root.padding = 15;
     root.children = children;
     root.child_count = 1;
@@ -263,7 +266,7 @@ TEST(layout_coordinate_children_at_set_positions) {
 
 TEST(layout_no_children) {
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR;
     root.children = nullptr;
     root.child_count = 0;
     root.req_width = 100;
@@ -281,7 +284,7 @@ TEST(layout_nested) {
     LayoutNode* inner_children[] = {&ic1, &ic2};
 
     LayoutNode inner = {};
-    inner.type = LAYOUT_LINEAR_H;
+    inner.type = LAYOUT_LINEAR;
     inner.gap = 5;
     inner.children = inner_children;
     inner.child_count = 2;
@@ -291,7 +294,8 @@ TEST(layout_nested) {
     LayoutNode* outer_children[] = {&inner, &c2};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
     root.gap = 10;
     root.children = outer_children;
     root.child_count = 2;
@@ -561,7 +565,8 @@ TEST(render_tree_linear_v_layout) {
     LayoutNode* children[] = {&c1, &c2};
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
     root.gap = 10;
     root.children = children;
     root.child_count = 2;
@@ -641,7 +646,8 @@ TEST(bench_layout_1000_nodes) {
     }
 
     LayoutNode root = {};
-    root.type = LAYOUT_LINEAR_V;
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
     root.gap = 2;
     root.children = ptrs;
     root.child_count = 1000;
@@ -1080,6 +1086,482 @@ TEST(clip_multiple_regions) {
     ASSERT_PIXEL(sw, 10, 10, COLOR_RED);
     ASSERT_PIXEL(sw, 80, 80, COLOR_BLUE);
     Color c = sw.get_pixel(50, 50);
+    ASSERT_EQ(c.a, (uint8_t)0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REGRESSION TESTS — Elements + Layouts combined
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Rect element regressions ─────────────────────────────────────────────────
+
+TEST(reg_rect_zero_size) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    Rect r = {10, 10, 0, 0, COLOR_RED, COLOR_TRANSPARENT, 0, 0};
+    sw.render_rect(0, 0, r);
+    sw.end_frame();
+    // Zero-size rect should not crash, no pixels set
+    Color c = sw.get_pixel(10, 10);
+    ASSERT_EQ(c.a, (uint8_t)0);
+}
+
+TEST(reg_rect_stroke_only) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    Rect r = {5, 5, 30, 30, COLOR_TRANSPARENT, COLOR_RED, 1, 0};
+    sw.render_rect(0, 0, r);
+    sw.end_frame();
+    // Border pixel
+    ASSERT_PIXEL(sw, 5, 5, COLOR_RED);
+    // Interior should be transparent (no fill)
+    Color c = sw.get_pixel(15, 15);
+    ASSERT_EQ(c.a, (uint8_t)0);
+}
+
+TEST(reg_rect_large_coordinates) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+    Rect r = {-50, -50, 200, 200, COLOR_GREEN, COLOR_TRANSPARENT, 0, 0};
+    sw.render_rect(0, 0, r);
+    sw.end_frame();
+    // Should fill visible portion
+    ASSERT_PIXEL(sw, 0, 0, COLOR_GREEN);
+    ASSERT_PIXEL(sw, 99, 99, COLOR_GREEN);
+}
+
+// ── Ellipse element regressions ──────────────────────────────────────────────
+
+TEST(reg_ellipse_zero_radius) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    Ellipse e = {25, 25, 0, 0, COLOR_RED, COLOR_TRANSPARENT, 0};
+    sw.render_ellipse(0, 0, e);
+    sw.end_frame();
+    // Zero-radius ellipse: renders nothing (degenerate)
+    ASSERT_TRUE(true);
+}
+
+TEST(reg_ellipse_very_flat) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+    Ellipse e = {50, 50, 40, 2, COLOR_BLUE, COLOR_TRANSPARENT, 0};
+    sw.render_ellipse(0, 0, e);
+    sw.end_frame();
+    // Horizontal line-like
+    ASSERT_PIXEL(sw, 50, 50, COLOR_BLUE);
+    ASSERT_PIXEL(sw, 30, 50, COLOR_BLUE);
+    // Far above should be empty
+    Color c = sw.get_pixel(50, 40);
+    ASSERT_EQ(c.a, (uint8_t)0);
+}
+
+// ── Line element regressions ─────────────────────────────────────────────────
+
+TEST(reg_line_zero_length) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    Line l = {20, 20, 20, 20, COLOR_RED, 1};
+    sw.render_line(0, 0, l);
+    sw.end_frame();
+    ASSERT_PIXEL(sw, 20, 20, COLOR_RED);
+}
+
+TEST(reg_line_negative_direction) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    Line l = {40, 40, 10, 10, COLOR_GREEN, 1};
+    sw.render_line(0, 0, l);
+    sw.end_frame();
+    ASSERT_PIXEL(sw, 40, 40, COLOR_GREEN);
+    ASSERT_PIXEL(sw, 10, 10, COLOR_GREEN);
+    ASSERT_PIXEL(sw, 25, 25, COLOR_GREEN);
+}
+
+// ── Polyline/Polygon regressions ─────────────────────────────────────────────
+
+TEST(reg_polyline_single_point) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    PolyPoint pts[] = {{25, 25}};
+    Polyline p = {pts, 1, COLOR_RED, 1};
+    sw.render_polyline(0, 0, p);
+    sw.end_frame();
+    // Single point, no segment to draw — should not crash
+    ASSERT_TRUE(true);
+}
+
+TEST(reg_polygon_triangle) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+    PolyPoint pts[] = {{50, 10}, {90, 80}, {10, 80}};
+    Polygon p = {pts, 3, COLOR_TRANSPARENT, COLOR_WHITE, 1};
+    sw.render_polygon(0, 0, p);
+    sw.end_frame();
+    // Top vertex
+    ASSERT_PIXEL(sw, 50, 10, COLOR_WHITE);
+    // Bottom-left to bottom-right edge
+    ASSERT_PIXEL(sw, 50, 80, COLOR_WHITE);
+}
+
+// ── Text element regressions ─────────────────────────────────────────────────
+
+TEST(reg_text_null_content) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    Text t = {0, 0, nullptr, "sans", 14, COLOR_WHITE, TEXT_NORMAL, ALIGN_LEFT, 0};
+    sw.render_text(0, 0, t);
+    sw.end_frame();
+    // Should not crash
+    ASSERT_TRUE(true);
+}
+
+TEST(reg_text_empty_string) {
+    SoftwareBackend sw(50, 50);
+    sw.begin_frame(50, 50);
+    Text t = {0, 0, "", "sans", 14, COLOR_WHITE, TEXT_NORMAL, ALIGN_LEFT, 0};
+    sw.render_text(0, 0, t);
+    sw.end_frame();
+    ASSERT_TRUE(true);
+}
+
+TEST(reg_text_measure_long_string) {
+    const char* s = "The quick brown fox jumps over the lazy dog";
+    TextMeasure m = measure_text(s, 44, "serif", 20, TEXT_BOLD);
+    ASSERT_NEAR(m.width, 44 * 20 * 0.6f, 0.01f);
+    ASSERT_NEAR(m.height, 20.0f, 0.01f);
+}
+
+// ── CoordinateLayout regressions ─────────────────────────────────────────────
+
+TEST(reg_coord_overlapping_children) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+
+    Element e1[1] = {elem_rect({0, 0, 50, 50, COLOR_RED, COLOR_TRANSPARENT, 0, 0})};
+    Element e2[1] = {elem_rect({0, 0, 50, 50, COLOR_BLUE, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode c1 = {}; c1.x = 10; c1.y = 10; c1.req_width = 50; c1.req_height = 50;
+    c1.elements = e1; c1.element_count = 1;
+    LayoutNode c2 = {}; c2.x = 30; c2.y = 30; c2.req_width = 50; c2.req_height = 50;
+    c2.elements = e2; c2.element_count = 1;
+    LayoutNode* kids[] = {&c1, &c2};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_COORDINATE;
+    root.width = 100; root.height = 100;
+    root.children = kids; root.child_count = 2;
+
+    layout_compute(&root, 100, 100);
+    render_tree(&sw, &root);
+    sw.end_frame();
+
+    // Non-overlapping area of c1
+    ASSERT_PIXEL(sw, 15, 15, COLOR_RED);
+    // Overlap area: c2 drawn last → blue
+    ASSERT_PIXEL(sw, 40, 40, COLOR_BLUE);
+}
+
+TEST(reg_coord_auto_size) {
+    LayoutNode c1 = {}; c1.x = 100; c1.y = 80; c1.req_width = 20; c1.req_height = 20;
+    LayoutNode* kids[] = {&c1};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_COORDINATE;
+    root.children = kids; root.child_count = 1;
+
+    layout_compute(&root, 0, 0);
+    // Auto-size should encompass child
+    ASSERT_NEAR(root.width, 120.0f, 0.01f);  // 100 + 20
+    ASSERT_NEAR(root.height, 100.0f, 0.01f); // 80 + 20
+}
+
+// ── LinearLayout regressions ─────────────────────────────────────────────────
+
+TEST(reg_linear_h_single_child) {
+    LayoutNode c = {}; c.req_width = 100; c.req_height = 50;
+    LayoutNode* kids[] = {&c};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_HORIZONTAL;
+    root.padding = 5;
+    root.children = kids; root.child_count = 1;
+
+    layout_compute(&root, 400, 200);
+    ASSERT_NEAR(c.x, 5.0f, 0.01f);
+    ASSERT_NEAR(root.width, 110.0f, 0.01f); // 5 + 100 + 5
+}
+
+TEST(reg_linear_v_variable_heights) {
+    LayoutNode c1 = {}; c1.req_width = 80; c1.req_height = 10;
+    LayoutNode c2 = {}; c2.req_width = 80; c2.req_height = 50;
+    LayoutNode c3 = {}; c3.req_width = 80; c3.req_height = 30;
+    LayoutNode* kids[] = {&c1, &c2, &c3};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
+    root.gap = 5;
+    root.children = kids; root.child_count = 3;
+
+    layout_compute(&root, 200, 0);
+    ASSERT_NEAR(c1.y, 0.0f, 0.01f);
+    ASSERT_NEAR(c2.y, 15.0f, 0.01f);  // 10 + 5
+    ASSERT_NEAR(c3.y, 70.0f, 0.01f);  // 10 + 5 + 50 + 5
+    ASSERT_NEAR(root.height, 100.0f, 0.01f); // 10+5+50+5+30
+}
+
+TEST(reg_linear_h_renders_correctly) {
+    SoftwareBackend sw(200, 50);
+    sw.begin_frame(200, 50);
+
+    Element e1[1] = {elem_rect({0, 0, 40, 30, COLOR_RED, COLOR_TRANSPARENT, 0, 0})};
+    Element e2[1] = {elem_rect({0, 0, 40, 30, COLOR_GREEN, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode c1 = {}; c1.req_width = 40; c1.req_height = 30; c1.elements = e1; c1.element_count = 1;
+    LayoutNode c2 = {}; c2.req_width = 40; c2.req_height = 30; c2.elements = e2; c2.element_count = 1;
+    LayoutNode* kids[] = {&c1, &c2};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_HORIZONTAL;
+    root.gap = 10;
+    root.children = kids; root.child_count = 2;
+
+    layout_compute(&root, 200, 50);
+    render_tree(&sw, &root);
+    sw.end_frame();
+
+    ASSERT_PIXEL(sw, 20, 15, COLOR_RED);   // first child center
+    ASSERT_PIXEL(sw, 70, 15, COLOR_GREEN);  // second child center (40 + 10 + 20)
+}
+
+// ── GridLayout regressions ───────────────────────────────────────────────────
+
+TEST(reg_grid_1x1) {
+    LayoutNode c = {}; c.req_height = 40;
+    LayoutNode* kids[] = {&c};
+
+    LayoutNode root = {};
+    root.type = LAYOUT_GRID;
+    root.grid_cols = 1;
+    root.req_width = 100;
+    root.children = kids; root.child_count = 1;
+
+    layout_compute(&root, 100, 200);
+    ASSERT_NEAR(c.width, 100.0f, 0.01f);
+    ASSERT_NEAR(c.x, 0.0f, 0.01f);
+    ASSERT_NEAR(c.y, 0.0f, 0.01f);
+}
+
+TEST(reg_grid_uneven_rows) {
+    // 5 cells in a 3-col grid → 2 rows, second row has 2 cells
+    LayoutNode c[5] = {};
+    LayoutNode* kids[5];
+    for (int i = 0; i < 5; i++) { c[i].req_height = 25; kids[i] = &c[i]; }
+
+    LayoutNode root = {};
+    root.type = LAYOUT_GRID;
+    root.grid_cols = 3;
+    root.gap = 5;
+    root.children = kids; root.child_count = 5;
+
+    layout_compute(&root, 300, 200);
+    // Row 0: cells 0,1,2 at y=0
+    ASSERT_NEAR(c[0].y, 0.0f, 0.01f);
+    // Row 1: cells 3,4 at y=30 (25 + 5)
+    ASSERT_NEAR(c[3].y, 30.0f, 0.01f);
+    ASSERT_NEAR(c[4].y, 30.0f, 0.01f);
+}
+
+TEST(reg_grid_renders_cells) {
+    SoftwareBackend sw(200, 100);
+    sw.begin_frame(200, 100);
+
+    Element e[4];
+    LayoutNode c[4] = {};
+    LayoutNode* kids[4];
+    Color colors[] = {COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_WHITE};
+    for (int i = 0; i < 4; i++) {
+        e[i] = elem_rect({0, 0, 80, 30, colors[i], COLOR_TRANSPARENT, 0, 0});
+        c[i].req_height = 30;
+        c[i].elements = &e[i]; c[i].element_count = 1;
+        kids[i] = &c[i];
+    }
+
+    LayoutNode root = {};
+    root.type = LAYOUT_GRID;
+    root.grid_cols = 2;
+    root.gap = 10;
+    root.children = kids; root.child_count = 4;
+
+    layout_compute(&root, 200, 100);
+    render_tree(&sw, &root);
+    sw.end_frame();
+
+    // Cell 0 (red) at top-left
+    ASSERT_PIXEL(sw, 20, 15, COLOR_RED);
+    // Cell 1 (green) at top-right
+    ASSERT_PIXEL(sw, 120, 15, COLOR_GREEN);
+    // Cell 2 (blue) at bottom-left
+    ASSERT_PIXEL(sw, 20, 55, COLOR_BLUE);
+}
+
+// ── ScrollLayout regressions ─────────────────────────────────────────────────
+
+TEST(reg_scroll_large_offset) {
+    // Scroll past all content
+    LayoutNode c = {}; c.req_width = 50; c.req_height = 30;
+    LayoutNode* kids[] = {&c};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 100; scroll.req_height = 100;
+    scroll.scroll_y = 9999;
+    scroll.children = kids; scroll.child_count = 1;
+
+    layout_compute(&scroll, 100, 100);
+    // Content height is just 30
+    ASSERT_NEAR(scroll.content_height, 30.0f, 0.01f);
+    // Hit test should not find the child (it's scrolled out)
+    HitResult r = hit_test_surface(&scroll, 50, 50);
+    ASSERT_TRUE(r.node == &scroll); // hits the viewport, not the child
+}
+
+TEST(reg_scroll_negative_offset_clamped) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+
+    Element e1[1] = {elem_rect({0, 0, 80, 40, COLOR_RED, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode c = {}; c.req_width = 80; c.req_height = 40;
+    c.elements = e1; c.element_count = 1;
+    LayoutNode* kids[] = {&c};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 100; scroll.req_height = 100;
+    scroll.scroll_y = -50; // negative scroll = content shifted down
+    scroll.children = kids; scroll.child_count = 1;
+
+    layout_compute(&scroll, 100, 100);
+    render_tree(&sw, &scroll);
+    sw.end_frame();
+
+    // Child rendered at y = 0 - (-50) = 50 within viewport
+    ASSERT_PIXEL(sw, 40, 60, COLOR_RED);
+    // Above that should be empty
+    Color top = sw.get_pixel(40, 10);
+    ASSERT_EQ(top.a, (uint8_t)0);
+}
+
+TEST(reg_scroll_horizontal) {
+    SoftwareBackend sw(100, 100);
+    sw.begin_frame(100, 100);
+
+    Element e1[1] = {elem_rect({0, 0, 200, 50, COLOR_GREEN, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode c = {}; c.req_width = 200; c.req_height = 50;
+    c.elements = e1; c.element_count = 1;
+    LayoutNode* kids[] = {&c};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 100; scroll.req_height = 100;
+    scroll.scroll_x = 80; // scroll right
+    scroll.children = kids; scroll.child_count = 1;
+
+    layout_compute(&scroll, 100, 100);
+    render_tree(&sw, &scroll);
+    sw.end_frame();
+
+    // Content shifted left by 80, so pixel at x=10 viewport = x=90 content → still inside 200-wide rect
+    ASSERT_PIXEL(sw, 10, 25, COLOR_GREEN);
+    // But if we scroll past the rect width (x=100+ in viewport when scroll_x=80 → content x=180+, still <200)
+    ASSERT_PIXEL(sw, 99, 25, COLOR_GREEN);
+}
+
+// ── Combined layout + element rendering ──────────────────────────────────────
+
+TEST(reg_nested_grid_in_linear) {
+    SoftwareBackend sw(300, 200);
+    sw.begin_frame(300, 200);
+
+    // Grid with 2 cells
+    Element ge[2] = {
+        elem_rect({0, 0, 100, 30, COLOR_RED, COLOR_TRANSPARENT, 0, 0}),
+        elem_rect({0, 0, 100, 30, COLOR_BLUE, COLOR_TRANSPARENT, 0, 0}),
+    };
+    LayoutNode gc[2] = {};
+    LayoutNode* gkids[2];
+    for (int i = 0; i < 2; i++) { gc[i].req_height = 30; gc[i].elements = &ge[i]; gc[i].element_count = 1; gkids[i] = &gc[i]; }
+
+    LayoutNode grid = {};
+    grid.type = LAYOUT_GRID;
+    grid.grid_cols = 2;
+    grid.gap = 10;
+    grid.req_width = 250;
+    grid.children = gkids; grid.child_count = 2;
+
+    // Another element below
+    Element be[1] = {elem_rect({0, 0, 250, 40, COLOR_GREEN, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode bottom = {}; bottom.req_width = 250; bottom.req_height = 40;
+    bottom.elements = be; bottom.element_count = 1;
+
+    LayoutNode* vkids[] = {&grid, &bottom};
+    LayoutNode root = {};
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
+    root.gap = 10;
+    root.children = vkids; root.child_count = 2;
+
+    layout_compute(&root, 300, 200);
+    render_tree(&sw, &root);
+    sw.end_frame();
+
+    // Grid cell 0 (red) at top-left
+    ASSERT_PIXEL(sw, 50, 15, COLOR_RED);
+    // Grid cell 1 (blue) at top-right
+    ASSERT_PIXEL(sw, 180, 15, COLOR_BLUE);
+    // Bottom rect (green) below grid
+    ASSERT_PIXEL(sw, 125, 55, COLOR_GREEN);
+}
+
+TEST(reg_scroll_inside_linear) {
+    SoftwareBackend sw(200, 200);
+    sw.begin_frame(200, 200);
+
+    // Header
+    Element he[1] = {elem_rect({0, 0, 150, 20, COLOR_WHITE, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode header = {}; header.req_width = 150; header.req_height = 20;
+    header.elements = he; header.element_count = 1;
+
+    // Scroll with one tall child
+    Element se[1] = {elem_rect({0, 0, 150, 300, COLOR_RED, COLOR_TRANSPARENT, 0, 0})};
+    LayoutNode sc = {}; sc.req_width = 150; sc.req_height = 300;
+    sc.elements = se; sc.element_count = 1;
+    LayoutNode* scroll_kids[] = {&sc};
+
+    LayoutNode scroll = {};
+    scroll.type = LAYOUT_SCROLL;
+    scroll.req_width = 150; scroll.req_height = 80;
+    scroll.scroll_y = 50;
+    scroll.children = scroll_kids; scroll.child_count = 1;
+
+    LayoutNode* root_kids[] = {&header, &scroll};
+    LayoutNode root = {};
+    root.type = LAYOUT_LINEAR;
+    root.direction = LINEAR_VERTICAL;
+    root.gap = 5;
+    root.children = root_kids; root.child_count = 2;
+
+    layout_compute(&root, 200, 200);
+    render_tree(&sw, &root);
+    sw.end_frame();
+
+    // Header at top
+    ASSERT_PIXEL(sw, 75, 10, COLOR_WHITE);
+    // Scroll content (red) visible in its viewport region
+    ASSERT_PIXEL(sw, 75, 40, COLOR_RED);
+    // Below scroll viewport should be empty (clipped)
+    Color c = sw.get_pixel(75, 110);
     ASSERT_EQ(c.a, (uint8_t)0);
 }
 
