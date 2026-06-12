@@ -35,6 +35,8 @@ export class TableView implements WorkspaceView {
     private cutBuffer: { row: number; col: number; value: string }[] = [];
     /** Reference to the current tbody for cell-highlight updates. */
     private currentTbody: HTMLElement | null = null;
+    /** Zoom level for the table view. */
+    private zoom = 1;
 
     private activeCell: {
         td: HTMLElement;
@@ -53,6 +55,17 @@ export class TableView implements WorkspaceView {
         this.container = container;
         this.handleKeyDown = this.handleKeyDown.bind(this);
         document.addEventListener("keydown", this.handleKeyDown);
+        this.attachWheelZoom(container);
+    }
+
+    private attachWheelZoom(el: HTMLElement): void {
+        el.addEventListener("wheel", (e) => {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            e.preventDefault();
+            if (e.deltaY < 0) this.zoom = Math.min(4, this.zoom * 1.1);
+            else this.zoom = Math.max(0.25, this.zoom / 1.1);
+            this.applyZoom();
+        }, { passive: false });
     }
 
     setController(controller: AppController): void { this.controller = controller; }
@@ -62,12 +75,13 @@ export class TableView implements WorkspaceView {
     setOnCellFocusChange(cb: () => void): void { this.onCellFocusChange = cb; }
     getActiveTableIdx(): number { return this.kbTableIdx; }
     getController(): AppController | null { return this.controller; }
-    setContainer(el: HTMLElement): void { this.container = el; }
+    setContainer(el: HTMLElement): void { this.container = el; this.attachWheelZoom(el); }
 
     // ── WorkspaceView interface ───────────────────────────────────────────────
 
     mount(container: HTMLElement, data: WorkspaceData, savedState?: ViewState): void {
         this.container = container;
+        this.attachWheelZoom(container);
         if (data.table) {
             this.currentTables = [data.table];
             this.activeTabIdx = 0;
@@ -361,6 +375,8 @@ export class TableView implements WorkspaceView {
 
         render();
         this.container.appendChild(tableEl);
+        this.applyZoom();
+        if (tableIdx >= 0) this.renderZoomBar();
     }
 
     // ── Drag-to-reorder ───────────────────────────────────────────────────────
@@ -843,6 +859,51 @@ export class TableView implements WorkspaceView {
 
     // ── Auto-resize textarea to fit content ───────────────────────────────────
 
+
+    private applyZoom(): void {
+        const table = this.container.querySelector<HTMLElement>("table.knowledge-table");
+        if (table) {
+            table.style.transformOrigin = "top left";
+            table.style.transform = `scale(${this.zoom})`;
+        }
+        const label = this.container.querySelector<HTMLElement>(".zoom-label");
+        if (label) label.textContent = `${Math.round(this.zoom * 100)}%`;
+    }
+
+    private renderZoomBar(): void {
+        const bar = document.createElement("div");
+        bar.className = "table-zoom-bar";
+
+        const btnMinus = document.createElement("button");
+        btnMinus.textContent = "−";
+        btnMinus.title = "Zoom out";
+        btnMinus.addEventListener("click", () => {
+            this.zoom = Math.max(0.25, this.zoom / 1.25);
+            this.applyZoom();
+        });
+
+        const label = document.createElement("span");
+        label.className = "zoom-label";
+        label.textContent = `${Math.round(this.zoom * 100)}%`;
+        label.title = "Reset zoom";
+        label.addEventListener("click", () => {
+            this.zoom = 1;
+            this.applyZoom();
+        });
+
+        const btnPlus = document.createElement("button");
+        btnPlus.textContent = "+";
+        btnPlus.title = "Zoom in";
+        btnPlus.addEventListener("click", () => {
+            this.zoom = Math.min(4, this.zoom * 1.25);
+            this.applyZoom();
+        });
+
+        bar.appendChild(btnMinus);
+        bar.appendChild(label);
+        bar.appendChild(btnPlus);
+        this.container.appendChild(bar);
+    }
 
     private showRendered(td: HTMLElement, value: string, typeId: string): void {
         td.innerHTML = "";
