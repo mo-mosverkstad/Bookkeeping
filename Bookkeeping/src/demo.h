@@ -2,6 +2,7 @@
 #include "src/core/arena.h"
 #include "src/core/parser/csv.h"
 #include "src/app/table_view.h"
+#include "src/app/table_editor.h"
 #include "src/graphics/ui.h"
 #include "src/graphics/layout/functional_layout.h"
 #include "src/graphics/layout/virtual_layout.h"
@@ -138,18 +139,63 @@ inline int run_demo() {
     LayoutNode* root = build(root_ui);
     layout_compute(root, 800, 600);
 
+    // ── Table editor ───────────────────────────────────────────────────────────
+    TableEditor editor;
+    editor.init(&arena, demo_table);
+    bool table_dirty = false;
+
+    auto rebuild_table = [&]() {
+        table_view = table_view_build(&arena, demo_table, tvcfg);
+        root->children[3] = table_view; // table_view is child index 3
+        root->compute(800, 600);
+        table_dirty = false;
+    };
+
     // ── Event loop ───────────────────────────────────────────────────────────
-    PlatformWindow* win = create_window("Bookkeeping — React-style Demo", 800, 600);
+    PlatformWindow* win = create_window("Bookkeeping — Phase 5: Click cells to edit, type, Ctrl+Z/Y undo/redo", 800, 600);
     bool running = true;
     InputEvent ev;
 
     while (running) {
         while (win->poll_event(ev)) {
             if (ev.type == InputEvent::QUIT) { running = false; break; }
-            if (ev.type == InputEvent::KEY_DOWN && ev.key == 27) { running = false; break; }
+            if (ev.type == InputEvent::KEY_DOWN && ev.key == 27) {
+                if (editor.editing) { editor.cancel_edit(); }
+                else { running = false; }
+                break;
+            }
 
+            // ── Keyboard: text editing + undo/redo ───────────────────────────
+            if (ev.type == InputEvent::KEY_DOWN && editor.editing) {
+                if (ev.key == 13) { // Enter: commit
+                    editor.commit_edit();
+                    table_dirty = true;
+                } else if (ev.key == 8) { // Backspace
+                    editor.delete_back();
+                } else if (ev.key == 127) { // Delete
+                    editor.delete_forward();
+                } else if (ev.key == 1073741904) { // Left arrow (SDL)
+                    editor.move_cursor_left();
+                } else if (ev.key == 1073741903) { // Right arrow
+                    editor.move_cursor_right();
+                }
+            } else if (ev.type == InputEvent::KEY_DOWN) {
+                // Ctrl+Z = undo, Ctrl+Y = redo (SDL keycodes)
+                // z=122, y=121, with KMOD_CTRL check via key value
+                if (ev.key == 26) { // Ctrl+Z
+                    editor.undo(); table_dirty = true;
+                } else if (ev.key == 25) { // Ctrl+Y
+                    editor.redo(); table_dirty = true;
+                }
+            }
+
+            // Printable character input (SDL sends text as key events 32-126)
+            if (ev.type == InputEvent::KEY_DOWN && editor.editing && ev.key >= 32 && ev.key < 127) {
+                editor.insert_char((char)ev.key);
+            }
+
+            // ── Mouse wheel ──────────────────────────────────────────────────
             if (ev.type == InputEvent::MOUSE_WHEEL) {
-                // Find scroll node under cursor via hit test
                 HitResult deep[16];
                 int n = root->hit_deep(ev.x, ev.y, deep, 16);
                 for (int i = n - 1; i >= 0; i--) {
@@ -164,43 +210,74 @@ inline int run_demo() {
                 }
             }
 
+            // ── Mouse click ──────────────────────────────────────────────────
             if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
-                HitResult hit = hit_test_surface(root, ev.x, ev.y);
                 HitResult deep[16];
                 int n = hit_test_deep(root, ev.x, ev.y, deep, 16);
 
-                // Print results BEFORE any dispatch (pointers are still valid)
-                printf("Hit: %s", hit.node && hit.node->id ? hit.node->id : "?");
-                for (int i = 0; i < n; i++)
-                    if (deep[i].node->id) printf(" > %s", deep[i].node->id);
-                printf(" (on_counter check: ");
-                for (int i = 0; i < n; i++)
-                    if (deep[i].node->id) printf("[%s] ", deep[i].node->id);
-                printf(")\n");
+                // Check if clicked a table row cell → begin edit
+                bool clicked_cell = false;
+                for (int i = n - 1; i >= 0; i--) {
+                    if (deep[i].node->id && strncmp(deep[i].node->id, "row-", 4) == 0) {
+                        uint32_t row = (uint32_t)atoi(deep[i].node->id + 4);
+                        // Determine column from local_x position
+                        uint16_t col = 0;
+                        float lx = deep[i].local_x;
+                        float accum = 0;
+                        for (uint16_t c = 0; c < demo_table->col_count; c++) {
+                            accum += tvcfg.col_min_width + tvcfg.gap;
+                            if (lx < accum) { col = c; break; }
+                            col = c;
+                        }
+                        editor.commit_edit();
+                        if (table_dirty) rebuild_table();
+                        editor.begin_edit(row, col);
+                        editor.selection.select_single(row, col);
+                        printf("Edit cell [%u,%u] = \"%s\"\n", row, col, editor.edit_buffer);
+                        clicked_cell = true;
+                        break;
+                    }
+                }
 
-                // Check if click is on the counter, dispatch if so
-                bool on_counter = false;
-                for (int i = 0; i < n; i++)
-                    if (deep[i].node->id && strstr(deep[i].node->id, "counter") != nullptr)
-                        { on_counter = true; break; }
+                if (!clicked_cell) {
+                    // Commit any active edit
+                    if (editor.editing) { editor.commit_edit(); table_dirty = true; }
 
-                if (on_counter) {
-                    UIEvent ui = {EVENT_CLICK, ev.x, ev.y, 0, 0, nullptr};
-                    virtual_dispatch(&vl, &ui);
-                    LayoutNode* new_vl = virtual_render(&vl);
-                    if (new_vl) {
-                        root->children[root->child_count - 2] = new_vl;
+                    // Counter check
+                    bool on_counter = false;
+                    for (int i = 0; i < n; i++)
+                        if (deep[i].node->id && strstr(deep[i].node->id, "counter"))
+                            { on_counter = true; break; }
+                    if (on_counter) {
+                        UIEvent ui = {EVENT_CLICK, ev.x, ev.y, 0, 0, nullptr};
+                        virtual_dispatch(&vl, &ui);
+                        root->children[root->child_count - 2] = virtual_render(&vl);
                         root->compute(800, 600);
                     }
+
+                    // Print hit
+                    HitResult hit = hit_test_surface(root, ev.x, ev.y);
+                    printf("Hit: %s\n", hit.node && hit.node->id ? hit.node->id : "?");
                 }
             }
         }
 
+        // Rebuild table if edited
+        if (table_dirty) rebuild_table();
+
         win->begin_frame();
         render_tree(win->backend(), root);
+
+        // Show edit indicator in title area if editing
+        if (editor.editing) {
+            printf("\r  Editing [%u,%u]: \"%s\" cursor=%u   ", editor.active_cell.row, editor.active_cell.col, editor.edit_buffer, editor.cursor_pos);
+            fflush(stdout);
+        }
+
         win->end_frame();
     }
 
+    printf("\n");
     destroy_window(win);
     virtual_destroy(&vl);
     functional_destroy(&fl);
