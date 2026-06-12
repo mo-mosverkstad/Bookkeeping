@@ -6728,3 +6728,48 @@ Container uses `overflow: hidden` to suppress scrollbars. Restored on unmount.
 #### Source editor keyboard conflict
 - **Root cause**: Table's `handleKeyDown` intercepted arrow keys even when the source editor textarea was focused, moving the cell selection instead of the text cursor.
 - **Fix**: Added `if (this.sourceEditor?.focused) return;` at the top of `handleKeyDown`.
+
+---
+
+## Session: 2026-06-12 (continued) — Math syntax additions, table UX improvements
+
+### Features added
+
+#### Comma separator in math expressions (`grammar.ts`, `render.ts`)
+- Top-level `Expression` rule now allows comma-separated sub-expressions: `2x+3y=9, 5x+3y=0`.
+- Comma has the lowest precedence (`-3`), renders as `, ` between expressions.
+- Inner contexts (function args, vectors, matrices, piecewise branches) use `Logical` rule to avoid greedy comma consumption.
+
+#### Set notation (`grammar.ts`, `render.ts`, `types.ts`)
+- New syntax: `{a, b, c, ...}` produces a `Set` AST node.
+- Renders with curly braces and comma-separated elements.
+- Unary `+`/`-` use negative lookahead `(?!\{)` to avoid conflicting with rollout expressions `+{k=0, n, A[k]}`.
+
+#### Text literals / word blocks (`grammar.ts`, `render.ts`, `types.ts`, `native-math.css`)
+- New syntax: `"MTBF"`, `"linear independent"` — double-quoted strings.
+- Produces `TextLiteral` AST node, rendered in upright (roman) Cambria Math.
+- Use for multi-letter identifiers or word-based operators that lack a symbol.
+
+#### Sticky pinned columns (`style.css`)
+- Checkbox column (left): `position: sticky; left: 0` — stays visible on horizontal scroll.
+- Actions column (right): `position: sticky; right: 0` — stays visible on horizontal scroll.
+- Corner header cells use `z-index: 4` to layer above both sticky header row and sticky columns.
+
+#### Table zoom — HTML structure change (`index.html`, `style.css`, `table-view.ts`)
+- New wrapper: `#workspace-wrapper` (position: relative, overflow: hidden) wraps `#workspace` and `#table-zoom-bar`.
+- Zoom bar is a sibling of the scroll container, absolutely positioned at bottom-right of the wrapper — stays fixed relative to the viewport box.
+- Uses CSS `zoom` property instead of `transform: scale()` to preserve `position: sticky` header behavior.
+
+### Bug fixes
+
+#### Fractions rendered unnecessary parentheses (`render.ts`)
+- Fraction bar visually separates numerator/denominator, making parentheses redundant.
+- Removed parenthesization for the `/` operator in `renderBinary`.
+
+#### `(x+u)(z+t)` missing parentheses (`render.ts`)
+- **Root cause**: Parser interprets `(x+u)(z+t)` as a `CallExpression` (function call) where `(x+u)` is the callee.
+- **Fix**: `renderCall` detects non-callable callees (BinaryExpression, etc.) and renders with surrounding parentheses as implicit multiplication.
+
+#### Piecewise `\cases{}` failing with comma-containing conditions (`grammar.ts`)
+- **Root cause**: `CaseBranch` and `CaseCondition` used `Expression` which now greedily consumes commas.
+- **Fix**: Changed to use `Logical` (non-comma level) for branch values and condition elements.
