@@ -57,4 +57,42 @@ Key design points:
 
 ## Porting notes
 
-(To be filled as phases are completed)
+### Phase 1 — Graphics library foundation (completed)
+
+**Files added:**
+- `src/core/arena.h` — Arena allocator (bump alloc, bulk free, typed helpers)
+- `src/core/color.h` — RGBA color packed into 4 bytes
+- `src/core/fixed.h` — Fixed-point math definitions and rationale
+- `src/graphics/elements/shapes.h` — Rect, Ellipse, Line, Polyline, Polygon, Text structs with bit-packed TextStyle flags
+- `src/graphics/elements/element.h` — Element tagged union + factory functions
+- `src/graphics/layout/layout.h/.cpp` — Layout engine: Coordinate, LinearH, LinearV, Grid
+- `src/graphics/backend/backend.h/.cpp` — RenderBackend interface + render_tree traversal
+- `src/graphics/backend/software_backend.h` — Pixel buffer rasterizer (Bresenham lines, scanline ellipse, alpha blending)
+- `src/graphics/backend/sdl2_backend.h` — SDL2 accelerated renderer
+
+**Design decisions:**
+- Shapes are plain POD structs, no virtual functions
+- Backend uses virtual dispatch (visitor pattern) — only point of polymorphism
+- TextStyle flags packed into single uint8_t (6 bits used)
+- SoftwareBackend enables headless pixel-level test validation
+
+---
+
+### Phase 2 — Table model + CSV parser (completed)
+
+**Files added:**
+- `src/core/str.h` — Arena-backed string: pointer + length, null-terminated for C compat
+- `src/core/model/table.h/.cpp` — Table/Row/Cell/Column structs, CRUD operations (append, insert, remove, move)
+- `src/core/parser/csv.h/.cpp` — RFC-4180-style CSV parser + serializer
+
+**CSV parser details:**
+- Handles quoted fields (embedded commas, newlines, escaped `""`)
+- Normalizes `\r\n` → `\n` in cell values at parse time
+- Two-pass quoted field parsing: first pass computes length, second pass copies
+- Expects format: header row, type row, then data rows
+- Serializer produces minimal quoting (only when needed)
+
+**Table model:**
+- All allocations from arena — no per-object free
+- Rows stored as contiguous array with memmove for insert/remove/move
+- `row_capacity` pre-allocated to avoid reallocation

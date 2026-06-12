@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
+#include <new>
 
 // Arena allocator — bump allocation, bulk free.
 // No per-object free. Reset the entire arena to reclaim all memory.

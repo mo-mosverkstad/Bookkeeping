@@ -1,30 +1,41 @@
 CXX = g++
-CXXFLAGS = -std=c++20 -Wall -Wextra -O2 -I.
+CXXFLAGS = -std=c++20 -Wall -Wextra -O2 -I. -Wno-array-bounds -Wno-stringop-overflow
 SDL_FLAGS = $(shell sdl2-config --cflags --libs) -lm
 
 TARGET = main
-TEST_TARGET = test_runner
+TEST_GFX = test_gfx
+TEST_TABLE = test_table
 
 SRC = main.cpp \
       src/graphics/layout/layout.cpp \
       src/graphics/backend/backend.cpp
 
-TEST_SRC = test/test_graphics.cpp \
-           src/graphics/layout/layout.cpp \
-           src/graphics/backend/backend.cpp
+TEST_GFX_SRC = test/test_graphics.cpp \
+               src/graphics/layout/layout.cpp \
+               src/graphics/backend/backend.cpp
+
+TEST_TABLE_SRC = test/test_table.cpp \
+                 src/core/model/table.cpp \
+                 src/core/parser/csv.cpp
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET) $(SDL_FLAGS)
 
-test: $(TEST_SRC)
-	$(CXX) $(CXXFLAGS) $(TEST_SRC) -o $(TEST_TARGET) -lm
-	./$(TEST_TARGET)
+test: test-gfx test-table
+
+test-gfx: $(TEST_GFX_SRC)
+	$(CXX) $(CXXFLAGS) $(TEST_GFX_SRC) -o $(TEST_GFX) -lm
+	./$(TEST_GFX)
+
+test-table: $(TEST_TABLE_SRC)
+	$(CXX) $(CXXFLAGS) $(TEST_TABLE_SRC) -o $(TEST_TABLE) -lm
+	./$(TEST_TABLE)
 
 bench: test
 
 clean:
-	rm -f $(TARGET) $(TEST_TARGET)
+	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE)
 
-.PHONY: all test bench clean
+.PHONY: all test test-gfx test-table bench clean
