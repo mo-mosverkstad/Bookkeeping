@@ -9,6 +9,7 @@ TEST_UI = test_ui
 TEST_TVIEW = test_tview
 TEST_MATH = test_math
 TEST_EDITOR = test_editor
+TEST_REND = test_rend
 
 SRC = main.cpp \
       src/graphics/layout/layout.cpp \
@@ -43,12 +44,16 @@ TEST_EDITOR_SRC = test/test_editor.cpp \
                   src/core/model/table.cpp \
                   src/core/parser/csv.cpp
 
+TEST_REND_SRC = test/test_renderers.cpp \
+                src/graphics/layout/layout.cpp \
+                src/graphics/backend/backend.cpp
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET) $(SDL_FLAGS)
 
-test: test-gfx test-table test-ui test-tview test-math test-editor
+test: test-gfx test-table test-ui test-tview test-math test-editor test-rend
 
 test-gfx: $(TEST_GFX_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_GFX_SRC) -o $(TEST_GFX) -lm
@@ -74,9 +79,13 @@ test-editor: $(TEST_EDITOR_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_EDITOR_SRC) -o $(TEST_EDITOR) -lm
 	./$(TEST_EDITOR)
 
+test-rend: $(TEST_REND_SRC)
+	$(CXX) $(CXXFLAGS) $(TEST_REND_SRC) -o $(TEST_REND) -lm
+	./$(TEST_REND)
+
 bench: test
 
 clean:
-	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI) $(TEST_TVIEW) $(TEST_MATH) $(TEST_EDITOR)
+	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI) $(TEST_TVIEW) $(TEST_MATH) $(TEST_EDITOR) $(TEST_REND)
 
 .PHONY: all test test-gfx test-table bench clean
