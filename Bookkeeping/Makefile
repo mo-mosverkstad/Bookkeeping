@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++20 -Wall -Wextra -O2 -I. -Wno-array-bounds -Wno-stringop-overflow
+CXXFLAGS = -std=c++20 -Wall -Wextra -O2 -I. -Wno-array-bounds -Wno-stringop-overflow -Wno-format-truncation
 SDL_FLAGS = $(shell sdl2-config --cflags --libs) -lm
 
 TARGET = main
