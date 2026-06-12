@@ -81,23 +81,51 @@ function parseRich(text: string): RichLine[] {
         try {
             switch (tag) {
                 case "math": {
-                    const ast = mathParser.parse("Expression", content.replace(/\n/g, " ")) as MathNode;
-                    spans.push({ kind: "math", ast });
+                    const mathLines = content.split(/\r?\n/);
+                    for (let i = 0; i < mathLines.length; i++) {
+                        const line = mathLines[i].trim();
+                        if (i > 0) spans.push({ kind: "text", value: "\n" });
+                        if (line) {
+                            const ast = mathParser.parse("Expression", line) as MathNode;
+                            spans.push({ kind: "math", ast });
+                        }
+                    }
                     break;
                 }
                 case "chem": {
-                    const ast = parseChemistry(content.replace(/\n/g, " ")) as ChemistryProgram;
-                    spans.push({ kind: "chemistry", ast });
+                    const chemLines = content.split(/\r?\n/);
+                    for (let i = 0; i < chemLines.length; i++) {
+                        const line = chemLines[i].trim();
+                        if (i > 0) spans.push({ kind: "text", value: "\n" });
+                        if (line) {
+                            const ast = parseChemistry(line) as ChemistryProgram;
+                            spans.push({ kind: "chemistry", ast });
+                        }
+                    }
                     break;
                 }
                 case "geom": {
-                    const ast = parseGeometry(content.replace(/\n/g, " ")) as GeometryProgram;
-                    spans.push({ kind: "geometry", ast });
+                    const geomLines = content.split(/\r?\n/);
+                    for (let i = 0; i < geomLines.length; i++) {
+                        const line = geomLines[i].trim();
+                        if (i > 0) spans.push({ kind: "text", value: "\n" });
+                        if (line) {
+                            const ast = parseGeometry(line) as GeometryProgram;
+                            spans.push({ kind: "geometry", ast });
+                        }
+                    }
                     break;
                 }
                 case "phys": {
-                    const ast = parsePhysics(content.replace(/\n/g, " ")) as PhysicsProgram;
-                    spans.push({ kind: "physics", ast });
+                    const physLines = content.split(/\r?\n/);
+                    for (let i = 0; i < physLines.length; i++) {
+                        const line = physLines[i].trim();
+                        if (i > 0) spans.push({ kind: "text", value: "\n" });
+                        if (line) {
+                            const ast = parsePhysics(line) as PhysicsProgram;
+                            spans.push({ kind: "physics", ast });
+                        }
+                    }
                     break;
                 }
             }
