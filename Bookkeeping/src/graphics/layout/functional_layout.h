@@ -1,5 +1,5 @@
 #pragma once
-#include "src/graphics/layout/layout_base.h"
+#include "src/graphics/layout/layout.h"
 #include "src/graphics/backend/software_backend.h"
 
 // FunctionalLayout: an immutable, cached layout node.

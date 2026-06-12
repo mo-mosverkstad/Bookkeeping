@@ -1,10 +1,10 @@
 #pragma once
 #include "src/graphics/elements/element.h"
-#include "src/graphics/layout/layout.h"
 
 struct ClipRect { float x, y, w, h; };
 
 // Render backend interface — visitor pattern.
+// Only virtual dispatch point in the system (justified: platform boundary).
 struct RenderBackend {
     virtual ~RenderBackend() = default;
     virtual void begin_frame(float width, float height) = 0;
@@ -19,6 +19,6 @@ struct RenderBackend {
     virtual void render_text(float abs_x, float abs_y, const Text& t) = 0;
 };
 
-// Render a layout tree using the given backend.
-// Handles scroll nodes (applies clip + offset).
+// Legacy free-function wrappers (delegates to LayoutNode::render)
+struct LayoutNode;
 void render_tree(RenderBackend* backend, LayoutNode* root, float offset_x = 0, float offset_y = 0);

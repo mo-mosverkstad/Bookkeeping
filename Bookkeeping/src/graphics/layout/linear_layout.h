@@ -1,5 +1,5 @@
 #pragma once
-#include "src/graphics/layout/layout_base.h"
+#include "src/graphics/layout/layout.h"
 
 // Direction for LinearLayout
 enum LinearDirection : uint8_t {

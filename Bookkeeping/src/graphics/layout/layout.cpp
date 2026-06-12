@@ -1,4 +1,5 @@
 #include "src/graphics/layout/layout.h"
+#include "src/graphics/backend/backend.h"
 #include <cstring>
 
 // ── Text measurement ─────────────────────────────────────────────────────────
@@ -19,166 +20,150 @@ TextMeasure measure_text(const char* text, uint32_t len, const char* font, float
     return g_measure_fn(text, len, font, size, style);
 }
 
-// ── Layout algorithms ────────────────────────────────────────────────────────
+// ── Layout computation ───────────────────────────────────────────────────────
 
-static void layout_coordinate(LayoutNode* node) {
-    float max_w = 0, max_h = 0;
-    for (uint16_t i = 0; i < node->child_count; i++) {
-        LayoutNode* child = node->children[i];
-        layout_compute(child, child->req_width, child->req_height);
-        float r = child->x + child->width;
-        float b = child->y + child->height;
-        if (r > max_w) max_w = r;
-        if (b > max_h) max_h = b;
+void LayoutNode::compute(float avail_width, float avail_height) {
+    if (req_width > 0) width = req_width; else width = avail_width;
+    if (req_height > 0) height = req_height; else height = avail_height;
+
+    switch (type) {
+    case LAYOUT_COORDINATE: {
+        float max_w = 0, max_h = 0;
+        for (uint16_t i = 0; i < child_count; i++) {
+            LayoutNode* c = children[i];
+            c->compute(c->req_width, c->req_height);
+            if (c->x + c->width > max_w) max_w = c->x + c->width;
+            if (c->y + c->height > max_h) max_h = c->y + c->height;
+        }
+        if (req_width <= 0) width = max_w + padding * 2;
+        if (req_height <= 0) height = max_h + padding * 2;
+        break;
     }
-    if (node->req_width <= 0) node->width = max_w + node->padding * 2;
-    if (node->req_height <= 0) node->height = max_h + node->padding * 2;
+    case LAYOUT_LINEAR: {
+        bool horiz = (direction == LINEAR_HORIZONTAL);
+        float cursor = padding, max_cross = 0;
+        for (uint16_t i = 0; i < child_count; i++) {
+            LayoutNode* c = children[i];
+            float cw = c->req_width > 0 ? c->req_width : (horiz ? 0 : avail_width - padding * 2);
+            float ch = c->req_height > 0 ? c->req_height : 0;
+            c->compute(cw, ch);
+            if (horiz) { c->x = cursor; c->y = padding; cursor += c->width + gap; if (c->height > max_cross) max_cross = c->height; }
+            else       { c->x = padding; c->y = cursor; cursor += c->height + gap; if (c->width > max_cross) max_cross = c->width; }
+        }
+        float total = child_count > 0 ? cursor - gap + padding : padding * 2;
+        if (horiz) { if (req_width <= 0) width = total; if (req_height <= 0) height = max_cross + padding * 2; }
+        else       { if (req_width <= 0) width = max_cross + padding * 2; if (req_height <= 0) height = total; }
+        break;
+    }
+    case LAYOUT_GRID: {
+        if (grid_cols == 0) break;
+        uint16_t cols = grid_cols;
+        uint16_t rows = (child_count + cols - 1) / cols;
+        float col_w = (avail_width - padding * 2 - gap * (cols - 1)) / cols;
+        float cursor_y = padding;
+        for (uint16_t r = 0; r < rows; r++) {
+            float row_h = 0;
+            for (uint16_t c = 0; c < cols; c++) { uint16_t idx = r*cols+c; if (idx >= child_count) break;
+                float cw = (col_widths && col_widths[c] > 0) ? col_widths[c] : col_w;
+                children[idx]->compute(cw, children[idx]->req_height);
+                if (children[idx]->height > row_h) row_h = children[idx]->height; }
+            float cursor_x = padding;
+            for (uint16_t c = 0; c < cols; c++) { uint16_t idx = r*cols+c; if (idx >= child_count) break;
+                float cw = (col_widths && col_widths[c] > 0) ? col_widths[c] : col_w;
+                children[idx]->x = cursor_x; children[idx]->y = cursor_y; children[idx]->width = cw;
+                cursor_x += cw + gap; }
+            cursor_y += row_h + gap;
+        }
+        if (req_width <= 0) width = avail_width;
+        if (req_height <= 0) height = cursor_y - gap + padding;
+        break;
+    }
+    case LAYOUT_SCROLL: {
+        float cursor = 0, max_w = 0;
+        for (uint16_t i = 0; i < child_count; i++) {
+            LayoutNode* c = children[i];
+            c->compute(c->req_width > 0 ? c->req_width : width, c->req_height);
+            c->x = 0; c->y = cursor;
+            cursor += c->height + gap;
+            if (c->width > max_w) max_w = c->width;
+        }
+        content_width = max_w;
+        content_height = cursor > 0 ? cursor - gap : 0;
+        break;
+    }
+    }
 }
 
-static void layout_linear(LayoutNode* node, float avail_width) {
-    bool horiz = (node->direction == LINEAR_HORIZONTAL);
-    float cursor = node->padding;
-    float max_cross = 0;
+// ── Rendering ────────────────────────────────────────────────────────────────
 
-    for (uint16_t i = 0; i < node->child_count; i++) {
-        LayoutNode* child = node->children[i];
-        float cw = child->req_width > 0 ? child->req_width : (horiz ? 0 : avail_width - node->padding * 2);
-        float ch = child->req_height > 0 ? child->req_height : 0;
-        layout_compute(child, cw, ch);
+void LayoutNode::render(RenderBackend* backend, float offset_x, float offset_y) {
+    float abs_x = offset_x + x;
+    float abs_y = offset_y + y;
 
-        if (horiz) {
-            child->x = cursor;
-            child->y = node->padding;
-            cursor += child->width + node->gap;
-            if (child->height > max_cross) max_cross = child->height;
-        } else {
-            child->x = node->padding;
-            child->y = cursor;
-            cursor += child->height + node->gap;
-            if (child->width > max_cross) max_cross = child->width;
+    for (uint16_t i = 0; i < element_count; i++) {
+        Element& e = elements[i];
+        switch (e.type) {
+            case ELEM_RECT:     backend->render_rect(abs_x, abs_y, e.rect); break;
+            case ELEM_ELLIPSE:  backend->render_ellipse(abs_x, abs_y, e.ellipse); break;
+            case ELEM_LINE:     backend->render_line(abs_x, abs_y, e.line); break;
+            case ELEM_POLYLINE: backend->render_polyline(abs_x, abs_y, e.polyline); break;
+            case ELEM_POLYGON:  backend->render_polygon(abs_x, abs_y, e.polygon); break;
+            case ELEM_TEXT:     backend->render_text(abs_x, abs_y, e.text); break;
         }
     }
 
-    float total = node->child_count > 0 ? cursor - node->gap + node->padding : node->padding * 2;
-    if (horiz) {
-        if (node->req_width <= 0) node->width = total;
-        if (node->req_height <= 0) node->height = max_cross + node->padding * 2;
+    if (type == LAYOUT_SCROLL) {
+        backend->set_clip({abs_x, abs_y, width, height});
+        for (uint16_t i = 0; i < child_count; i++)
+            children[i]->render(backend, abs_x - scroll_x, abs_y - scroll_y);
+        backend->reset_clip();
     } else {
-        if (node->req_width <= 0) node->width = max_cross + node->padding * 2;
-        if (node->req_height <= 0) node->height = total;
-    }
-}
-
-static void layout_grid(LayoutNode* node, float avail_width) {
-    if (node->grid_cols == 0) return;
-    uint16_t cols = node->grid_cols;
-    uint16_t rows = (node->child_count + cols - 1) / cols;
-    float col_w = (avail_width - node->padding * 2 - node->gap * (cols - 1)) / cols;
-
-    float cursor_y = node->padding;
-    for (uint16_t r = 0; r < rows; r++) {
-        float row_h = 0;
-        for (uint16_t c = 0; c < cols; c++) {
-            uint16_t idx = r * cols + c;
-            if (idx >= node->child_count) break;
-            LayoutNode* child = node->children[idx];
-            float cw = (node->col_widths && node->col_widths[c] > 0) ? node->col_widths[c] : col_w;
-            layout_compute(child, cw, child->req_height);
-            if (child->height > row_h) row_h = child->height;
-        }
-        float cursor_x = node->padding;
-        for (uint16_t c = 0; c < cols; c++) {
-            uint16_t idx = r * cols + c;
-            if (idx >= node->child_count) break;
-            LayoutNode* child = node->children[idx];
-            float cw = (node->col_widths && node->col_widths[c] > 0) ? node->col_widths[c] : col_w;
-            child->x = cursor_x;
-            child->y = cursor_y;
-            child->width = cw;
-            cursor_x += cw + node->gap;
-        }
-        cursor_y += row_h + node->gap;
-    }
-    if (node->req_width <= 0) node->width = avail_width;
-    if (node->req_height <= 0) node->height = cursor_y - node->gap + node->padding;
-}
-
-static void layout_scroll(LayoutNode* node, float avail_width, float avail_height) {
-    if (node->req_width > 0) node->width = node->req_width; else node->width = avail_width;
-    if (node->req_height > 0) node->height = node->req_height; else node->height = avail_height;
-
-    float cursor = 0, max_w = 0;
-    for (uint16_t i = 0; i < node->child_count; i++) {
-        LayoutNode* child = node->children[i];
-        float cw = child->req_width > 0 ? child->req_width : node->width;
-        layout_compute(child, cw, child->req_height);
-        child->x = 0;
-        child->y = cursor;
-        cursor += child->height + node->gap;
-        if (child->width > max_w) max_w = child->width;
-    }
-    node->content_width = max_w;
-    node->content_height = cursor > 0 ? cursor - node->gap : 0;
-}
-
-void layout_compute(LayoutNode* root, float avail_width, float avail_height) {
-    if (root->req_width > 0) root->width = root->req_width; else root->width = avail_width;
-    if (root->req_height > 0) root->height = root->req_height; else root->height = avail_height;
-
-    switch (root->type) {
-        case LAYOUT_COORDINATE: layout_coordinate(root); break;
-        case LAYOUT_LINEAR:     layout_linear(root, avail_width); break;
-        case LAYOUT_GRID:       layout_grid(root, avail_width); break;
-        case LAYOUT_SCROLL:     layout_scroll(root, avail_width, avail_height); break;
+        for (uint16_t i = 0; i < child_count; i++)
+            children[i]->render(backend, abs_x, abs_y);
     }
 }
 
 // ── Hit testing ──────────────────────────────────────────────────────────────
 
-HitResult hit_test_surface(LayoutNode* root, float x, float y, float offset_x, float offset_y) {
-    HitResult best = {nullptr, 0, 0};
-    float abs_x = offset_x + root->x;
-    float abs_y = offset_y + root->y;
-
-    if (x < abs_x || x >= abs_x + root->width || y < abs_y || y >= abs_y + root->height)
-        return best;
+HitResult LayoutNode::hit_surface(float px, float py, float offset_x, float offset_y) {
+    float abs_x = offset_x + x;
+    float abs_y = offset_y + y;
+    if (px < abs_x || px >= abs_x + width || py < abs_y || py >= abs_y + height)
+        return {nullptr, 0, 0};
 
     float child_ox = abs_x, child_oy = abs_y;
-    if (root->type == LAYOUT_SCROLL) { child_ox -= root->scroll_x; child_oy -= root->scroll_y; }
+    if (type == LAYOUT_SCROLL) { child_ox -= scroll_x; child_oy -= scroll_y; }
 
-    for (int i = root->child_count - 1; i >= 0; i--) {
-        HitResult child_hit = hit_test_surface(root->children[i], x, y, child_ox, child_oy);
-        if (child_hit.node) return child_hit;
+    for (int i = child_count - 1; i >= 0; i--) {
+        HitResult r = children[i]->hit_surface(px, py, child_ox, child_oy);
+        if (r.node) return r;
     }
-
-    best.node = root;
-    best.local_x = x - abs_x;
-    best.local_y = y - abs_y;
-    return best;
+    return {this, px - abs_x, py - abs_y};
 }
 
-int hit_test_deep(LayoutNode* root, float x, float y, HitResult* results, int capacity, float offset_x, float offset_y) {
-    float abs_x = offset_x + root->x;
-    float abs_y = offset_y + root->y;
-
-    if (x < abs_x || x >= abs_x + root->width || y < abs_y || y >= abs_y + root->height)
+int LayoutNode::hit_deep(float px, float py, HitResult* results, int capacity, float offset_x, float offset_y) {
+    float abs_x = offset_x + x;
+    float abs_y = offset_y + y;
+    if (px < abs_x || px >= abs_x + width || py < abs_y || py >= abs_y + height)
         return 0;
 
     int count = 0;
-    if (count < capacity) {
-        results[count].node = root;
-        results[count].local_x = x - abs_x;
-        results[count].local_y = y - abs_y;
-        count++;
-    }
+    if (count < capacity) { results[count++] = {this, px - abs_x, py - abs_y}; }
 
     float child_ox = abs_x, child_oy = abs_y;
-    if (root->type == LAYOUT_SCROLL) { child_ox -= root->scroll_x; child_oy -= root->scroll_y; }
+    if (type == LAYOUT_SCROLL) { child_ox -= scroll_x; child_oy -= scroll_y; }
 
-    for (uint16_t i = 0; i < root->child_count; i++) {
-        int n = hit_test_deep(root->children[i], x, y, results + count, capacity - count, child_ox, child_oy);
+    for (uint16_t i = 0; i < child_count; i++) {
+        int n = children[i]->hit_deep(px, py, results + count, capacity - count, child_ox, child_oy);
         count += n;
         if (count >= capacity) break;
     }
     return count;
 }
+
+// ── Legacy free-function wrappers (for backward compat with tests) ───────────
+
+void layout_compute(LayoutNode* root, float w, float h) { root->compute(w, h); }
+HitResult hit_test_surface(LayoutNode* root, float x, float y, float ox, float oy) { return root->hit_surface(x, y, ox, oy); }
+int hit_test_deep(LayoutNode* root, float x, float y, HitResult* r, int cap, float ox, float oy) { return root->hit_deep(x, y, r, cap, ox, oy); }
+void render_tree(RenderBackend* backend, LayoutNode* root, float ox, float oy) { root->render(backend, ox, oy); }

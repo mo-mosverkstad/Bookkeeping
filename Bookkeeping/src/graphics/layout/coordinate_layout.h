@@ -1,5 +1,5 @@
 #pragma once
-#include "src/graphics/layout/layout_base.h"
+#include "src/graphics/layout/layout.h"
 
 // CoordinateLayout: children positioned at absolute (x, y) offsets
 // relative to this node's origin. No automatic arrangement.

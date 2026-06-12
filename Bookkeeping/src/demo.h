@@ -148,21 +148,34 @@ inline int run_demo() {
             }
 
             if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
-                UIEvent ui = {EVENT_CLICK, ev.x, ev.y, 0, 0, nullptr};
-                if (virtual_dispatch(&vl, &ui)) {
-                    // Re-render virtual tree in place
-                    LayoutNode* new_vl = virtual_render(&vl);
-                    root->children[root->child_count - 2] = new_vl;
-                    layout_compute(root, 800, 600);
-                }
-
                 HitResult hit = hit_test_surface(root, ev.x, ev.y);
-                printf("Hit: %s", hit.node && hit.node->id ? hit.node->id : "?");
                 HitResult deep[16];
                 int n = hit_test_deep(root, ev.x, ev.y, deep, 16);
+
+                // Print results BEFORE any dispatch (pointers are still valid)
+                printf("Hit: %s", hit.node && hit.node->id ? hit.node->id : "?");
                 for (int i = 0; i < n; i++)
                     if (deep[i].node->id) printf(" > %s", deep[i].node->id);
-                printf("\n");
+                printf(" (on_counter check: ");
+                for (int i = 0; i < n; i++)
+                    if (deep[i].node->id) printf("[%s] ", deep[i].node->id);
+                printf(")\n");
+
+                // Check if click is on the counter, dispatch if so
+                bool on_counter = false;
+                for (int i = 0; i < n; i++)
+                    if (deep[i].node->id && strstr(deep[i].node->id, "counter") != nullptr)
+                        { on_counter = true; break; }
+
+                if (on_counter) {
+                    UIEvent ui = {EVENT_CLICK, ev.x, ev.y, 0, 0, nullptr};
+                    virtual_dispatch(&vl, &ui);
+                    LayoutNode* new_vl = virtual_render(&vl);
+                    if (new_vl) {
+                        root->children[root->child_count - 2] = new_vl;
+                        root->compute(800, 600);
+                    }
+                }
             }
         }
 

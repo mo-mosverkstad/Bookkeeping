@@ -1,5 +1,5 @@
 #pragma once
-#include "src/graphics/layout/layout_base.h"
+#include "src/graphics/layout/layout.h"
 
 // ScrollLayout: a fixed-size viewport that clips children.
 // Children are positioned relative to the content, not the viewport.
