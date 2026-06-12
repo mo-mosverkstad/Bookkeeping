@@ -107,3 +107,32 @@ make clean && make
 - Counter: colored bars appear only on purple-bar clicks
 - Scroll: items clip at viewport boundary
 - Hit test: correct node IDs printed for each click target
+
+
+---
+
+## Phase 3 — Table rendering
+
+### Prerequisites
+- SDL2 + SDL2_ttf installed (`libsdl2-dev libsdl2-ttf-dev`)
+- DejaVu Sans font at `/usr/share/fonts/truetype/dejavu/`
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Window shows all previous demos PLUS a table with:
+  - Header row: "Name | Age | City | Skill" (bold, dark bg)
+  - Data rows: Alice/30/London/C++, Bob/25/Paris/Rust, etc.
+  - Actual readable text (via SDL2_ttf)
+- Mouse wheel scrolls ONLY the scroll view under the cursor
+- Table rows clip at viewport bottom
+- Hit test prints row IDs when clicking table cells
+
+### Verification
+- `make test` → 170 tests pass (102 + 23 + 27 + 18)
+- Scrolling table doesn't scroll the item list (and vice versa)
+- Text is rendered as actual glyphs, not placeholder rectangles

@@ -102,3 +102,23 @@ across phases.
 **Bug fixed:**
 - Counter incrementing on any click → gated by hit-test checking for "counter" id in deep hit
 - Segfault on repeated clicks → deep hit results printed before VirtualLayout arena reset
+
+
+---
+
+## Phase 3 — Table rendering — 2026-06-12
+
+**Added:**
+- `src/app/table_view.h` — Table model → visual grid renderer
+- SDL2_ttf integration for real font rendering (DejaVu Sans)
+- 18 table view tests (structure, rendering, hit testing, scroll isolation, benchmark)
+- Demo shows 5-row × 4-column table with scrollable data
+
+**Decisions:**
+- Table rendered as header HStack + data rows in ScrollLayout
+- Column widths derived from text measurement
+- Scroll isolation via hit-test: wheel only affects hovered scroll node
+- SDL2_ttf linked for actual glyph rendering (replaces placeholder rects)
+
+**Bugs fixed:**
+- Mouse wheel scrolling all scroll views simultaneously → gated by deepest scroll node hit-test

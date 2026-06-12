@@ -231,6 +231,111 @@ TEST(tableview_many_rows) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SCROLL ISOLATION TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(tableview_two_scrolls_independent) {
+    Arena a = arena_create(64 * 1024);
+    LayoutNode ca[3] = {}; LayoutNode* ca_p[3];
+    for (int i = 0; i < 3; i++) { ca[i].req_width = 80; ca[i].req_height = 30; ca_p[i] = &ca[i]; }
+    LayoutNode scrollA = {}; scrollA.type = LAYOUT_SCROLL; scrollA.req_width = 100; scrollA.req_height = 50;
+    scrollA.children = ca_p; scrollA.child_count = 3; scrollA.id = "scrollA";
+
+    LayoutNode cb[3] = {}; LayoutNode* cb_p[3];
+    for (int i = 0; i < 3; i++) { cb[i].req_width = 80; cb[i].req_height = 30; cb_p[i] = &cb[i]; }
+    LayoutNode scrollB = {}; scrollB.type = LAYOUT_SCROLL; scrollB.req_width = 100; scrollB.req_height = 50;
+    scrollB.children = cb_p; scrollB.child_count = 3; scrollB.id = "scrollB";
+
+    LayoutNode* rk[] = {&scrollA, &scrollB};
+    LayoutNode root = {}; root.type = LAYOUT_LINEAR; root.direction = LINEAR_VERTICAL; root.gap = 10;
+    root.children = rk; root.child_count = 2;
+    root.compute(200, 200);
+
+    HitResult d[8]; int n;
+    n = root.hit_deep(50, 25, d, 8);
+    LayoutNode* hs = nullptr;
+    for (int i = n-1; i >= 0; i--) if (d[i].node->type == LAYOUT_SCROLL) { hs = d[i].node; break; }
+    ASSERT_TRUE(hs == &scrollA);
+
+    n = root.hit_deep(50, 75, d, 8);
+    hs = nullptr;
+    for (int i = n-1; i >= 0; i--) if (d[i].node->type == LAYOUT_SCROLL) { hs = d[i].node; break; }
+    ASSERT_TRUE(hs == &scrollB);
+
+    scrollA.scroll_y = 15;
+    ASSERT_NEAR(scrollB.scroll_y, 0.0f, 0.01f);
+    arena_destroy(&a);
+}
+
+TEST(tableview_scroll_not_hit_when_outside) {
+    Arena a = arena_create(32 * 1024);
+    LayoutNode c = {}; c.req_width = 80; c.req_height = 200; LayoutNode* cp[] = {&c};
+    LayoutNode scroll = {}; scroll.type = LAYOUT_SCROLL; scroll.req_width = 100; scroll.req_height = 50;
+    scroll.children = cp; scroll.child_count = 1; scroll.id = "scroll";
+    LayoutNode other = {}; other.req_width = 100; other.req_height = 50; other.id = "other";
+    LayoutNode* rk[] = {&scroll, &other};
+    LayoutNode root = {}; root.type = LAYOUT_LINEAR; root.direction = LINEAR_VERTICAL; root.gap = 10;
+    root.children = rk; root.child_count = 2;
+    root.compute(200, 200);
+
+    HitResult d[8]; int n = root.hit_deep(50, 80, d, 8);
+    LayoutNode* hs = nullptr;
+    for (int i = n-1; i >= 0; i--) if (d[i].node->type == LAYOUT_SCROLL) { hs = d[i].node; break; }
+    ASSERT_EQ(hs, (LayoutNode*)nullptr);
+    arena_destroy(&a);
+}
+
+TEST(tableview_nested_scroll_innermost_hit) {
+    Arena a = arena_create(64 * 1024);
+    LayoutNode leaf = {}; leaf.req_width = 80; leaf.req_height = 200; LayoutNode* lp[] = {&leaf};
+    LayoutNode inner = {}; inner.type = LAYOUT_SCROLL; inner.req_width = 100; inner.req_height = 40;
+    inner.children = lp; inner.child_count = 1; inner.id = "inner";
+    LayoutNode* ip[] = {&inner};
+    LayoutNode outer = {}; outer.type = LAYOUT_SCROLL; outer.req_width = 120; outer.req_height = 80;
+    outer.children = ip; outer.child_count = 1; outer.id = "outer";
+    outer.compute(200, 200);
+
+    HitResult d[8]; int n = outer.hit_deep(50, 20, d, 8);
+    LayoutNode* hs = nullptr;
+    for (int i = n-1; i >= 0; i--) if (d[i].node->type == LAYOUT_SCROLL) { hs = d[i].node; break; }
+    ASSERT_TRUE(hs == &inner);
+    arena_destroy(&a);
+}
+
+TEST(tableview_scroll_clamp_bounds) {
+    Arena a = arena_create(16 * 1024);
+    LayoutNode c = {}; c.req_width = 80; c.req_height = 100; LayoutNode* cp[] = {&c};
+    LayoutNode scroll = {}; scroll.type = LAYOUT_SCROLL; scroll.req_width = 100; scroll.req_height = 50;
+    scroll.children = cp; scroll.child_count = 1;
+    scroll.compute(200, 200);
+
+    float max_s = scroll.content_height - scroll.height;
+    ASSERT_NEAR(max_s, 50.0f, 0.01f);
+    scroll.scroll_y = 999; if (scroll.scroll_y > max_s) scroll.scroll_y = max_s;
+    ASSERT_NEAR(scroll.scroll_y, 50.0f, 0.01f);
+    scroll.scroll_y = -100; if (scroll.scroll_y < 0) scroll.scroll_y = 0;
+    ASSERT_NEAR(scroll.scroll_y, 0.0f, 0.01f);
+    arena_destroy(&a);
+}
+
+TEST(tableview_scroll_hit_with_offset) {
+    Arena a = arena_create(32 * 1024);
+    LayoutNode c1 = {}; c1.req_width = 80; c1.req_height = 50; c1.id = "c1";
+    LayoutNode c2 = {}; c2.req_width = 80; c2.req_height = 50; c2.id = "c2";
+    LayoutNode* kids[] = {&c1, &c2};
+    LayoutNode scroll = {}; scroll.type = LAYOUT_SCROLL; scroll.req_width = 100; scroll.req_height = 50;
+    scroll.children = kids; scroll.child_count = 2;
+    scroll.compute(200, 200);
+
+    HitResult r = scroll.hit_surface(50, 25);
+    ASSERT_TRUE(r.node == &c1);
+    scroll.scroll_y = 50;
+    r = scroll.hit_surface(50, 25);
+    ASSERT_TRUE(r.node == &c2);
+    arena_destroy(&a);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // BENCHMARK
 // ═══════════════════════════════════════════════════════════════════════════════
 

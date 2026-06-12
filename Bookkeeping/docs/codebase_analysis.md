@@ -150,3 +150,27 @@ Key design points:
 - Methods on structs compile to identical code as free functions
 - Only RenderBackend and PlatformWindow use virtual (platform boundary)
 - No vtable for shapes, layout nodes, or UI builder
+
+
+---
+
+### Phase 3 — Table rendering (completed)
+
+**Files added:**
+- `src/app/table_view.h` — Builds visual table from Table model (header + scrollable data rows)
+
+**Design:**
+- Header row: HStack of column cells (bold text, dark background)
+- Data rows: HStack per row inside a ScrollLayout viewport
+- Column widths auto-sized from header text measurement (min 80px)
+- Alternating row background colors
+- Each row has id `"row-N"` for hit testing
+- Scroll isolation: mouse wheel only scrolls the scroll node under cursor (hit-test gated)
+
+**SDL2_ttf integration:**
+- Real font rendering via DejaVu Sans (regular + bold)
+- `TTF_RenderUTF8_Blended` for anti-aliased text
+- Font size set per-element via `TTF_SetFontSize`
+
+**Bug fixed:**
+- Mouse wheel scrolled all scroll views simultaneously → now hit-tests to find deepest LAYOUT_SCROLL under cursor, scrolls only that one

@@ -239,3 +239,46 @@ Custom lightweight test framework in `test/test.h`:
 | ui_functional_cache_content | FunctionalLayout caches pixels | PASS |
 | ui_full_tree_render_and_hit | Full VStack+HStack render+hit | PASS |
 | ui_grid_render_and_hit | Grid render + hit test cells | PASS |
+
+
+---
+
+## Phase 3 — Table view tests (18 tests)
+
+### Table view structure (7 tests)
+| Test | Description | Result |
+|---|---|---|
+| tableview_builds_tree | Returns node with id "table-view" | PASS |
+| tableview_header_has_columns | Header has 3 column cells | PASS |
+| tableview_scroll_has_rows | Scroll has 3 data rows | PASS |
+| tableview_row_has_cells | Each row has 3 cells | PASS |
+| tableview_cells_have_content | Cell text = "Alice" | PASS |
+| tableview_empty_table | 0-row table renders safely | PASS |
+| tableview_single_cell | 1×1 table works | PASS |
+
+### Table view rendering (4 tests)
+| Test | Description | Result |
+|---|---|---|
+| tableview_computes_layout | Scroll viewport matches config | PASS |
+| tableview_renders_without_crash | Header bg pixels correct | PASS |
+| tableview_scroll_clips_rows | Content below viewport clipped | PASS |
+| tableview_many_rows | 100 rows → content_height > viewport | PASS |
+
+### Scroll isolation (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| tableview_two_scrolls_independent | Correct scroll found per position | PASS |
+| tableview_scroll_not_hit_when_outside | No scroll hit outside scroll area | PASS |
+| tableview_nested_scroll_innermost_hit | Deepest scroll wins in nested case | PASS |
+| tableview_scroll_clamp_bounds | scroll_y clamped to valid range | PASS |
+| tableview_scroll_hit_with_offset | Hit maps to correct child after scroll | PASS |
+
+### Hit testing (1 test)
+| Test | Description | Result |
+|---|---|---|
+| tableview_hit_test_finds_row | Deep hit finds "row-0" | PASS |
+
+### Benchmarks
+| Benchmark | Iterations | Time/iter |
+|---|---|---|
+| table_view_build+compute 100 rows | 1,000 | (measured) |
