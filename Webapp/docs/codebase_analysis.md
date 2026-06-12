@@ -6678,3 +6678,53 @@ would route it around the graph incorrectly).
 - Scroll wheel → scale (zoom, clamped 0.2–4.0)
 
 Container uses `overflow: hidden` to suppress scrollbars. Restored on unmount.
+
+---
+
+## Session: 2026-06-12 — Excel-like table features, bug fixes, zoom
+
+### Features added
+
+#### Multi-cell selection (`table-view.ts`)
+- **Click**: selects a single cell and activates it for editing in the source editor.
+- **Shift+Click**: selects a rectangular range from the anchor cell to the clicked cell.
+- **Ctrl/Cmd+Click**: toggles individual cells in/out of the selection.
+- **Drag across cells**: mousedown + mousemove paints a rectangular range selection.
+- **Arrow keys**: move the selection (when source editor is not focused).
+- **Shift+Arrow**: extends selection in that direction.
+- All columns (including column 0) now share the same selection behavior. Entity navigation for column 0 moved to double-click.
+
+#### Move selected cells (`table-view.ts`, `controller/index.ts`, `EditHistory.ts`)
+- **Drag-to-move**: click an already-selected cell (single or multi) and drag to a new location. A dashed green ghost box shows the landing area.
+- **Confirm on overwrite**: if destination cells contain data, a confirmation dialog asks before replacing.
+- **Ctrl+X / Ctrl+V**: cut selected cells, then paste at the current anchor.
+- **Delete/Backspace**: clears all selected cells (multi-selection only).
+- Controller method `moveCells()` performs the operation with full undo/redo support via `EditAction` type `"moveCells"`.
+
+#### Table zoom (`table-view.ts`, `index.html`, `style.css`)
+- **Ctrl+Wheel**: zooms the table in/out (range 25%–400%).
+- **Zoom control bar**: fixed at the bottom-right of the workspace viewport (`#workspace-wrapper`). Contains −, percentage label (click to reset), and + buttons.
+- Uses CSS `zoom` property (not `transform: scale`) so `position: sticky` headers remain functional.
+- HTML structure: `#workspace-wrapper` (position: relative, overflow: hidden) wraps `#workspace` (scrollable) and `#table-zoom-bar` (absolutely positioned overlay).
+
+#### Column sorting removed
+- Header cells no longer respond to clicks or show sort indicators.
+- `sortCol`/`sortAsc` state, `getSortState()`, and related CSS removed.
+
+### Bug fixes
+
+#### Dirty mark on cell click without editing
+- **Root cause**: CSV cells from quoted multiline fields contained `\r\n`. HTML textarea normalizes to `\n`. When `commitActive()` compared textarea value vs original, they differed despite no user edit.
+- **Fix**: `Table.fromCSV()` now normalizes cell values with `.replace(/\r\n/g, "\n")` at parse time.
+
+#### Dirty mark persists after undo to original state
+- **Root cause**: `savedContent` stored raw file text (with trailing newline, possible `\r\n`), but `recheckDirtyFile()` compared it against `table.toCSV()` which produces `\n`-only, no trailing newline.
+- **Fix**: `AppController.snapshotTableBaselines()` re-writes `savedContent` entries using `toCSV()` output after all tables are loaded. Called at the end of `loadControlBatch()` and `loadPlainBatch()`.
+
+#### Source editor not activating on cell click
+- **Root cause**: A global `document.addEventListener("click")` in `app-shell.ts` called `cancelActive()` on every click outside the sidebar — including clicks on table cells. This cleared the source editor immediately after activation.
+- **Fix**: Added guard `if (this.elements.workspaceEl.contains(target)) return;` to skip workspace clicks.
+
+#### Source editor keyboard conflict
+- **Root cause**: Table's `handleKeyDown` intercepted arrow keys even when the source editor textarea was focused, moving the cell selection instead of the text cursor.
+- **Fix**: Added `if (this.sourceEditor?.focused) return;` at the top of `handleKeyDown`.
