@@ -24,7 +24,7 @@ export class Table {
             (h, i) => new Column(h, parsed.types[i] ?? "text")
         );
         const rows = parsed.rows.map(
-            rawRow => new Row(columns.map((col, i) => new Cell(rawRow[i] ?? "", col.typeId)))
+            rawRow => new Row(columns.map((col, i) => new Cell((rawRow[i] ?? "").replace(/\r\n/g, "\n"), col.typeId)))
         );
         return new Table(name, columns, rows);
     }

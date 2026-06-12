@@ -298,40 +298,51 @@ export class TableView implements WorkspaceView {
                         td.addEventListener("mousedown", (e) => {
                             if (e.button !== 0) return;
                             e.preventDefault();
+                            e.stopPropagation();
                             const coord: CellCoord = { row: rowIdx, col: colIdx };
 
                             if (e.shiftKey && this.selectionAnchor) {
                                 this.selectRange(this.selectionAnchor, coord);
-                            } else if (e.ctrlKey || e.metaKey) {
-                                this.toggleCellSelection(coord);
-                            } else {
-                                // Check if clicking inside an already-selected region → start drag-to-move
-                                if (this.selectedCells.length > 1 && this.isCellSelected(coord)) {
-                                    this.startCellDrag(e, tableIdx);
-                                    return;
-                                }
-                                // Otherwise: begin new selection + drag-to-select
-                                this.cancelActive();
-                                this.clearCellSelection();
-                                this.selectedCells = [coord];
-                                this.selectionAnchor = coord;
-                                this.updateCellHighlights();
-                                this.startDragSelect(e, coord);
+                                return;
                             }
-                        });
+                            if (e.ctrlKey || e.metaKey) {
+                                this.toggleCellSelection(coord);
+                                return;
+                            }
+                            // Check if clicking inside an already-selected region → start drag-to-move
+                            if (this.selectedCells.length >= 1 && this.isCellSelected(coord)) {
+                                this.startCellDrag(e, tableIdx);
+                                return;
+                            }
 
-                        // Single click (mouseup without drag) activates cell for editing
-                        td.addEventListener("click", (e) => {
-                            if (e.shiftKey || e.ctrlKey || e.metaKey) return;
-                            if (this.selectedCells.length !== 1) return;
-                            const coord: CellCoord = { row: rowIdx, col: colIdx };
-                            if (this.selectedCells[0].row !== coord.row || this.selectedCells[0].col !== coord.col) return;
-                            if (this.activeCell?.td === td) return;
+                            // Activate cell immediately
                             this.cancelActive();
+                            this.clearCellSelection();
+                            this.selectedCells = [coord];
+                            this.selectionAnchor = coord;
+                            this.updateCellHighlights();
                             this.onCellFocusChange?.();
                             this.activateCell(td, cell.value, cell.typeId, tableIdx, rowIdx, colIdx, (newValue) => {
                                 this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
                             });
+
+                            // Also track drag-to-select if mouse moves
+                            const onMove = (me: MouseEvent) => {
+                                const target = document.elementFromPoint(me.clientX, me.clientY) as HTMLElement | null;
+                                const hitTd = target?.closest<HTMLElement>("td.editable-cell");
+                                if (!hitTd || !hitTd.dataset.row || !hitTd.dataset.col) return;
+                                const to: CellCoord = { row: parseInt(hitTd.dataset.row), col: parseInt(hitTd.dataset.col) };
+                                if (to.row !== coord.row || to.col !== coord.col) {
+                                    this.cancelActive();
+                                    this.selectRange(coord, to);
+                                }
+                            };
+                            const onUp = () => {
+                                document.removeEventListener("mousemove", onMove);
+                                document.removeEventListener("mouseup", onUp);
+                            };
+                            document.addEventListener("mousemove", onMove);
+                            document.addEventListener("mouseup", onUp);
                         });
 
                         // Prevent browser text selection on double-click
@@ -633,29 +644,6 @@ export class TableView implements WorkspaceView {
         this.updateCellHighlights();
     }
 
-    /** Drag-to-select: mousedown on a cell, then drag to extend the selection range. */
-    private startDragSelect(_startEvent: MouseEvent, anchor: CellCoord): void {
-        let didDrag = false;
-        const onMove = (e: MouseEvent) => {
-            const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-            const td = target?.closest<HTMLElement>("td.editable-cell");
-            if (!td || !td.dataset.row || !td.dataset.col) return;
-            const coord: CellCoord = { row: parseInt(td.dataset.row), col: parseInt(td.dataset.col) };
-            if (coord.row !== anchor.row || coord.col !== anchor.col) didDrag = true;
-            this.selectRange(anchor, coord);
-        };
-        const onUp = () => {
-            document.removeEventListener("mousemove", onMove);
-            document.removeEventListener("mouseup", onUp);
-            // If user dragged, don't activate the cell for editing (the click handler checks selectedCells.length)
-            if (didDrag) {
-                // Selection is already set via selectRange calls
-            }
-        };
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-    }
-
     /** Drag-to-move: when user drags an already-selected region, move cells to drop target. */
     private startCellDrag(_startEvent: MouseEvent, tableIdx: number): void {
         const table = this.currentTables[this.activeTabIdx];
@@ -674,12 +662,10 @@ export class TableView implements WorkspaceView {
         const spanRows = maxRow - minRow + 1;
         const spanCols = maxCol - minCol + 1;
 
-        // Add visual feedback
-        this.currentTbody?.closest("table")?.classList.add("cells-dragging");
-
-        // Create ghost overlay element
+        // Create ghost overlay element (shown only once mouse moves)
         const ghost = document.createElement("div");
         ghost.className = "cell-drag-ghost";
+        ghost.style.display = "none";
         this.container.style.position = "relative";
         this.container.appendChild(ghost);
 
@@ -701,6 +687,7 @@ export class TableView implements WorkspaceView {
             ghost.style.height = `${brRect.bottom - tlRect.top}px`;
         };
 
+        let didMove = false;
         let lastDestRow = minRow;
         let lastDestCol = minCol;
 
@@ -710,6 +697,12 @@ export class TableView implements WorkspaceView {
             if (!td || !td.dataset.row || !td.dataset.col) return;
             lastDestRow = parseInt(td.dataset.row);
             lastDestCol = parseInt(td.dataset.col);
+            if (lastDestRow === minRow && lastDestCol === minCol) return;
+            if (!didMove) {
+                didMove = true;
+                this.currentTbody?.closest("table")?.classList.add("cells-dragging");
+            }
+            ghost.style.display = "";
             updateGhost(lastDestRow, lastDestCol);
         };
 

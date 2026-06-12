@@ -90,6 +90,7 @@ export class AppShell {
         document.addEventListener("click", (e) => {
             const target = e.target as Node;
             if (this.elements.sidebarEl.contains(target)) return;
+            if (this.elements.workspaceEl.contains(target)) return;
             this.workspace.getActiveTableView()?.cancelActive();
         });
     }
