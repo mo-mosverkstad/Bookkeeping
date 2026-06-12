@@ -195,6 +195,45 @@ export class AppController {
         this.showAll();
     }
 
+    /**
+     * Move a rectangular block of cell values from one location to another.
+     * The source cells are cleared after moving.
+     */
+    moveCells(tableIdx: number, cells: { row: number; col: number; value: string }[], destRow: number, destCol: number): void {
+        const table = this.knowledgeBase.tables[tableIdx];
+        if (!table || cells.length === 0) return;
+
+        // Determine the bounding box of source cells to compute relative offsets
+        const minRow = Math.min(...cells.map(c => c.row));
+        const minCol = Math.min(...cells.map(c => c.col));
+
+        const undoEntries: { row: number; col: number; oldValue: string; newValue: string }[] = [];
+
+        // Clear source cells
+        for (const c of cells) {
+            const old = table.getCellValue(c.row, c.col);
+            if (old !== "") {
+                undoEntries.push({ row: c.row, col: c.col, oldValue: old, newValue: "" });
+                table.setCellValue(c.row, c.col, "");
+            }
+        }
+
+        // Write to destination cells
+        for (const c of cells) {
+            const dr = destRow + (c.row - minRow);
+            const dc = destCol + (c.col - minCol);
+            if (dr >= 0 && dr < table.rows.length && dc >= 0 && dc < table.columns.length) {
+                const old = table.getCellValue(dr, dc);
+                undoEntries.push({ row: dr, col: dc, oldValue: old, newValue: c.value });
+                table.setCellValue(dr, dc, c.value);
+            }
+        }
+
+        this.history.push({ type: "moveCells", tableIdx, entries: undoEntries });
+        this.markDirty(table.name + ".csv");
+        this.showAll();
+    }
+
     deleteRow(tableIdx: number, rowIdx: number): void {
         const table = this.knowledgeBase.tables[tableIdx];
         if (!table) return;
@@ -320,11 +359,16 @@ export class AppController {
             this.recheckDirtyFile(action.diagramName);
             return;
         }
-        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows") {
+        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows" || action.type === "moveCells") {
             const table = this.knowledgeBase.tables[action.tableIdx];
             if (!table) return;
             if (action.type === "cell") {
                 table.setCellValue(action.rowIdx, action.colIdx, action.oldValue);
+            } else if (action.type === "moveCells") {
+                for (let i = action.entries.length - 1; i >= 0; i--) {
+                    const e = action.entries[i];
+                    table.setCellValue(e.row, e.col, e.oldValue);
+                }
             } else if (action.type === "addRow") {
                 const idx = table.rows.lastIndexOf(action.row);
                 if (idx >= 0) table.removeRowAt(idx);
@@ -365,11 +409,15 @@ export class AppController {
             this.recheckDirtyFile(action.diagramName);
             return;
         }
-        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows") {
+        if (action.type === "cell" || action.type === "addRow" || action.type === "deleteRow" || action.type === "moveRow" || action.type === "moveRows" || action.type === "moveCells") {
             const table = this.knowledgeBase.tables[action.tableIdx];
             if (!table) return;
             if (action.type === "cell") {
                 table.setCellValue(action.rowIdx, action.colIdx, action.newValue);
+            } else if (action.type === "moveCells") {
+                for (const e of action.entries) {
+                    table.setCellValue(e.row, e.col, e.newValue);
+                }
             } else if (action.type === "addRow") {
                 table.restoreRowAt(table.rows.length, action.row);
             } else if (action.type === "deleteRow") {

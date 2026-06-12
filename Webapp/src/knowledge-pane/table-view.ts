@@ -11,6 +11,9 @@ interface TableState {
     sortAsc: boolean;
 }
 
+/** Identifies a cell by row/col index within the rendered table. */
+interface CellCoord { row: number; col: number; }
+
 export class TableView implements WorkspaceView {
     private container: HTMLElement;
     private sourceEditor: SourceEditorView | null = null;
@@ -27,6 +30,16 @@ export class TableView implements WorkspaceView {
     /** Row objects currently checked for multi-row drag. */
     private selectedRows = new Set<Row>();
 
+    // ── Multi-cell selection state ────────────────────────────────────────────
+    /** Set of selected cell coordinates (row,col) for multi-cell selection. */
+    private selectedCells: CellCoord[] = [];
+    /** Anchor cell for shift-click range selection. */
+    private selectionAnchor: CellCoord | null = null;
+    /** Clipboard for cut cells (Ctrl+X). */
+    private cutBuffer: { row: number; col: number; value: string }[] = [];
+    /** Reference to the current tbody for cell-highlight updates. */
+    private currentTbody: HTMLElement | null = null;
+
     private activeCell: {
         td: HTMLElement;
         originalValue: string;
@@ -42,6 +55,8 @@ export class TableView implements WorkspaceView {
 
     constructor(container: HTMLElement) {
         this.container = container;
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+        document.addEventListener("keydown", this.handleKeyDown);
     }
 
     setController(controller: AppController): void { this.controller = controller; }
@@ -261,21 +276,14 @@ export class TableView implements WorkspaceView {
                 row.cells.forEach((cell, colIdx) => {
                     const td = document.createElement("td");
 
+                    // Double-click on col 0 triggers entity navigation
                     if (colIdx === 0 && this.onEntityClick) {
                         td.style.cursor = "pointer";
                         td.style.textDecoration = "underline";
-                        td.addEventListener("click", (e) => {
+                        td.addEventListener("dblclick", (e) => {
                             e.stopPropagation();
+                            e.preventDefault();
                             this.onEntityClick!(row.entityId);
-                            // Also activate the cell for editing
-                            if (this.activeCell?.td === td) return;
-                            this.cancelActive();
-                            this.onCellFocusChange?.();
-                            if (tableIdx >= 0 && this.controller) {
-                                this.activateCell(td, cell.value, cell.typeId, tableIdx, rowIdx, colIdx, (newValue) => {
-                                    this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
-                                });
-                            }
                         });
                     }
 
@@ -284,9 +292,40 @@ export class TableView implements WorkspaceView {
 
                     if (tableIdx >= 0 && this.controller) {
                         td.classList.add("editable-cell");
+                        td.dataset.row = String(rowIdx);
+                        td.dataset.col = String(colIdx);
+
+                        td.addEventListener("mousedown", (e) => {
+                            if (e.button !== 0) return;
+                            e.preventDefault();
+                            const coord: CellCoord = { row: rowIdx, col: colIdx };
+
+                            if (e.shiftKey && this.selectionAnchor) {
+                                this.selectRange(this.selectionAnchor, coord);
+                            } else if (e.ctrlKey || e.metaKey) {
+                                this.toggleCellSelection(coord);
+                            } else {
+                                // Check if clicking inside an already-selected region → start drag-to-move
+                                if (this.selectedCells.length > 1 && this.isCellSelected(coord)) {
+                                    this.startCellDrag(e, tableIdx);
+                                    return;
+                                }
+                                // Otherwise: begin new selection + drag-to-select
+                                this.cancelActive();
+                                this.clearCellSelection();
+                                this.selectedCells = [coord];
+                                this.selectionAnchor = coord;
+                                this.updateCellHighlights();
+                                this.startDragSelect(e, coord);
+                            }
+                        });
+
+                        // Single click (mouseup without drag) activates cell for editing
                         td.addEventListener("click", (e) => {
-                            if (colIdx === 0 && this.onEntityClick) return; // entity click handled above
-                            e.stopPropagation();
+                            if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+                            if (this.selectedCells.length !== 1) return;
+                            const coord: CellCoord = { row: rowIdx, col: colIdx };
+                            if (this.selectedCells[0].row !== coord.row || this.selectedCells[0].col !== coord.col) return;
                             if (this.activeCell?.td === td) return;
                             this.cancelActive();
                             this.onCellFocusChange?.();
@@ -294,8 +333,11 @@ export class TableView implements WorkspaceView {
                                 this.controller!.editCell(tableIdx, rowIdx, colIdx, newValue);
                             });
                         });
-                        // Prevent the browser from selecting cell text on double-click
-                        td.addEventListener("dblclick", (e) => e.preventDefault());
+
+                        // Prevent browser text selection on double-click
+                        td.addEventListener("dblclick", (e) => {
+                            if (!(colIdx === 0 && this.onEntityClick)) e.preventDefault();
+                        });
                     }
 
                     tr.appendChild(td);
@@ -328,6 +370,7 @@ export class TableView implements WorkspaceView {
             }
             tableEl.appendChild(tbody);
             if (tableIdx >= 0) this.attachTbodyDragHandlers(tbody, tableIdx, table);
+            this.currentTbody = tbody;
         };
 
         render();
@@ -551,6 +594,281 @@ export class TableView implements WorkspaceView {
         this.selectedRows.clear();
         this.dragRows = [];
         this.renderActiveTable();
+    }
+
+    // ── Multi-cell selection ──────────────────────────────────────────────────
+
+    private isCellSelected(coord: CellCoord): boolean {
+        return this.selectedCells.some(c => c.row === coord.row && c.col === coord.col);
+    }
+
+    private clearCellSelection(): void {
+        this.selectedCells = [];
+        this.cutBuffer = [];
+        this.updateCellHighlights();
+    }
+
+    private toggleCellSelection(coord: CellCoord): void {
+        const idx = this.selectedCells.findIndex(c => c.row === coord.row && c.col === coord.col);
+        if (idx >= 0) {
+            this.selectedCells.splice(idx, 1);
+        } else {
+            this.selectedCells.push(coord);
+            this.selectionAnchor = coord;
+        }
+        this.updateCellHighlights();
+    }
+
+    private selectRange(from: CellCoord, to: CellCoord): void {
+        const minRow = Math.min(from.row, to.row);
+        const maxRow = Math.max(from.row, to.row);
+        const minCol = Math.min(from.col, to.col);
+        const maxCol = Math.max(from.col, to.col);
+        this.selectedCells = [];
+        for (let r = minRow; r <= maxRow; r++) {
+            for (let c = minCol; c <= maxCol; c++) {
+                this.selectedCells.push({ row: r, col: c });
+            }
+        }
+        this.updateCellHighlights();
+    }
+
+    /** Drag-to-select: mousedown on a cell, then drag to extend the selection range. */
+    private startDragSelect(_startEvent: MouseEvent, anchor: CellCoord): void {
+        let didDrag = false;
+        const onMove = (e: MouseEvent) => {
+            const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+            const td = target?.closest<HTMLElement>("td.editable-cell");
+            if (!td || !td.dataset.row || !td.dataset.col) return;
+            const coord: CellCoord = { row: parseInt(td.dataset.row), col: parseInt(td.dataset.col) };
+            if (coord.row !== anchor.row || coord.col !== anchor.col) didDrag = true;
+            this.selectRange(anchor, coord);
+        };
+        const onUp = () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+            // If user dragged, don't activate the cell for editing (the click handler checks selectedCells.length)
+            if (didDrag) {
+                // Selection is already set via selectRange calls
+            }
+        };
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+    }
+
+    /** Drag-to-move: when user drags an already-selected region, move cells to drop target. */
+    private startCellDrag(_startEvent: MouseEvent, tableIdx: number): void {
+        const table = this.currentTables[this.activeTabIdx];
+        if (!table || !this.controller) return;
+
+        // Snapshot values of selected cells
+        const cellData = this.selectedCells.map(c => ({
+            row: c.row, col: c.col, value: table.getCellValue(c.row, c.col),
+        }));
+
+        // Compute selection bounding box
+        const minRow = Math.min(...this.selectedCells.map(c => c.row));
+        const minCol = Math.min(...this.selectedCells.map(c => c.col));
+        const maxRow = Math.max(...this.selectedCells.map(c => c.row));
+        const maxCol = Math.max(...this.selectedCells.map(c => c.col));
+        const spanRows = maxRow - minRow + 1;
+        const spanCols = maxCol - minCol + 1;
+
+        // Add visual feedback
+        this.currentTbody?.closest("table")?.classList.add("cells-dragging");
+
+        // Create ghost overlay element
+        const ghost = document.createElement("div");
+        ghost.className = "cell-drag-ghost";
+        this.container.style.position = "relative";
+        this.container.appendChild(ghost);
+
+        const updateGhost = (destRow: number, destCol: number) => {
+            // Get bounding rect of the destination region
+            const topLeft = this.getCellElement(destRow, destCol);
+            const bottomRight = this.getCellElement(
+                Math.min(destRow + spanRows - 1, table.rows.length - 1),
+                Math.min(destCol + spanCols - 1, table.columns.length - 1),
+            );
+            if (!topLeft || !bottomRight) { ghost.style.display = "none"; return; }
+            const containerRect = this.container.getBoundingClientRect();
+            const tlRect = topLeft.getBoundingClientRect();
+            const brRect = bottomRight.getBoundingClientRect();
+            ghost.style.display = "";
+            ghost.style.top = `${tlRect.top - containerRect.top + this.container.scrollTop}px`;
+            ghost.style.left = `${tlRect.left - containerRect.left + this.container.scrollLeft}px`;
+            ghost.style.width = `${brRect.right - tlRect.left}px`;
+            ghost.style.height = `${brRect.bottom - tlRect.top}px`;
+        };
+
+        let lastDestRow = minRow;
+        let lastDestCol = minCol;
+
+        const onMove = (e: MouseEvent) => {
+            const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+            const td = target?.closest<HTMLElement>("td.editable-cell");
+            if (!td || !td.dataset.row || !td.dataset.col) return;
+            lastDestRow = parseInt(td.dataset.row);
+            lastDestCol = parseInt(td.dataset.col);
+            updateGhost(lastDestRow, lastDestCol);
+        };
+
+        const onUp = () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+            this.currentTbody?.closest("table")?.classList.remove("cells-dragging");
+            ghost.remove();
+
+            // Don't move if dropping back on the same origin
+            if (lastDestRow === minRow && lastDestCol === minCol) return;
+
+            // Check if destination contains non-empty cells
+            let hasContent = false;
+            for (const c of cellData) {
+                const dr = lastDestRow + (c.row - minRow);
+                const dc = lastDestCol + (c.col - minCol);
+                if (dr >= 0 && dr < table.rows.length && dc >= 0 && dc < table.columns.length) {
+                    // Skip if this destination cell is also a source cell (moving within itself)
+                    if (this.selectedCells.some(s => s.row === dr && s.col === dc)) continue;
+                    if (table.getCellValue(dr, dc) !== "") { hasContent = true; break; }
+                }
+            }
+
+            if (hasContent) {
+                if (!confirm("Destination cells contain data. Do you want to replace them?")) return;
+            }
+
+            this.controller!.moveCells(tableIdx, cellData, lastDestRow, lastDestCol);
+            this.selectedCells = [];
+        };
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+    }
+
+    private updateCellHighlights(): void {
+        if (!this.currentTbody) return;
+        // Remove all existing highlights
+        this.currentTbody.querySelectorAll(".cell-selected, .cell-cut").forEach(el => {
+            el.classList.remove("cell-selected", "cell-cut");
+        });
+        // Add selection highlight
+        for (const coord of this.selectedCells) {
+            const td = this.getCellElement(coord.row, coord.col);
+            if (td) td.classList.add("cell-selected");
+        }
+        // Add cut highlight
+        for (const cell of this.cutBuffer) {
+            const td = this.getCellElement(cell.row, cell.col);
+            if (td) td.classList.add("cell-cut");
+        }
+    }
+
+    private getCellElement(row: number, col: number): HTMLElement | null {
+        if (!this.currentTbody) return null;
+        const tr = this.currentTbody.querySelector<HTMLTableRowElement>(`tr[data-row-idx="${row}"]`);
+        if (!tr) return null;
+        // +1 to skip the checkbox column
+        const tds = tr.querySelectorAll<HTMLElement>("td.editable-cell");
+        return tds[col] ?? null;
+    }
+
+    private handleKeyDown(e: KeyboardEvent): void {
+        // Only handle when our container is in the DOM and visible
+        if (!this.container.isConnected) return;
+        if (!this.currentTbody) return;
+
+        const ctrl = e.ctrlKey || e.metaKey;
+
+        // Arrow keys with Shift to extend selection
+        if (e.key.startsWith("Arrow") && this.selectionAnchor) {
+            if (e.shiftKey) {
+                e.preventDefault();
+                const last = this.selectedCells.length > 0
+                    ? this.selectedCells[this.selectedCells.length - 1]
+                    : this.selectionAnchor;
+                const next = this.moveCoord(last, e.key);
+                if (next) {
+                    this.selectedCells.push(next);
+                    this.updateCellHighlights();
+                }
+            } else if (!ctrl && this.selectedCells.length > 0) {
+                // Arrow without shift: move single selection
+                e.preventDefault();
+                const current = this.selectedCells[this.selectedCells.length - 1];
+                const next = this.moveCoord(current, e.key);
+                if (next) {
+                    this.cancelActive();
+                    this.selectedCells = [next];
+                    this.selectionAnchor = next;
+                    this.updateCellHighlights();
+                }
+            }
+            return;
+        }
+
+        // Ctrl+X — cut selected cells
+        if (ctrl && e.key === "x" && this.selectedCells.length > 0) {
+            e.preventDefault();
+            const table = this.currentTables[this.activeTabIdx];
+            if (!table) return;
+            this.cutBuffer = this.selectedCells.map(c => ({
+                row: c.row, col: c.col, value: table.getCellValue(c.row, c.col),
+            }));
+            this.updateCellHighlights();
+            this.onStatus?.(`Cut ${this.cutBuffer.length} cell(s) — select destination and Ctrl+V to paste`);
+            return;
+        }
+
+        // Ctrl+V — paste cut cells at current anchor
+        if (ctrl && e.key === "v" && this.cutBuffer.length > 0 && this.selectionAnchor) {
+            e.preventDefault();
+            if (!this.controller) return;
+            this.controller.moveCells(
+                this.kbTableIdx,
+                this.cutBuffer,
+                this.selectionAnchor.row,
+                this.selectionAnchor.col,
+            );
+            this.cutBuffer = [];
+            this.selectedCells = [];
+            return;
+        }
+
+        // Escape — clear selection
+        if (e.key === "Escape") {
+            if (this.cutBuffer.length > 0) {
+                this.cutBuffer = [];
+                this.updateCellHighlights();
+                this.onStatus?.("Cut cancelled");
+            } else if (this.selectedCells.length > 0) {
+                this.clearCellSelection();
+            }
+        }
+
+        // Delete/Backspace — clear selected cells
+        if ((e.key === "Delete" || e.key === "Backspace") && this.selectedCells.length > 1 && !this.activeCell) {
+            e.preventDefault();
+            const table = this.currentTables[this.activeTabIdx];
+            if (!table || !this.controller) return;
+            for (const c of this.selectedCells) {
+                this.controller.editCell(this.kbTableIdx, c.row, c.col, "", true);
+            }
+            this.clearCellSelection();
+            this.controller.showAll();
+        }
+    }
+
+    private moveCoord(coord: CellCoord, key: string): CellCoord | null {
+        const table = this.currentTables[this.activeTabIdx];
+        if (!table) return null;
+        let { row, col } = coord;
+        if (key === "ArrowUp") row--;
+        else if (key === "ArrowDown") row++;
+        else if (key === "ArrowLeft") col--;
+        else if (key === "ArrowRight") col++;
+        if (row < 0 || row >= table.rows.length || col < 0 || col >= table.columns.length) return null;
+        return { row, col };
     }
 
     // ── Auto-resize textarea to fit content ───────────────────────────────────
