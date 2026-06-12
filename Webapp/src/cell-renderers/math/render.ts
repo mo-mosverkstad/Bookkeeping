@@ -60,7 +60,7 @@ function renderBinary(node: BinaryExpressionNode): HTMLElement {
     if (left.type === "BinaryExpression" || left.type === "UnaryExpression") leftParen = operator === "^" ? getOperatorPrecedence(operator) >= getOperatorPrecedence(left.operator) : getOperatorPrecedence(operator) > getOperatorPrecedence(left.operator);
     if (right.type === "BinaryExpression" || right.type === "UnaryExpression") rightParen = operator === "-" || operator === "/" ? getOperatorPrecedence(operator) >= getOperatorPrecedence(right.operator) : getOperatorPrecedence(operator) > getOperatorPrecedence(right.operator);
     const lo = leftParen ? "(" : "", lc = leftParen ? ")" : "", ro = rightParen ? "(" : "", rc = rightParen ? ")" : "";
-    if (operator === "/") return el("span", "fraction", [el("span", "top", [lo, render(left), lc]), el("span", "bottom", [ro, render(right), rc])]);
+    if (operator === "/") return el("span", "fraction", [el("span", "top", [render(left)]), el("span", "bottom", [render(right)])]);
     if (operator === "^") return el("span", "", [lo, render(left), lc, el("sup", "", [ro, render(right), rc])]);
     if (operator === "*") { if (needsExplicitMultiplySign(left, right, leftParen, rightParen)) return el("span", "", [lo, render(left), lc, " × ", ro, render(right), rc]); return el("span", "", [lo, render(left), lc, ro, render(right), rc]); }
     if (operator === ".") return el("span", "", [lo, render(left), lc, " · ", ro, render(right), rc]);
@@ -73,7 +73,13 @@ function renderBinary(node: BinaryExpressionNode): HTMLElement {
 
 function renderSubscript(node: SubscriptExpressionNode) { return el("span", "", [render(node.base), el("sub", "", [render(node.subscript)])]); }
 function renderSubSuperscript(node: SubSuperscriptExpressionNode) { return el("span", "subsuperscript", [render(node.base), el("span", "scripts", [el("sup", "", [render(node.superscript)]), el("sub", "", [render(node.subscript)])])]); }
-function renderCall(node: CallExpressionNode) { return el("span", "", [render(node.callee), "(", ...interleave(node.args.map(render), ", "), ")"]); }
+function renderCall(node: CallExpressionNode) {
+    // If callee is not a named expression, render as implicit multiplication with parentheses
+    if (node.callee.type !== "Identifier" && node.callee.type !== "CallExpression" && node.callee.type !== "SubscriptExpression" && node.callee.type !== "SubSuperscriptExpression") {
+        return el("span", "", ["(", render(node.callee), ")", "(", ...interleave(node.args.map(render), ", "), ")"]);
+    }
+    return el("span", "", [render(node.callee), "(", ...interleave(node.args.map(render), ", "), ")"]);
+}
 function renderVectorName(node: VectorNameNode) { return el("span", "vector-name", [render(node.identifier), el("span", "vector-arrow", ["⃗"])]); }
 function renderMatrix(node: MatrixNode) { return el("span", "matrix", node.rows.map(row => el("span", "matrix-row", row.map(cell => el("span", "matrix-cell", [render(cell)]))))); }
 function renderIndex(node: IndexExpressionNode) { return el("span", "", [render(node.base), el("sub", "", [render(node.index)])]); }
