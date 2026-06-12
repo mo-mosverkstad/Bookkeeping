@@ -866,13 +866,15 @@ export class TableView implements WorkspaceView {
             table.style.transformOrigin = "top left";
             table.style.transform = `scale(${this.zoom})`;
         }
-        const label = this.container.querySelector<HTMLElement>(".zoom-label");
+        const label = document.querySelector<HTMLElement>("#table-zoom-bar .zoom-label");
         if (label) label.textContent = `${Math.round(this.zoom * 100)}%`;
     }
 
     private renderZoomBar(): void {
-        const bar = document.createElement("div");
-        bar.className = "table-zoom-bar";
+        const bar = document.getElementById("table-zoom-bar");
+        if (!bar) return;
+        bar.hidden = false;
+        bar.innerHTML = "";
 
         const btnMinus = document.createElement("button");
         btnMinus.textContent = "−";
@@ -902,7 +904,6 @@ export class TableView implements WorkspaceView {
         bar.appendChild(btnMinus);
         bar.appendChild(label);
         bar.appendChild(btnPlus);
-        this.container.appendChild(bar);
     }
 
     private showRendered(td: HTMLElement, value: string, typeId: string): void {
