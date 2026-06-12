@@ -261,7 +261,7 @@ const grammar: Grammar = {
         peg: { type: "sequence", parts: [
             { type: "rule", name: "CaseCondition" },
             { type: "literal", value: ":" },
-            { type: "rule", name: "Expression" },
+            { type: "rule", name: "Logical" },
         ] },
         build([condition, , expr]: [MathNode, string, MathNode]) { return { condition, expr }; },
     },
@@ -271,11 +271,11 @@ const grammar: Grammar = {
             { type: "regex", regex: /^_/, name: "default" },
             { type: "sequence", parts: [
                 { type: "literal", value: "(" },
-                { type: "rule", name: "Expression" },
-                { type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Expression" }] } },
+                { type: "rule", name: "Logical" },
+                { type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Logical" }] } },
                 { type: "literal", value: ")" },
             ] },
-            { type: "rule", name: "Expression" },
+            { type: "rule", name: "Logical" },
         ] },
         build(node: any): MathNode {
             if (node === "_") return { type: "Identifier", name: "_", prefix: "plain" } as IdentifierNode;
