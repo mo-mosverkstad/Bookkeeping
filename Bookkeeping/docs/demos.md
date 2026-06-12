@@ -219,3 +219,25 @@ make clean && make
 - Superscripts appear smaller and above baseline
 - Fractions show numerator above denominator with a line between
 - Math font renders Greek/√ correctly (requires DejaVu Math TeX Gyre)
+
+
+---
+
+## Phase 7 — Graph diagram
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Flowchart visible: 4 rectangles (Start, Process, Decision?, End) connected by lines
+- Lines stop at node borders (don't overlap the rectangles)
+- Click on graph nodes prints their id in terminal
+- All previous features still work
+
+### Verification
+- `make test` → 291 tests pass (102+23+27+18+50+23+34+14)
+- `make test-graph` → 14 tests pass
+- Graph nodes are hit-testable (click prints id)

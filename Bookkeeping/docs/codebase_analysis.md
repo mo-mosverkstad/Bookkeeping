@@ -254,3 +254,20 @@ Key design points:
 - Font selection by `font` field: "math" → math font, bold flag → bold font
 - Italic style applied via TTF_SetFontStyle
 - Text render handles multiline (\n splitting per segment)
+
+
+---
+
+### Phase 7 — Graph model + diagram rendering (completed)
+
+**Files added:**
+- `src/core/model/graph.h` — Graph struct: nodes (id, label, position, size), edges (from, to, label), find_node, grid layout
+- `src/app/graph_view.h` — Graph → LayoutNode renderer (CoordinateLayout with positioned rect nodes + line edges)
+- `test/test_graph.cpp` — 14 tests
+
+**Design:**
+- Nodes rendered as rounded rectangles with text labels, positioned absolutely
+- Edges rendered as lines shortened to stop at node borders (center-to-center minus half-width)
+- Grid layout assigns positions in row-major order (configurable columns, gaps)
+- Hit testing works on individual nodes (each has its graph node id)
+- Edge lines drawn on root element layer (behind nodes)

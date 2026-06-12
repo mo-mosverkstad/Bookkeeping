@@ -448,3 +448,30 @@ Custom lightweight test framework in `test/test.h`:
 | rich_multiple_embeds_one_line | 3 embeds on 1 line | PASS |
 | rich_nested_braces | $math{\sqrt{x+1}} | PASS |
 | rich_geom_embed | $geom{a^2+b^2=c^2} | PASS |
+
+
+---
+
+## Phase 7 — Graph tests (14 tests)
+
+### Graph model (6 tests)
+| Test | Description | Result |
+|---|---|---|
+| graph_create_empty | Init with 0 nodes/edges | PASS |
+| graph_add_nodes | Add 2 nodes, verify labels | PASS |
+| graph_add_edges | Add edges with labels | PASS |
+| graph_find_node | Find by id, miss returns -1 | PASS |
+| graph_layout_grid | Grid positions correct | PASS |
+| graph_many_nodes | 50 nodes layout | PASS |
+
+### Graph view (8 tests)
+| Test | Description | Result |
+|---|---|---|
+| graphview_builds_tree | Returns "graph-view" with children | PASS |
+| graphview_nodes_positioned | Children at expected coords | PASS |
+| graphview_edge_is_line | Edge element is ELEM_LINE | PASS |
+| graphview_computes | Width/height match config | PASS |
+| graphview_renders | Pixel at node pos matches fill color | PASS |
+| graphview_hit_test_node | Hit finds correct node id | PASS |
+| graphview_no_edges_empty | Solo node, 0 edge elements | PASS |
+| graphview_complex_graph | 10 nodes, 11 edges | PASS |

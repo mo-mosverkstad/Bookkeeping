@@ -187,3 +187,20 @@ across phases.
 **Bug fixed:**
 - UTF-8 symbols (√, →) not rendering → ensured math font loaded, ASCII fallback for chem arrows
 - Previous "scrambled ASCII" was from many tiny text nodes → redesigned renderer with proper structure + y_offset
+
+
+---
+
+## Phase 7 — Graph model + diagram rendering — 2026-06-12
+
+**Added:**
+- `src/core/model/graph.h` — Graph data structure
+- `src/app/graph_view.h` — Graph visual renderer
+- 14 tests (model + rendering + hit testing)
+- Demo shows flowchart: Start → Process → Decision? → End (with loop)
+
+**Decisions:**
+- Grid layout for simplicity (force-directed can be added later)
+- Edge lines shortened to node border (avoids overlapping node fill)
+- Nodes as CoordinateLayout children (pre-positioned by layout_grid)
+- Edges as Element lines on root (rendered behind nodes due to draw order)
