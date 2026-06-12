@@ -6773,3 +6773,23 @@ Container uses `overflow: hidden` to suppress scrollbars. Restored on unmount.
 #### Piecewise `\cases{}` failing with comma-containing conditions (`grammar.ts`)
 - **Root cause**: `CaseBranch` and `CaseCondition` used `Expression` which now greedily consumes commas.
 - **Fix**: Changed to use `Logical` (non-comma level) for branch values and condition elements.
+
+---
+
+## Session: 2026-06-12 (final) — Rich text multiline embeddings
+
+### Features added
+
+#### Multiline `$math{...}` / `$chem{...}` / `$geom{...}` / `$phys{...}` in rich text (`rich/index.ts`)
+- Newlines inside embedding blocks now produce line breaks in rendered output.
+- Each line within the braces is parsed independently as its own expression and rendered stacked vertically.
+- Empty lines are skipped; content is not modified (no side effects to the expression text).
+- The rich text parser no longer splits the entire cell on newlines first — it extracts balanced-brace blocks across line boundaries, then splits only within each block.
+
+### Design decisions
+
+#### Table column width and math wrapping
+- Math expressions use `white-space: nowrap` — no automatic line breaking within expressions.
+- Breaking mid-expression (e.g., splitting `2xy` across lines) produces awkward results.
+- Decision: leave unresolved. Columns grow to fit content; horizontal scroll + zoom handle overflow.
+- If explicit line breaks are needed within math, use newlines inside the `$math{...}` block.
