@@ -5,9 +5,8 @@
 #include "src/graphics/layout/virtual_layout.h"
 #include "src/graphics/backend/backend.h"
 #include "src/graphics/backend/software_backend.h"
-#include "src/graphics/backend/sdl2_backend.h"
+#include "src/platform/platform.h"
 #include <cstdio>
-#include <SDL2/SDL.h>
 
 // ── VirtualLayout state ──────────────────────────────────────────────────────
 struct CounterState { int count; };
@@ -22,19 +21,15 @@ static LayoutNode* counter_render(void* state, Arena* a) {
     box->attach(make_elements(a, 1), 1);
     box->elements[0] = elem_rect({0, 0, 370, 42, color_rgba(50, 30, 80), color_rgba(180, 100, 255), 1, 0});
 
-    // Show counter as N small filled squares + a text placeholder
-    int bars = cs->count % 20; // wrap at 20 for space
-    int child_count = bars + 1; // bars + label
+    int bars = cs->count % 20;
+    int child_count = bars + 1;
     auto kids = make_children(a, child_count);
-
     for (int i = 0; i < bars; i++) {
         Node* bar = node_leaf(a, 14, 30);
         bar->attach(make_elements(a, 1), 1);
-        bar->elements[0] = elem_rect({0, 0, 12, 28, color_rgba(100 + i*7, 255 - i*10, 50), COLOR_TRANSPARENT, 0, 0});
+        bar->elements[0] = elem_rect({0, 0, 12, 28, color_rgba(100+i*7, 255-i*10, 50), COLOR_TRANSPARENT, 0, 0});
         kids[i] = bar;
     }
-
-    // Text label (visible as tinted rect showing width proportional to text)
     Node* label = node_leaf(a, 120, 30);
     label->attach(make_elements(a, 1), 1);
     label->elements[0] = elem_text({4, 8, txt, "sans", 13, COLOR_WHITE, TEXT_NORMAL, ALIGN_LEFT, 0});
@@ -128,7 +123,7 @@ inline int run_demo() {
 
     FunctionalLayout fl = {};
     functional_init(&fl, sprite, 100, 46);
-    { // Pre-render into cache
+    {
         SoftwareBackend sw(fl.cache_w, fl.cache_h);
         sw.begin_frame(fl.cache_w, fl.cache_h);
         layout_compute(fl.source, fl.cache_w, fl.cache_h);
@@ -165,58 +160,49 @@ inline int run_demo() {
     root->set_children(root_kids, 7);
     layout_compute(root, 800, 600);
 
-    printf("FunctionalLayout: cached %dx%d | VirtualLayout counter: %d\n", fl.cache_w, fl.cache_h, counter.count);
-
-    // ── Event loop ───────────────────────────────────────────────────────────
-    SDL2Backend gfx("Bookkeeping — All Layouts Demo", 800, 600);
+    // ── Event loop (platform-agnostic) ───────────────────────────────────────
+    PlatformWindow* win = create_window("Bookkeeping — All Layouts Demo", 800, 600);
     bool running = true;
-    SDL_Event event;
+    InputEvent ev;
 
     while (running) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) running = false;
-            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) running = false;
+        while (win->poll_event(ev)) {
+            if (ev.type == InputEvent::QUIT) { running = false; break; }
+            if (ev.type == InputEvent::KEY_DOWN && ev.key == 27) { running = false; break; } // ESC
 
-            if (event.type == SDL_MOUSEWHEEL) {
-                scroll->scroll_y -= event.wheel.y * 20;
+            if (ev.type == InputEvent::MOUSE_WHEEL) {
+                scroll->scroll_y -= ev.scroll_y * 20;
                 if (scroll->scroll_y < 0) scroll->scroll_y = 0;
                 float max_s = scroll->content_height - scroll->height;
                 if (scroll->scroll_y > max_s) scroll->scroll_y = max_s;
             }
 
-            if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
-                float mx = (float)event.button.x, my = (float)event.button.y;
-
+            if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
                 // VirtualLayout dispatch
-                UIEvent ui = {EVENT_CLICK, mx, my, 0, 0, nullptr};
+                UIEvent ui = {EVENT_CLICK, ev.x, ev.y, 0, 0, nullptr};
                 if (virtual_dispatch(&vl, &ui)) {
                     root_kids[5] = virtual_render(&vl);
                     layout_compute(root, 800, 600);
                 }
 
                 // Hit test
-                HitResult hit = hit_test_surface(root, mx, my);
-                printf("Hit: \"%s\" (%.0f,%.0f)", hit.node && hit.node->id ? hit.node->id : "?", mx, my);
-
+                HitResult hit = hit_test_surface(root, ev.x, ev.y);
+                printf("Hit: \"%s\"", hit.node && hit.node->id ? hit.node->id : "?");
                 HitResult deep[16];
-                int n = hit_test_deep(root, mx, my, deep, 16);
+                int n = hit_test_deep(root, ev.x, ev.y, deep, 16);
                 printf(" | Deep(%d):", n);
-                for (int i = 0; i < n; i++) {
+                for (int i = 0; i < n; i++)
                     printf(" %s", deep[i].node->id ? deep[i].node->id : "?");
-                    for (uint16_t e = 0; e < deep[i].node->element_count; e++) {
-                        Element& el = deep[i].node->elements[e];
-                        if (el.type == ELEM_TEXT && el.text.content) printf("[\"%s\"]", el.text.content);
-                    }
-                }
                 printf("\n");
             }
         }
 
-        gfx.begin_frame(800, 600);
-        render_tree(&gfx, root);
-        gfx.end_frame();
+        win->begin_frame();
+        render_tree(win->backend(), root);
+        win->end_frame();
     }
 
+    destroy_window(win);
     virtual_destroy(&vl);
     functional_destroy(&fl);
     arena_destroy(&arena);

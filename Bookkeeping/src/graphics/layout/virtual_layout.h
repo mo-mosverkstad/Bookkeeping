@@ -1,5 +1,6 @@
 #pragma once
 #include "src/graphics/layout/layout_base.h"
+#include "src/core/arena.h"
 #include <cstdint>
 
 // ── Event types ──────────────────────────────────────────────────────────────

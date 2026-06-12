@@ -8,7 +8,8 @@ TEST_TABLE = test_table
 
 SRC = main.cpp \
       src/graphics/layout/layout.cpp \
-      src/graphics/backend/backend.cpp
+      src/graphics/backend/backend.cpp \
+      src/platform/sdl2_platform.cpp
 
 TEST_GFX_SRC = test/test_graphics.cpp \
                src/graphics/layout/layout.cpp \
