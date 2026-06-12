@@ -770,6 +770,8 @@ export class TableView implements WorkspaceView {
         // Only handle when our container is in the DOM and visible
         if (!this.container.isConnected) return;
         if (!this.currentTbody) return;
+        // Don't intercept keys when source editor is focused
+        if (this.sourceEditor?.focused) return;
 
         const ctrl = e.ctrlKey || e.metaKey;
 

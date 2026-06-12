@@ -355,7 +355,7 @@ body {
 .knowledge-table td {
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding: 4px 8px;
+  padding: 1px 2px;
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
