@@ -282,3 +282,74 @@ Custom lightweight test framework in `test/test.h`:
 | Benchmark | Iterations | Time/iter |
 |---|---|---|
 | table_view_build+compute 100 rows | 1,000 | (measured) |
+
+
+---
+
+## Phase 4 — Math parser + renderer tests (50 tests)
+
+### Parser — basic (21 tests)
+| Test | Description | Result |
+|---|---|---|
+| math_parse_number | Integer 42 | PASS |
+| math_parse_float | Float 3.14 | PASS |
+| math_parse_identifier | Single var x | PASS |
+| math_parse_addition | x+y → Binary(+) | PASS |
+| math_parse_subtraction | a-b → Binary(-) | PASS |
+| math_parse_multiplication | a*b → Binary(*) | PASS |
+| math_parse_fraction | a/b → Fraction | PASS |
+| math_parse_power | x^2 → Superscript | PASS |
+| math_parse_subscript | x_0 → Subscript | PASS |
+| math_parse_unary_minus | -x → Unary(-) | PASS |
+| math_parse_parens | (x+y) → Paren | PASS |
+| math_parse_equality | x=5 → Binary(=) | PASS |
+| math_parse_inequality | a!=b → Binary(!=) | PASS |
+| math_parse_implicit_mult | 2x → Binary(*) | PASS |
+| math_parse_comma_sep | a,b,c → nested Binary(,) | PASS |
+| math_parse_set | {1,2,3} → Set(3) | PASS |
+| math_parse_text_literal | "MTBF" → Text | PASS |
+| math_parse_sqrt | \sqrt{x+1} → Sqrt | PASS |
+| math_parse_complex_expr | x^2+2x+1=0 → Binary(=) | PASS |
+| math_parse_precedence | a+b*c → +(a, *(b,c)) | PASS |
+| math_parse_ellipsis | ... → Ellipsis | PASS |
+
+### Parser — complex (15 tests)
+| Test | Description | Result |
+|---|---|---|
+| math_parse_nested_fraction | a/b/c → nested Fraction | PASS |
+| math_parse_power_of_power | x^2^3 → nested Superscript | PASS |
+| math_parse_subscript_superscript | x_0^2 → Sup(Sub(x,0),2) | PASS |
+| math_parse_quadratic_formula | (-b+√{b²-4ac})/(2a) | PASS |
+| math_parse_nested_parens | ((a+b)*(c+d)) | PASS |
+| math_parse_multivar_equation | 2x+3y=9, 5x+3y=0 | PASS |
+| math_parse_set_with_expressions | {x^2, x+1, 2x-3} | PASS |
+| math_parse_text_as_operator | A "cols" "linear independent" | PASS |
+| math_parse_comparison_chain | 0<=x<=1 | PASS |
+| math_parse_greek_identifier | \alpha+\beta | PASS |
+| math_parse_mixed_sub_sup_frac | x_i^2+y_j^2=r^2 | PASS |
+| math_parse_implicit_mult_parens | (x+1)(x-1) | PASS |
+| math_parse_deeply_nested | \sqrt{a^2+b^2+c^2} | PASS |
+| math_parse_unary_in_expression | a+-b | PASS |
+| math_parse_empty_set | {} → Set(0) | PASS |
+
+### Renderer (13 tests)
+| Test | Description | Result |
+|---|---|---|
+| math_render_number | 42 → leaf with TEXT elem | PASS |
+| math_render_addition | x+y → HStack(3 children) | PASS |
+| math_render_fraction | a/b → VStack(3: num,bar,den) | PASS |
+| math_render_superscript | x^2 → HStack(base, sup) | PASS |
+| math_render_sqrt | \sqrt{9} → HStack(√, body) | PASS |
+| math_render_set | {a,b} → HStack(5: {,a,,,b,}) | PASS |
+| math_render_complex | x^2+2x+1=0 computes width>0 | PASS |
+| math_render_to_pixels | x+1 renders without crash | PASS |
+| math_render_quadratic | Full equation has width>50 | PASS |
+| math_render_fraction_nested | (a+b)/(c+d) stacks tall | PASS |
+| math_render_subscript_superscript | x_0^2 renders | PASS |
+| math_render_system_of_equations | Wide rendering | PASS |
+| math_render_empty_set | {} → 2 children | PASS |
+
+### Benchmarks
+| Benchmark | Iterations | Time/iter |
+|---|---|---|
+| math_parse 100x complex expr | 1,000 | ~35 μs |

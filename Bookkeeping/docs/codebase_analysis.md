@@ -174,3 +174,33 @@ Key design points:
 
 **Bug fixed:**
 - Mouse wheel scrolled all scroll views simultaneously → now hit-tests to find deepest LAYOUT_SCROLL under cursor, scrolls only that one
+
+
+---
+
+### Phase 4 — Math expression parser + renderer (completed)
+
+**Files added:**
+- `src/core/parser/math/math_ast.h` — AST node types (tagged union: NUMBER, IDENTIFIER, BINARY, UNARY, FRACTION, SUPERSCRIPT, SUBSCRIPT, SQRT, SET, TEXT, CALL, PAREN, ELLIPSIS, MATRIX)
+- `src/core/parser/math/math_parser.h` — Recursive descent parser with precedence: comma < relational < additive < multiplicative < power < unary < primary
+- `src/core/parser/math/math_render.h` — AST → LayoutNode tree (fractions=VStack, superscripts=70% size, √ prefix, set braces, parens)
+- `test/test_math.cpp` — 50 tests (parser + renderer + benchmark)
+
+**Parser features:**
+- Numbers (int + float), identifiers (single/multi letter), Greek (`\alpha`)
+- Binary ops: +, -, *, / (→ fraction), =, !=, <=, >=, <, >, ->
+- Implicit multiplication: `2x`, `(a+b)(c+d)`, `x"text"`
+- Unary: `-x`, `+x` (negative lookahead for `{` to avoid conflict with sets)
+- Power `^`, subscript `_`
+- `\sqrt{...}`, sets `{a, b, c}`, text `"..."`, ellipsis `...`
+- Parenthesized expressions
+- Comma separator at lowest precedence
+
+**Renderer layout mapping:**
+- Binary op → HStack(left, op_label, right)
+- Fraction → VStack(numerator, bar, denominator)
+- Superscript → HStack(base, small_sup)
+- Subscript → HStack(base, small_sub)
+- Sqrt → HStack(√, body)
+- Set → HStack({, elem, comma, elem, ..., })
+- Paren → HStack( (, expr, ) )

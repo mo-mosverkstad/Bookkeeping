@@ -122,3 +122,21 @@ across phases.
 
 **Bugs fixed:**
 - Mouse wheel scrolling all scroll views simultaneously → gated by deepest scroll node hit-test
+
+
+---
+
+## Phase 4 — Math expression parser + renderer — 2026-06-12
+
+**Added:**
+- Math AST types, recursive descent parser, LayoutNode renderer
+- 50 tests covering all expression types, precedence, complex formulas
+- Benchmark: 100 complex parses in ~35μs
+
+**Decisions:**
+- Parser is header-only (all inline in math_parser.h) for zero linking overhead
+- Division always produces MATH_FRACTION (stacked rendering, no inline ÷)
+- Implicit multiplication detected by next char being `(`, identifier start, or `"`
+- Greek identifiers via `\name` prefix, stored with style=3
+- Renderer uses 70% font size for subscripts/superscripts
+- Arena allocated — all nodes from a single arena, no per-node free

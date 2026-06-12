@@ -136,3 +136,31 @@ make clean && make
 - `make test` → 170 tests pass (102 + 23 + 27 + 18)
 - Scrolling table doesn't scroll the item list (and vice versa)
 - Text is rendered as actual glyphs, not placeholder rectangles
+
+
+---
+
+## Phase 4 — Math expression parser + renderer
+
+### Build & Run
+```bash
+make test-math     # 50 tests + benchmark
+make clean && make
+./main             # Demo includes math in table cells
+```
+
+### Expected output (test)
+```
+Running 50 tests...
+  PASS math_parse_number
+  ...
+  PASS math_render_empty_set
+  BENCH math_parse 1000x: ~35μs/iter
+Results: 50 passed, 0 failed, 50 total
+```
+
+### Verification
+- `make test` → 220 tests pass (102 + 23 + 27 + 18 + 50)
+- Parser handles: numbers, vars, Greek, operators, fractions, powers, subscripts, sqrt, sets, text literals, implicit multiplication, parentheses
+- Renderer produces correct tree structures (verified by child_count, type checks, dimension checks)
+- Benchmark: 100 complex expression parses in ~35μs
