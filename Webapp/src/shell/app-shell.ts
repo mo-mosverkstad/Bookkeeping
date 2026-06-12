@@ -370,6 +370,7 @@ export class AppShell {
 
         this.loadDocResults(docResults, csvResults, graphResults);
         this.registerAllTabs();
+        this.controller.snapshotTableBaselines();
         this.elements.statusText.textContent =
             `Loaded control.json with ${controlFile.entries.length} entries`;
     }
@@ -383,6 +384,7 @@ export class AppShell {
         for (const { name, text } of csvResults)   this.controller.loadCSV(name, text);
         this.loadDocResults(docResults, csvResults, graphResults);
         this.registerAllTabs();
+        this.controller.snapshotTableBaselines();
         const kb = this.controller.getKnowledgeBase();
         this.elements.statusText.textContent =
             `Loaded ${kb.documents.length} docs, ${kb.tables.length} tables, ${kb.graphs.length} graphs`;

@@ -53,6 +53,17 @@ export class AppController {
         this.savedContent.set(name, text);
     }
 
+    /** Re-snapshot savedContent baselines for all tables using toCSV() so that
+     *  undo-to-origin comparisons aren't affected by line-ending differences. */
+    snapshotTableBaselines(): void {
+        for (const table of this.knowledgeBase.tables) {
+            const name = table.name + ".csv";
+            if (this.savedContent.has(name)) {
+                this.savedContent.set(name, table.toCSV());
+            }
+        }
+    }
+
     async saveFile(name: string): Promise<void> {
         if (!this.fileSystem) return;
         const entry = this.loadedFiles.get(name);
