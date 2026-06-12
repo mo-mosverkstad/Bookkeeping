@@ -1,5 +1,5 @@
 import { el } from "./el.ts";
-import type { MathNode, BinaryExpressionNode, CallExpressionNode, ControlExpressionNode, IdentifierNode, SubscriptExpressionNode, SubSuperscriptExpressionNode, VectorNameNode, MatrixNode, IndexExpressionNode, AbsoluteValueNode, FactorialExpressionNode, DerivativeNode, PiecewiseNode } from "./types.ts";
+import type { MathNode, BinaryExpressionNode, CallExpressionNode, ControlExpressionNode, IdentifierNode, SubscriptExpressionNode, SubSuperscriptExpressionNode, VectorNameNode, MatrixNode, IndexExpressionNode, AbsoluteValueNode, FactorialExpressionNode, DerivativeNode, PiecewiseNode, SetNode } from "./types.ts";
 
 const OPERATOR_PRECEDENCE: Record<string, number> = { ",": -3, "=": -2, "!=": -2, "<=": -2, ">=": -2, "~=": -2, ":=": -2, "~": -2, "<<": -2, ">>": -2, "->": -2, "sub": -2, "supset": -2, "sube": -2, "supe": -2, "in": -2, "notin": -2, "divides": -2, "ndivides": -2, "cong": -2, "parallel": -2, "perp": -2, "sim": -2, "+": 0, "-": 0, "*": 1, "/": 1, ".": 1, "mod": 1, "div": 1, "^": 2 };
 function getOperatorPrecedence(op: string): number { return OPERATOR_PRECEDENCE[op] ?? -1; }
@@ -27,6 +27,7 @@ export function render(node: MathNode): HTMLElement {
         case "Derivative": return renderDerivative(node);
         case "Ellipsis": return el("span", "", ["…"]);
         case "Piecewise": return renderPiecewise(node);
+        case "Set": return renderSet(node);
         default: throw new Error("Unknown node");
     }
 }
@@ -79,6 +80,7 @@ function renderAbsoluteValue(node: AbsoluteValueNode) { return (node.expr.type =
 function renderFactorial(node: FactorialExpressionNode) { return el("span", "", [render(node.base), "!"]); }
 function renderDerivative(node: DerivativeNode) { return el("span", "", [render(node.base), "′".repeat(node.order)]); }
 function renderPiecewise(node: PiecewiseNode) { return el("span", "piecewise", node.cases.map(c => el("span", "piecewise-row", [el("span", "piecewise-expr", [render(c.expr)]), el("span", "piecewise-cond", [render(c.condition)])]))); }
+function renderSet(node: SetNode) { return el("span", "", ["{", ...interleave(node.elements.map(render), ", "), "}"]); }
 
 function renderControl(node: ControlExpressionNode): HTMLElement {
     const name = node.name;

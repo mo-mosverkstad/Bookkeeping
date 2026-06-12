@@ -167,7 +167,7 @@ const grammar: Grammar = {
         peg: { type: "choice", options: [
             { type: "sequence", parts: [
                 { type: "choice", options: [
-                    { type: "literal", value: "-" }, { type: "literal", value: "+" },
+                    { type: "regex", regex: /^[-+](?!\{)/, name: "unary sign" },
                     { type: "regex", regex: /^\\not\b/, name: "\\not" },
                 ] },
                 { type: "rule", name: "Unary" },
@@ -224,7 +224,23 @@ const grammar: Grammar = {
         { type: "rule", name: "Ellipsis" }, { type: "rule", name: "AbsoluteValue" },
         { type: "rule", name: "BracketExpression" }, { type: "rule", name: "Number" },
         { type: "rule", name: "Identifier" }, { type: "rule", name: "ParenExpression" },
+        { type: "rule", name: "SetExpression" },
     ] } },
+
+    SetExpression: {
+        peg: { type: "sequence", parts: [
+            { type: "literal", value: "{" },
+            { type: "rule", name: "Logical" },
+            { type: "repeat", expr: { type: "sequence", parts: [
+                { type: "literal", value: "," }, { type: "rule", name: "Logical" },
+            ] } },
+            { type: "literal", value: "}" },
+        ] },
+        build([, first, rest]: [string, MathNode, [string, MathNode][]]): MathNode {
+            const elements = [first]; for (const [, e] of rest) elements.push(e);
+            return { type: "Set", elements };
+        },
+    },
 
     CasesExpression: {
         peg: { type: "sequence", parts: [

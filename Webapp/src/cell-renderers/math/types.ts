@@ -23,8 +23,10 @@ export interface DerivativeNode { type: "Derivative"; base: MathNode; order: num
 export interface EllipsisNode { type: "Ellipsis"; }
 export interface PiecewiseNode { type: "Piecewise"; cases: { expr: MathNode; condition: MathNode }[]; }
 
+export interface SetNode { type: "Set"; elements: MathNode[]; }
+
 export type MathNode =
     | NumberLiteralNode | IdentifierNode | BinaryExpressionNode | UnaryExpressionNode
     | CallExpressionNode | ControlExpressionNode | SubscriptExpressionNode
     | SubSuperscriptExpressionNode | VectorNameNode | MatrixNode | IndexExpressionNode
-    | AbsoluteValueNode | FactorialExpressionNode | DerivativeNode | EllipsisNode | PiecewiseNode;
+    | AbsoluteValueNode | FactorialExpressionNode | DerivativeNode | EllipsisNode | PiecewiseNode | SetNode;
