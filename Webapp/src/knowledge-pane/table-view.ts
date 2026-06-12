@@ -7,8 +7,6 @@ import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
 interface TableState {
     scrollTop: number;
     scrollLeft: number;
-    sortCol: number;
-    sortAsc: boolean;
 }
 
 /** Identifies a cell by row/col index within the rendered table. */
@@ -25,8 +23,6 @@ export class TableView implements WorkspaceView {
     private currentTables: Table[] = [];
     /** The real index of the mounted table in kb.tables[]. Used for all controller calls. */
     private kbTableIdx = 0;
-    private sortCol = -1;
-    private sortAsc = true;
     /** Row objects currently checked for multi-row drag. */
     private selectedRows = new Set<Row>();
 
@@ -66,22 +62,15 @@ export class TableView implements WorkspaceView {
     setOnCellFocusChange(cb: () => void): void { this.onCellFocusChange = cb; }
     getActiveTableIdx(): number { return this.kbTableIdx; }
     getController(): AppController | null { return this.controller; }
-    getSortState(): { sortCol: number; sortAsc: boolean } { return { sortCol: this.sortCol, sortAsc: this.sortAsc }; }
     setContainer(el: HTMLElement): void { this.container = el; }
 
     // ── WorkspaceView interface ───────────────────────────────────────────────
 
     mount(container: HTMLElement, data: WorkspaceData, savedState?: ViewState): void {
         this.container = container;
-        if (savedState) {
-            const s = savedState as TableState;
-            this.sortCol = s.sortCol;
-            this.sortAsc = s.sortAsc;
-        }
         if (data.table) {
             this.currentTables = [data.table];
             this.activeTabIdx = 0;
-            // Resolve the real index in kb.tables[] for controller calls
             const kb = this.controller?.getKnowledgeBase();
             this.kbTableIdx = kb ? kb.tables.indexOf(data.table) : 0;
         }
@@ -98,8 +87,6 @@ export class TableView implements WorkspaceView {
         return {
             scrollTop:  this.container.scrollTop,
             scrollLeft: this.container.scrollLeft,
-            sortCol: this.sortCol,
-            sortAsc: this.sortAsc,
         } satisfies TableState;
     }
 
@@ -178,8 +165,6 @@ export class TableView implements WorkspaceView {
         const tableEl = document.createElement("table");
         tableEl.className = "knowledge-table";
 
-        let currentRows = rows;
-
         const render = () => {
             tableEl.innerHTML = "";
 
@@ -191,15 +176,15 @@ export class TableView implements WorkspaceView {
                 const headerCb = document.createElement("input");
                 headerCb.type = "checkbox";
                 headerCb.title = "Select / deselect all rows";
-                const checkedCount = currentRows.filter(r => this.selectedRows.has(r)).length;
-                headerCb.checked = checkedCount === currentRows.length && currentRows.length > 0;
-                headerCb.indeterminate = checkedCount > 0 && checkedCount < currentRows.length;
+                const checkedCount = rows.filter(r => this.selectedRows.has(r)).length;
+                headerCb.checked = checkedCount === rows.length && rows.length > 0;
+                headerCb.indeterminate = checkedCount > 0 && checkedCount < rows.length;
                 headerCb.addEventListener("click", (e) => {
                     e.preventDefault();
                     // Read live count at click time, not stale closure value
-                    const liveCount = currentRows.filter(r => this.selectedRows.has(r)).length;
-                    if (liveCount < currentRows.length) {
-                        currentRows.forEach(r => this.selectedRows.add(r));
+                    const liveCount = rows.filter(r => this.selectedRows.has(r)).length;
+                    if (liveCount < rows.length) {
+                        rows.forEach(r => this.selectedRows.add(r));
                     } else {
                         this.selectedRows.clear();
                     }
@@ -208,19 +193,9 @@ export class TableView implements WorkspaceView {
                 thCb.appendChild(headerCb);
                 headerRow.appendChild(thCb);
             }
-            table.columns.forEach((col, i) => {
+            table.columns.forEach((col) => {
                 const th = document.createElement("th");
-                th.textContent = col.name + (i === this.sortCol ? (this.sortAsc ? " ▲" : " ▼") : "");
-                th.addEventListener("mousedown", (e) => e.preventDefault()); // no text selection on header click
-                th.addEventListener("click", () => {
-                    if (this.sortCol === i) this.sortAsc = !this.sortAsc;
-                    else { this.sortCol = i; this.sortAsc = true; }
-                    currentRows = [...rows].sort((a, b) => {
-                        const av = a.getCellValue(i), bv = b.getCellValue(i);
-                        return this.sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
-                    });
-                    render();
-                });
+                th.textContent = col.name;
                 headerRow.appendChild(th);
             });
             if (tableIdx >= 0) headerRow.appendChild(document.createElement("th")); // actions
@@ -237,12 +212,12 @@ export class TableView implements WorkspaceView {
 
             const updateHeaderCb = () => {
                 if (!headerCbRef) return;
-                const checked = currentRows.filter(r => this.selectedRows.has(r)).length;
-                headerCbRef.checked = checked === currentRows.length && currentRows.length > 0;
-                headerCbRef.indeterminate = checked > 0 && checked < currentRows.length;
+                const checked = rows.filter(r => this.selectedRows.has(r)).length;
+                headerCbRef.checked = checked === rows.length && rows.length > 0;
+                headerCbRef.indeterminate = checked > 0 && checked < rows.length;
             };
 
-            for (const row of currentRows) {
+            for (const row of rows) {
                 const rowIdx = table.rows.indexOf(row);
                 const tr = document.createElement("tr");
                 tr.dataset.rowIdx = String(rowIdx);

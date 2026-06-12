@@ -366,14 +366,12 @@ body {
   top: 0;
   background: var(--bg);
   border-bottom: 2px solid #cbd5e1;
-  cursor: pointer;
   user-select: none;
   color: var(--text-muted);
   font-weight: 600;
   font-size: 0.88em;
   z-index: 2;
 }
-.knowledge-table thead th:hover { background: var(--accent-light); }
 .knowledge-table tbody tr:hover > td { background: var(--bg); }
 .knowledge-table td .cell-error { color: #ef4444; font-size: 0.85em; font-family: monospace; }
 .rich-cell { line-height: 1.6; }
