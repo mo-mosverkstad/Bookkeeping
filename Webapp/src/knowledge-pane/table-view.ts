@@ -863,8 +863,7 @@ export class TableView implements WorkspaceView {
     private applyZoom(): void {
         const table = this.container.querySelector<HTMLElement>("table.knowledge-table");
         if (table) {
-            table.style.transformOrigin = "top left";
-            table.style.transform = `scale(${this.zoom})`;
+            (table.style as any).zoom = String(this.zoom);
         }
         const label = document.querySelector<HTMLElement>("#table-zoom-bar .zoom-label");
         if (label) label.textContent = `${Math.round(this.zoom * 100)}%`;
