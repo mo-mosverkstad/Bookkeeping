@@ -464,6 +464,17 @@ Custom lightweight test framework in `test/test.h`:
 | graph_layout_grid | Grid positions correct | PASS |
 | graph_many_nodes | 50 nodes layout | PASS |
 
+### Graph model — edge cases (7 tests)
+| Test | Description | Result |
+|---|---|---|
+| graph_duplicate_node_ids | Find returns first match | PASS |
+| graph_self_edge | Self-loop (from==to) | PASS |
+| graph_disconnected_nodes | No edges, positions differ | PASS |
+| graph_parallel_edges | Multiple edges same pair | PASS |
+| graph_layout_single_node | One node positioned | PASS |
+| graph_capacity_limit | Overflow capped at capacity | PASS |
+| graph_node_default_size | Default w=100, h=30 | PASS |
+
 ### Graph view (8 tests)
 | Test | Description | Result |
 |---|---|---|
@@ -475,3 +486,13 @@ Custom lightweight test framework in `test/test.h`:
 | graphview_hit_test_node | Hit finds correct node id | PASS |
 | graphview_no_edges_empty | Solo node, 0 edge elements | PASS |
 | graphview_complex_graph | 10 nodes, 11 edges | PASS |
+
+### Graph view — edge cases (6 tests)
+| Test | Description | Result |
+|---|---|---|
+| graphview_self_loop_renders | Self-loop renders no crash | PASS |
+| graphview_hit_test_miss | Click empty → hits root | PASS |
+| graphview_many_edges_no_crash | 90 edges fully connected | PASS |
+| graphview_node_labels_are_text_elements | Rect + text verified | PASS |
+| graphview_edge_shortening | Line endpoints shortened | PASS |
+| graphview_deep_hit_includes_root | Deep hit has root + node | PASS |

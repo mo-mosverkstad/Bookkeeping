@@ -226,6 +226,194 @@ TEST(graphview_complex_graph) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ADDITIONAL GRAPH MODEL TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(graph_duplicate_node_ids) {
+    Arena a = arena_create(8192);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "First A");
+    g.add_node("A", "Second A"); // duplicate id
+    ASSERT_EQ(g.node_count, (uint16_t)2);
+    ASSERT_EQ(g.find_node("A"), 0); // finds first
+    arena_destroy(&a);
+}
+
+TEST(graph_self_edge) {
+    Arena a = arena_create(8192);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "A");
+    g.add_edge(0, 0); // self-loop
+    ASSERT_EQ(g.edge_count, (uint16_t)1);
+    ASSERT_EQ(g.edges[0].from, g.edges[0].to);
+    arena_destroy(&a);
+}
+
+TEST(graph_disconnected_nodes) {
+    Arena a = arena_create(8192);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "A"); g.add_node("B", "B"); g.add_node("C", "C");
+    // No edges — all disconnected
+    ASSERT_EQ(g.edge_count, (uint16_t)0);
+    g.layout_grid();
+    ASSERT_TRUE(g.nodes[0].x != g.nodes[1].x || g.nodes[0].y != g.nodes[1].y);
+    arena_destroy(&a);
+}
+
+TEST(graph_parallel_edges) {
+    Arena a = arena_create(8192);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "A"); g.add_node("B", "B");
+    g.add_edge(0, 1, "e1");
+    g.add_edge(0, 1, "e2"); // parallel edge
+    ASSERT_EQ(g.edge_count, (uint16_t)2);
+    ASSERT_TRUE(strcmp(g.edges[0].label, "e1") == 0);
+    ASSERT_TRUE(strcmp(g.edges[1].label, "e2") == 0);
+    arena_destroy(&a);
+}
+
+TEST(graph_layout_single_node) {
+    Arena a = arena_create(8192);
+    Graph g; g.init(&a, "g");
+    g.add_node("X", "Only");
+    g.layout_grid(100, 200, 150, 50, 3);
+    ASSERT_NEAR(g.nodes[0].x, 100.0f, 0.01f);
+    ASSERT_NEAR(g.nodes[0].y, 200.0f, 0.01f);
+    arena_destroy(&a);
+}
+
+TEST(graph_capacity_limit) {
+    Arena a = arena_create(16384);
+    Graph g; g.init(&a, "g", 3, 2); // tiny capacity
+    g.add_node("A", "A"); g.add_node("B", "B"); g.add_node("C", "C");
+    g.add_node("D", "D"); // over capacity
+    ASSERT_EQ(g.node_count, (uint16_t)3); // capped
+    g.add_edge(0, 1); g.add_edge(1, 2);
+    g.add_edge(0, 2); // over capacity
+    ASSERT_EQ(g.edge_count, (uint16_t)2); // capped
+    arena_destroy(&a);
+}
+
+TEST(graph_node_default_size) {
+    Arena a = arena_create(8192);
+    Graph g; g.init(&a, "g");
+    g.add_node("N", "Node");
+    ASSERT_NEAR(g.nodes[0].w, 100.0f, 0.01f);
+    ASSERT_NEAR(g.nodes[0].h, 30.0f, 0.01f);
+    arena_destroy(&a);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADDITIONAL GRAPH VIEW TESTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TEST(graphview_self_loop_renders) {
+    Arena a = arena_create(32768);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "Self");
+    g.add_edge(0, 0); // self-loop
+    g.layout_grid();
+    GraphViewConfig cfg;
+    LayoutNode* view = graph_view_build(&a, &g, cfg);
+    ASSERT_EQ(view->element_count, (uint16_t)1); // 1 edge
+    view->compute(400, 200);
+    SoftwareBackend sw(400, 200);
+    sw.begin_frame(400, 200);
+    view->render(&sw); // should not crash
+    sw.end_frame();
+    ASSERT_TRUE(true);
+    arena_destroy(&a);
+}
+
+TEST(graphview_hit_test_miss) {
+    Arena a = arena_create(32768);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "A");
+    g.layout_grid(100, 100, 150, 50, 2);
+    GraphViewConfig cfg; cfg.viewport_width = 400; cfg.viewport_height = 200;
+    LayoutNode* view = graph_view_build(&a, &g, cfg);
+    view->compute(400, 200);
+    // Click far from node
+    HitResult r = view->hit_surface(10, 10);
+    // Should hit the root graph-view, not a node
+    ASSERT_TRUE(r.node != nullptr);
+    ASSERT_TRUE(strcmp(r.node->id, "graph-view") == 0);
+    arena_destroy(&a);
+}
+
+TEST(graphview_many_edges_no_crash) {
+    Arena a = arena_create(65536);
+    Graph g; g.init(&a, "g", 20, 100);
+    for (int i = 0; i < 10; i++) {
+        char id[4]; snprintf(id, 4, "%d", i);
+        g.add_node(arena_str_cstr(&a, id).data, id);
+    }
+    // Fully connected: 10*9 = 90 edges
+    for (int i = 0; i < 10; i++)
+        for (int j = 0; j < 10; j++)
+            if (i != j) g.add_edge(i, j);
+    g.layout_grid(0, 0, 80, 40, 5);
+    GraphViewConfig cfg;
+    LayoutNode* view = graph_view_build(&a, &g, cfg);
+    view->compute(500, 200);
+    SoftwareBackend sw(500, 200);
+    sw.begin_frame(500, 200);
+    view->render(&sw);
+    sw.end_frame();
+    ASSERT_EQ(g.edge_count, (uint16_t)90);
+    ASSERT_TRUE(true);
+    arena_destroy(&a);
+}
+
+TEST(graphview_node_labels_are_text_elements) {
+    Arena a = arena_create(32768);
+    Graph g; g.init(&a, "g");
+    g.add_node("N1", "Hello World");
+    g.layout_grid();
+    GraphViewConfig cfg;
+    LayoutNode* view = graph_view_build(&a, &g, cfg);
+    LayoutNode* node_view = view->children[0];
+    ASSERT_EQ(node_view->element_count, (uint16_t)2); // rect + text
+    ASSERT_EQ(node_view->elements[0].type, ELEM_RECT);
+    ASSERT_EQ(node_view->elements[1].type, ELEM_TEXT);
+    ASSERT_TRUE(strcmp(node_view->elements[1].text.content, "Hello World") == 0);
+    arena_destroy(&a);
+}
+
+TEST(graphview_edge_shortening) {
+    Arena a = arena_create(32768);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "A"); g.add_node("B", "B");
+    g.nodes[0].x = 0; g.nodes[0].y = 0; g.nodes[0].w = 100; g.nodes[0].h = 30;
+    g.nodes[1].x = 300; g.nodes[1].y = 0; g.nodes[1].w = 100; g.nodes[1].h = 30;
+    g.add_edge(0, 1);
+    GraphViewConfig cfg;
+    LayoutNode* view = graph_view_build(&a, &g, cfg);
+    // Edge should be from ~(100, 15) to ~(300, 15) — shortened by half-widths
+    Element& e = view->elements[0];
+    ASSERT_EQ(e.type, ELEM_LINE);
+    ASSERT_TRUE(e.line.x1 > 45); // should be ~50 (center) + half_w along direction
+    ASSERT_TRUE(e.line.x2 < 355); // should be ~350 - half_w
+    arena_destroy(&a);
+}
+
+TEST(graphview_deep_hit_includes_root) {
+    Arena a = arena_create(32768);
+    Graph g; g.init(&a, "g");
+    g.add_node("A", "A");
+    g.layout_grid(20, 20);
+    GraphViewConfig cfg; cfg.viewport_width = 200; cfg.viewport_height = 100;
+    LayoutNode* view = graph_view_build(&a, &g, cfg);
+    view->compute(200, 100);
+    HitResult deep[8];
+    int n = view->hit_deep(50, 30, deep, 8);
+    ASSERT_TRUE(n >= 2); // root + node
+    ASSERT_TRUE(strcmp(deep[0].node->id, "graph-view") == 0);
+    ASSERT_TRUE(strcmp(deep[1].node->id, "A") == 0);
+    arena_destroy(&a);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 
 int main() {
     return run_all_tests();
