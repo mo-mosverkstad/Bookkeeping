@@ -3,7 +3,20 @@ import type { Grammar } from "../../engine/types.ts";
 import type { MathNode, NumberLiteralNode, IdentifierNode } from "./types.ts";
 
 const grammar: Grammar = {
-    Expression: { peg: { type: "rule", name: "Logical" } },
+    Expression: {
+        peg: { type: "sequence", parts: [
+            { type: "rule", name: "Logical" },
+            { type: "repeat", expr: { type: "sequence", parts: [
+                { type: "regex", regex: /^\s*,\s*/, name: "comma" },
+                { type: "rule", name: "Logical" },
+            ] } },
+        ] },
+        build([left, rest]: [MathNode, [string, MathNode][]]): MathNode {
+            let node = left;
+            for (const [, right] of rest) node = { type: "BinaryExpression", operator: ",", left: node, right };
+            return node;
+        },
+    },
 
     Logical: {
         peg: { type: "sequence", parts: [
@@ -200,7 +213,7 @@ const grammar: Grammar = {
 
     ArgumentList: {
         peg: { type: "choice", options: [
-            { type: "sequence", parts: [{ type: "rule", name: "Expression" }, { type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Expression" }] } }] },
+            { type: "sequence", parts: [{ type: "rule", name: "Logical" }, { type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Logical" }] } }] },
             { type: "sequence", parts: [] },
         ] },
         build(node: any): MathNode[] { if (Array.isArray(node) && node.length === 0) return []; const [first, rest] = node; const args = [first]; for (const [, expr] of rest) args.push(expr); return args; },
@@ -288,7 +301,7 @@ const grammar: Grammar = {
     },
 
     BracketList: {
-        peg: { type: "sequence", parts: [{ type: "rule", name: "Expression" }, { type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Expression" }] } }] },
+        peg: { type: "sequence", parts: [{ type: "rule", name: "Logical" }, { type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Logical" }] } }] },
         build([first, rest]: [MathNode, [string, MathNode][]]): MathNode {
             if (rest.length === 0 && first.type === "Identifier") return { type: "VectorName", identifier: first };
             const elements = [first]; for (const [, e] of rest) elements.push(e);
@@ -298,8 +311,8 @@ const grammar: Grammar = {
 
     ParenExpression: {
         peg: { type: "sequence", parts: [
-            { type: "literal", value: "(" }, { type: "rule", name: "Expression" },
-            { type: "choice", options: [{ type: "sequence", parts: [{ type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Expression" }] } }, { type: "literal", value: ")" }] }] },
+            { type: "literal", value: "(" }, { type: "rule", name: "Logical" },
+            { type: "choice", options: [{ type: "sequence", parts: [{ type: "repeat", expr: { type: "sequence", parts: [{ type: "literal", value: "," }, { type: "rule", name: "Logical" }] } }, { type: "literal", value: ")" }] }] },
         ] },
         build([, first, tail]: [string, MathNode, any]): MathNode {
             const [commaExprs] = tail;

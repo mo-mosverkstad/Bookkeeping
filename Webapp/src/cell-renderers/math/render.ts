@@ -1,7 +1,7 @@
 import { el } from "./el.ts";
 import type { MathNode, BinaryExpressionNode, CallExpressionNode, ControlExpressionNode, IdentifierNode, SubscriptExpressionNode, SubSuperscriptExpressionNode, VectorNameNode, MatrixNode, IndexExpressionNode, AbsoluteValueNode, FactorialExpressionNode, DerivativeNode, PiecewiseNode } from "./types.ts";
 
-const OPERATOR_PRECEDENCE: Record<string, number> = { "=": -2, "!=": -2, "<=": -2, ">=": -2, "~=": -2, ":=": -2, "~": -2, "<<": -2, ">>": -2, "->": -2, "sub": -2, "supset": -2, "sube": -2, "supe": -2, "in": -2, "notin": -2, "divides": -2, "ndivides": -2, "cong": -2, "parallel": -2, "perp": -2, "sim": -2, "+": 0, "-": 0, "*": 1, "/": 1, ".": 1, "mod": 1, "div": 1, "^": 2 };
+const OPERATOR_PRECEDENCE: Record<string, number> = { ",": -3, "=": -2, "!=": -2, "<=": -2, ">=": -2, "~=": -2, ":=": -2, "~": -2, "<<": -2, ">>": -2, "->": -2, "sub": -2, "supset": -2, "sube": -2, "supe": -2, "in": -2, "notin": -2, "divides": -2, "ndivides": -2, "cong": -2, "parallel": -2, "perp": -2, "sim": -2, "+": 0, "-": 0, "*": 1, "/": 1, ".": 1, "mod": 1, "div": 1, "^": 2 };
 function getOperatorPrecedence(op: string): number { return OPERATOR_PRECEDENCE[op] ?? -1; }
 
 const GLYPH_TABLE: Record<string, string> = { a:"α",b:"β",g:"γ",d:"δ",e:"ε",z:"ζ",h:"η",q:"θ",i:"ι",k:"κ",l:"λ",m:"μ",n:"ν",x:"ξ",o:"ο",p:"π",r:"ρ",s:"σ",t:"τ",u:"υ",f:"φ",c:"χ",y:"ψ",w:"ω",A:"Α",B:"Β",G:"Γ",D:"Δ",E:"Ε",Z:"Ζ",H:"Η",Q:"Θ",I:"Ι",K:"Κ",L:"Λ",M:"Μ",N:"Ν",X:"Ξ",O:"Ο",P:"Π",R:"Ρ",S:"Σ",T:"Τ",U:"Υ",F:"Φ",C:"Χ",Y:"Ψ",W:"Ω",ha:"ℵ",hb:"ℶ",hg:"ℷ",hd:"ℸ",pm:"±",mp:"∓",inf:"∞",nabla:"∇",partial:"∂",union:"∪",inter:"∩",diff:"∖",cross:"×",comp:"∁",empty:"∅",pow:"𝒫",sub:"⊂",supset:"⊃",sube:"⊆",supe:"⊇",psub:"⊊",psupset:"⊋",symdiff:"△",and:"∧",or:"∨",not:"¬",imp:"⟹",iff:"⟺",all:"∀",ex:"∃",nex:"∄",circ:"∘",oplus:"⊕",otimes:"⊗",had:"⊙",kron:"⊗",mapsto:"↦",parallel:"∥",perp:"⊥",sim:"∼",angle:"∠",tri:"△",divides:"∣",ndivides:"∤",cong:"≅",given:"∣",mod:"mod",div:"÷",infimum:"inf",supremum:"sup",limsup:"lim sup",liminf:"lim inf",oint:"∮",iint:"∬",iiint:"∭",in:"∈",notin:"∉",Id:"𝐈","0":"𝟎" };
@@ -62,6 +62,7 @@ function renderBinary(node: BinaryExpressionNode): HTMLElement {
     if (operator === "^") return el("span", "", [lo, render(left), lc, el("sup", "", [ro, render(right), rc])]);
     if (operator === "*") { if (needsExplicitMultiplySign(left, right, leftParen, rightParen)) return el("span", "", [lo, render(left), lc, " × ", ro, render(right), rc]); return el("span", "", [lo, render(left), lc, ro, render(right), rc]); }
     if (operator === ".") return el("span", "", [lo, render(left), lc, " · ", ro, render(right), rc]);
+    if (operator === ",") return el("span", "", [render(left), ", ", render(right)]);
     if (operator === "mod") return el("span", "", [lo, render(left), lc, " mod ", ro, render(right), rc]);
     if (operator === "div") return el("span", "", [lo, render(left), lc, " ÷ ", ro, render(right), rc]);
     const rel = RELATIONAL_SYMBOL[operator]; if (rel) return el("span", "", [lo, render(left), lc, ` ${rel} `, ro, render(right), rc]);
