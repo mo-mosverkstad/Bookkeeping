@@ -2,22 +2,35 @@
 #include "src/graphics/backend/backend.h"
 #include "src/core/color.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <cmath>
 #include <cstring>
 
 struct SDL2Backend : RenderBackend {
     SDL_Window* window;
     SDL_Renderer* renderer;
+    TTF_Font* font;
+    TTF_Font* font_bold;
 
     SDL2Backend(const char* title, int w, int h) {
         SDL_Init(SDL_INIT_VIDEO);
+        TTF_Init();
         window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                   w, h, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        // Try common font paths
+        font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 13);
+        if (!font) font = TTF_OpenFont("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 13);
+        if (!font) font = TTF_OpenFont("/usr/share/fonts/TTF/DejaVuSans.ttf", 13);
+        font_bold = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 13);
+        if (!font_bold) font_bold = font;
     }
     ~SDL2Backend() override {
+        if (font_bold && font_bold != font) TTF_CloseFont(font_bold);
+        if (font) TTF_CloseFont(font);
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
+        TTF_Quit();
         SDL_Quit();
     }
 
@@ -78,10 +91,16 @@ struct SDL2Backend : RenderBackend {
     }
 
     void render_text(float abs_x, float abs_y, const Text& t) override {
-        // Placeholder: tinted rect. Full text needs SDL2_ttf.
-        TextMeasure m = measure_text(t.content, t.content ? (uint32_t)strlen(t.content) : 0, t.font, t.size, t.style);
-        SDL_Rect rect = {(int)(abs_x + t.x), (int)(abs_y + t.y), (int)m.width, (int)m.height};
-        SDL_SetRenderDrawColor(renderer, t.color.r, t.color.g, t.color.b, 80);
-        SDL_RenderFillRect(renderer, &rect);
+        if (!t.content || !t.content[0] || !font) return;
+        TTF_Font* f = (t.style & TEXT_BOLD) ? font_bold : font;
+        TTF_SetFontSize(f, (int)t.size);
+        SDL_Color col = {t.color.r, t.color.g, t.color.b, t.color.a};
+        SDL_Surface* surf = TTF_RenderUTF8_Blended(f, t.content, col);
+        if (!surf) return;
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+        SDL_Rect dst = {(int)(abs_x + t.x), (int)(abs_y + t.y), surf->w, surf->h};
+        SDL_RenderCopy(renderer, tex, nullptr, &dst);
+        SDL_DestroyTexture(tex);
+        SDL_FreeSurface(surf);
     }
 };

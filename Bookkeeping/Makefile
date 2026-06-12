@@ -1,6 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++20 -Wall -Wextra -O2 -I. -Wno-array-bounds -Wno-stringop-overflow -Wno-format-truncation
-SDL_FLAGS = $(shell sdl2-config --cflags --libs) -lm
+SDL_FLAGS = $(shell sdl2-config --cflags --libs) -lSDL2_ttf -lm
 
 TARGET = main
 TEST_GFX = test_gfx

@@ -149,18 +149,19 @@ inline int run_demo() {
             if (ev.type == InputEvent::KEY_DOWN && ev.key == 27) { running = false; break; }
 
             if (ev.type == InputEvent::MOUSE_WHEEL) {
-                // Scroll the item list (index 4) and table scroll (table_view->children[1])
-                LayoutNode* sn = root->children[4]; // scroll list
-                sn->scroll_y -= ev.scroll_y * 20;
-                if (sn->scroll_y < 0) sn->scroll_y = 0;
-                float max_s = sn->content_height - sn->height;
-                if (max_s > 0 && sn->scroll_y > max_s) sn->scroll_y = max_s;
-
-                LayoutNode* tsn = root->children[3]->children[1]; // table scroll
-                tsn->scroll_y -= ev.scroll_y * 20;
-                if (tsn->scroll_y < 0) tsn->scroll_y = 0;
-                float tmax = tsn->content_height - tsn->height;
-                if (tmax > 0 && tsn->scroll_y > tmax) tsn->scroll_y = tmax;
+                // Find scroll node under cursor via hit test
+                HitResult deep[16];
+                int n = root->hit_deep(ev.x, ev.y, deep, 16);
+                for (int i = n - 1; i >= 0; i--) {
+                    if (deep[i].node->type == LAYOUT_SCROLL) {
+                        LayoutNode* sn = deep[i].node;
+                        sn->scroll_y -= ev.scroll_y * 20;
+                        if (sn->scroll_y < 0) sn->scroll_y = 0;
+                        float max_s = sn->content_height - sn->height;
+                        if (max_s > 0 && sn->scroll_y > max_s) sn->scroll_y = max_s;
+                        break;
+                    }
+                }
             }
 
             if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
