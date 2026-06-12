@@ -6,10 +6,13 @@ TARGET = main
 TEST_GFX = test_gfx
 TEST_TABLE = test_table
 TEST_UI = test_ui
+TEST_TVIEW = test_tview
 
 SRC = main.cpp \
       src/graphics/layout/layout.cpp \
       src/graphics/backend/backend.cpp \
+      src/core/model/table.cpp \
+      src/core/parser/csv.cpp \
       src/platform/sdl2_platform.cpp
 
 TEST_GFX_SRC = test/test_graphics.cpp \
@@ -24,12 +27,18 @@ TEST_UI_SRC = test/test_ui.cpp \
               src/graphics/layout/layout.cpp \
               src/graphics/backend/backend.cpp
 
+TEST_TVIEW_SRC = test/test_table_view.cpp \
+                 src/core/model/table.cpp \
+                 src/core/parser/csv.cpp \
+                 src/graphics/layout/layout.cpp \
+                 src/graphics/backend/backend.cpp
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET) $(SDL_FLAGS)
 
-test: test-gfx test-table test-ui
+test: test-gfx test-table test-ui test-tview
 
 test-gfx: $(TEST_GFX_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_GFX_SRC) -o $(TEST_GFX) -lm
@@ -43,9 +52,13 @@ test-ui: $(TEST_UI_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_UI_SRC) -o $(TEST_UI) -lm
 	./$(TEST_UI)
 
+test-tview: $(TEST_TVIEW_SRC)
+	$(CXX) $(CXXFLAGS) $(TEST_TVIEW_SRC) -o $(TEST_TVIEW) -lm
+	./$(TEST_TVIEW)
+
 bench: test
 
 clean:
-	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI)
+	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI) $(TEST_TVIEW)
 
 .PHONY: all test test-gfx test-table bench clean

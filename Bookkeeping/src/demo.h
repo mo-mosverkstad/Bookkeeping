@@ -1,5 +1,7 @@
 #pragma once
 #include "src/core/arena.h"
+#include "src/core/parser/csv.h"
+#include "src/app/table_view.h"
 #include "src/graphics/ui.h"
 #include "src/graphics/layout/functional_layout.h"
 #include "src/graphics/layout/virtual_layout.h"
@@ -104,25 +106,33 @@ inline int run_demo() {
     VirtualLayout vl = {};
     virtual_init(&vl, counter_render, counter_event, &counter, 16384);
 
-    // ── Root layout ──────────────────────────────────────────────────────────
-    auto root_ui = VStack(&arena, 8).padding(12).id("root")
-        .child(Label(&arena, "Layouts: HStack | Grid | Scroll | Coordinate | Functional | Virtual (click=+1)", 11))
-        .child(hrow)
-        .child(grid)
-        .child(scroll)
-        .child(coord);
+    // ── Table view ───────────────────────────────────────────────────────────
+    const char* csv_data = "Name,Age,City,Skill\ntext,text,text,text\nAlice,30,London,C++\nBob,25,Paris,Rust\nCharlie,35,Berlin,Go\nDiana,28,Tokyo,Java\nEve,32,NYC,Python";
+    Table* demo_table = csv_parse(&arena, arena_str_cstr(&arena, "Demo"), csv_data, strlen(csv_data));
+    TableViewConfig tvcfg;
+    tvcfg.viewport_width = 500;
+    tvcfg.viewport_height = 100;
+    LayoutNode* table_view = table_view_build(&arena, demo_table, tvcfg);
 
-    // Add virtual + sprite as children
+    // ── Root layout ──────────────────────────────────────────────────────────
+    auto root_ui = VStack(&arena, 6).padding(10).id("root")
+        .child(Label(&arena, "Phase 3: Table | HStack | Grid | Scroll | Coord | Virtual (click purple=+1, wheel=scroll)", 10))
+        .child(hrow)
+        .child(grid);
+
+    // Manually add table_view, scroll, coord, virtual, sprite
     LayoutNode* vl_tree = virtual_render(&vl);
     {
-        // Manually append VirtualLayout tree and sprite
         uint16_t n = root_ui.node.child_count;
-        auto** new_kids = (LayoutNode**)arena_alloc(&arena, sizeof(LayoutNode*) * (n + 2), 8);
+        auto** new_kids = (LayoutNode**)arena_alloc(&arena, sizeof(LayoutNode*) * (n + 5), 8);
         for (uint16_t i = 0; i < n; i++) new_kids[i] = root_ui.node.children[i];
-        new_kids[n] = vl_tree;
-        new_kids[n + 1] = sprite_node;
+        new_kids[n] = table_view;
+        new_kids[n+1] = build(scroll);
+        new_kids[n+2] = build(coord);
+        new_kids[n+3] = vl_tree;
+        new_kids[n+4] = sprite_node;
         root_ui.node.children = new_kids;
-        root_ui.node.child_count = n + 2;
+        root_ui.node.child_count = n + 5;
     }
 
     LayoutNode* root = build(root_ui);
@@ -139,12 +149,18 @@ inline int run_demo() {
             if (ev.type == InputEvent::KEY_DOWN && ev.key == 27) { running = false; break; }
 
             if (ev.type == InputEvent::MOUSE_WHEEL) {
-                // Find the scroll node and update it
-                LayoutNode* sn = root->children[3]; // scroll is 4th child (index 3)
+                // Scroll the item list (index 4) and table scroll (table_view->children[1])
+                LayoutNode* sn = root->children[4]; // scroll list
                 sn->scroll_y -= ev.scroll_y * 20;
                 if (sn->scroll_y < 0) sn->scroll_y = 0;
                 float max_s = sn->content_height - sn->height;
                 if (max_s > 0 && sn->scroll_y > max_s) sn->scroll_y = max_s;
+
+                LayoutNode* tsn = root->children[3]->children[1]; // table scroll
+                tsn->scroll_y -= ev.scroll_y * 20;
+                if (tsn->scroll_y < 0) tsn->scroll_y = 0;
+                float tmax = tsn->content_height - tsn->height;
+                if (tmax > 0 && tsn->scroll_y > tmax) tsn->scroll_y = tmax;
             }
 
             if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
