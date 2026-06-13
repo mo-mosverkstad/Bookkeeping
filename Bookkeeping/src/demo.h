@@ -240,22 +240,22 @@ inline int run_demo() {
         float side_w = sidebar_visible ? sidebar_width : 0;
 
         // ── 1. Toolbar (2.4em = ~31px) ───────────────────────────────────────
-        auto toolbar = HStack(a, 4).size(W, 31).id("toolbar")
+        auto toolbar = HStack(a, 4).size(W, 36).id("toolbar")
             .bg(th.toolbar_bg, th.border, 1);
-        toolbar.child(Box(a, 40, 24).id("btn-open").bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 48, 28).id("btn-open").bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
-        toolbar.child(Box(a, 36, 24).id("btn-save").bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
-        toolbar.child(Box(a, 44, 24).id("btn-export").bg(th.surface, th.toolbar_btn_border, 1).text("Export", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 44, 28).id("btn-save").bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 52, 28).id("btn-export").bg(th.surface, th.toolbar_btn_border, 1).text("Export", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         // Dynamic: + Row button (only for table views)
         ViewSlot* toolbar_view = ws.active_view();
         if (toolbar_view && toolbar_view->type == VIEW_TABLE) {
-            toolbar.child(Box(a, 44, 24).id("btn-addrow").bg(th.surface, th.toolbar_btn_border, 1).text("+ Row", th.font_small, th.toolbar_btn_text));
+            toolbar.child(Box(a, 52, 28).id("btn-addrow").bg(th.surface, th.toolbar_btn_border, 1).text("+ Row", th.font_small, th.toolbar_btn_text));
             toolbar.child(Box(a, 1, 18).bg(th.border));
         }
-        toolbar.child(Box(a, 50, 24).id("btn-toggle-sidebar").bg(th.surface, th.toolbar_btn_border, 1)
+        toolbar.child(Box(a, 60, 28).id("btn-toggle-sidebar").bg(th.surface, th.toolbar_btn_border, 1)
             .text(sidebar_visible ? "\xe2\x97\x80 Editor" : "\xe2\x96\xb6 Editor", th.font_small, th.toolbar_btn_text));
-        toolbar.child(Box(a, 38, 24).id("btn-toggle-nav").bg(th.surface, th.toolbar_btn_border, 1)
+        toolbar.child(Box(a, 48, 28).id("btn-toggle-nav").bg(th.surface, th.toolbar_btn_border, 1)
             .text(nav_w > 0 ? "\xe2\x98\xb0 Nav" : "\xe2\x98\xb0", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         // Search in toolbar
@@ -270,7 +270,7 @@ inline int run_demo() {
         auto tab_bar = HStack(a, 0).size(W, 26).id("tab-bar")
             .bg(th.tab_bar_bg, th.border_heavy, 1);
         // Left arrow
-        tab_bar.child(Box(a, 20, 24).id("tab-scroll-left")
+        tab_bar.child(Box(a, 24, 24).id("tab-scroll-left")
             .bg(th.tab_bar_bg, th.border, 1).text("<", th.font_small, th.text_muted));
         // Tab strip in a scroll container
         auto tab_strip_inner = HStack(a, 2).size(0, 24);
@@ -298,7 +298,7 @@ inline int run_demo() {
         }
         // Wrap tabs in scroll node
         LayoutNode* tab_strip_node = build(tab_strip_inner);
-        Node* tab_scroll = node_scroll(a, W - 44, 24);
+        Node* tab_scroll = node_scroll(a, W - 52, 24);
         tab_scroll->set_id("tab-scroll");
         tab_scroll->scroll_x = tab_scroll_offset;
         auto tsk = make_children(a, 1);
@@ -306,11 +306,11 @@ inline int run_demo() {
         tab_scroll->set_children(tsk, 1);
         tab_bar.child(UI{*(LayoutNode*)tab_scroll, a});
         // Right arrow
-        tab_bar.child(Box(a, 20, 24).id("tab-scroll-right")
+        tab_bar.child(Box(a, 24, 24).id("tab-scroll-right")
             .bg(th.tab_bar_bg, th.border, 1).text(">", th.font_small, th.text_muted));
 
         // ── 3. Content area (nav | workspace | sidebar) ──────────────────────
-        float content_h = H - 31 - 26 - 21;
+        float content_h = H - 36 - 26 - 21;
         float workspace_w = W - nav_w - side_w;
         active_view_w = workspace_w;
         active_view_h = content_h - 32; // subtract header row height
@@ -597,7 +597,7 @@ inline int run_demo() {
             }
 
             // Ctrl+Z / Ctrl+Y for undo/redo, Ctrl+S save, Ctrl+O open, Ctrl+Up/Down reorder, Ctrl+Plus/Minus zoom
-            if (ev.type == InputEvent::KEY_DOWN && !search_active && (ev.mod & 0x00C0)) {
+            if (ev.type == InputEvent::KEY_DOWN && !search_active && !source_focused && (ev.mod & 0x00C0)) {
                 if (ev.key == 'z') { editor.undo(); need_rebuild = true; dirty.mark_table_dirty(); }
                 else if (ev.key == 'y') { editor.redo(); need_rebuild = true; dirty.mark_table_dirty(); }
                 else if (ev.key == 's') {
@@ -1153,7 +1153,8 @@ inline int run_demo() {
                                     col = c;
                                 }
                                 editor.commit_edit();
-                                dirty.mark_table_dirty();
+                                // Only mark dirty if a change was actually committed
+                                if (editor.history.past_count > 0) dirty.mark_table_dirty();
                                 editor.init(&arena, t);
                                 editor.begin_edit(row, col);
                                 // Copy to source editor
@@ -1161,7 +1162,7 @@ inline int run_demo() {
                                 memcpy(source_buf, editor.edit_buffer, source_len);
                                 source_buf[source_len] = 0;
                                 source_cursor = source_len;
-                                source_focused = true;
+                                source_focused = false; // don't auto-focus source editor
                                 source_preview[0] = 0;
                                 if (col < t->col_count) source_type = t->columns[col].type_id.data;
                                 printf("Edit [%u,%u] = \"%s\"\n", row, col, editor.edit_buffer);
