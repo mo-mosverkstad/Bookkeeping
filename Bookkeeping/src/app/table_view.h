@@ -86,20 +86,9 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
     auto row_nodes = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * rows, 8);
     for (uint32_t r = 0; r < rows; r++) {
         Color bg = (r % 2 == 0) ? cfg.cell_bg_even : cfg.cell_bg_odd;
-        // First pass: measure row height from tallest cell
+
+        // Build cells and track max height
         float row_h = cfg.cell_height;
-        for (uint16_t c = 0; c < cols; c++) {
-            Str val = table_get_cell(table, r, c);
-            if (val.len > 0 && val.data) {
-                // Count lines manually for reliable height
-                uint32_t lines = 1;
-                for (uint32_t i = 0; i < val.len; i++)
-                    if (val.data[i] == '\n') lines++;
-                float needed = lines * 14.0f + 8; // 14px line height + padding
-                if (needed > row_h) row_h = needed;
-            }
-        }
-        // Second pass: build cells with computed row height + action buttons
         auto cell_kids = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * (cols + 1), 8);
         for (uint16_t c = 0; c < cols; c++) {
             Str val = table_get_cell(table, r, c);
@@ -108,12 +97,42 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
             Color cell_border = is_active ? cfg.active_cell_border : cfg.border;
             float sw = is_active ? 2.0f : 1.0f;
 
-            // Try rich rendering for non-text types (DISABLED — causes freezes on complex expressions)
-            // TODO: re-enable after parser performance optimization
+            // Try rich rendering for non-text types (with length guard)
+            const char* type_id = table->columns[c].type_id.data;
             LayoutNode* rendered = nullptr;
+            if (val.len > 0 && val.len < 1000 && val.data && type_id && strcmp(type_id, "text") != 0) {
+                rendered = cell_render(a, val.data, val.len, type_id, 12, cfg.cell_text);
+            }
 
             if (rendered) {
-                // Wrap rendered content in a box with background
+                // Compute rendered size
+                rendered->compute(col_widths[c] - 8, 9999);
+                float rh = rendered->height + 8;
+                if (rh > row_h) row_h = rh;
+                // Store rendered node temporarily; will wrap later
+                cell_kids[c] = rendered; // placeholder — wrapped below
+            } else {
+                // Plain text — measure height from line count
+                if (val.len > 0 && val.data) {
+                    uint32_t lines = 1;
+                    for (uint32_t i = 0; i < val.len; i++)
+                        if (val.data[i] == '\n') lines++;
+                    float needed = lines * 14.0f + 8;
+                    if (needed > row_h) row_h = needed;
+                }
+                cell_kids[c] = nullptr; // placeholder — built below
+            }
+        }
+        // Now build actual cell nodes with final row_h
+        for (uint16_t c = 0; c < cols; c++) {
+            Str val = table_get_cell(table, r, c);
+            bool is_active = ((int32_t)r == cfg.active_row && (int16_t)c == cfg.active_col);
+            Color cell_bg = is_active ? cfg.active_cell_bg : (r % 2 == 0 ? cfg.cell_bg_even : cfg.cell_bg_odd);
+            Color cell_border = is_active ? cfg.active_cell_border : cfg.border;
+            float sw = is_active ? 2.0f : 1.0f;
+            if (cell_kids[c] != nullptr) {
+                // Wrap rendered content
+                LayoutNode* rendered = cell_kids[c];
                 Node* cell_node = node_coord(a);
                 cell_node->size(col_widths[c], row_h);
                 cell_node->attach(make_elements(a, 1), 1);
@@ -126,7 +145,7 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
             } else {
                 auto cell = Box(a, col_widths[c], row_h)
                     .bg(cell_bg, cell_border, sw)
-                    .text(val.data, 12, cfg.cell_text);
+                    .text(val.data ? val.data : "", 12, cfg.cell_text);
                 cell_kids[c] = build(cell);
             }
         }

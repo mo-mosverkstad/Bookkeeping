@@ -91,7 +91,10 @@ inline LayoutNode* rich_render(Arena* a, const char* text, uint32_t len, float f
                     pos = bp + 1;
                     continue;
                 }
+                // Unmatched brace — treat $ as plain text, fall through
             }
+            // No valid tag or unmatched brace — treat $ as regular character
+            // Don't continue; let the plain text scanner below handle it by advancing past $
         }
 
         // Newline in plain text
@@ -101,9 +104,13 @@ inline LayoutNode* rich_render(Arena* a, const char* text, uint32_t len, float f
             continue;
         }
 
-        // Plain text segment
+        // Plain text segment (include $ if not a valid tag)
         uint32_t start = pos;
-        while (pos < len && text[pos] != '\n' && text[pos] != '$') pos++;
+        while (pos < len && text[pos] != '\n') {
+            if (text[pos] == '$' && pos > start) break; // stop before next $ to re-check
+            pos++;
+        }
+        if (pos == start) pos++; // ensure progress (single $ or other edge case)
         if (pos > start) add_text(text + start, pos - start);
     }
 
