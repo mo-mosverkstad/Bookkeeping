@@ -140,6 +140,9 @@ inline int run_demo() {
     FileBrowser file_browser;
     file_browser.init("/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources");
 
+    // ── Quit confirmation dialog ─────────────────────────────────────────────
+    bool quit_dialog_visible = false;
+
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
     Arena frame = arena_create(8 * 1024 * 1024);
     Theme th = theme_light();
@@ -450,7 +453,14 @@ inline int run_demo() {
 
     while (running) {
         while (win->poll_event(ev)) {
-            if (ev.type == InputEvent::QUIT) { running = false; break; }
+            if (ev.type == InputEvent::QUIT) {
+                if (dirty.is_dirty() && !quit_dialog_visible) {
+                    quit_dialog_visible = true; need_rebuild = true;
+                } else if (!quit_dialog_visible) {
+                    running = false;
+                }
+                break;
+            }
             if (ev.type == InputEvent::WINDOW_RESIZE) {
                 win_w = ev.x; win_h = ev.y;
                 need_rebuild = true;
@@ -459,6 +469,8 @@ inline int run_demo() {
             if (ev.type == InputEvent::KEY_DOWN && ev.key == 27) { // ESC
                 if (search_active) { search_active = false; need_rebuild = true; }
                 else if (editor.editing) { editor.cancel_edit(); need_rebuild = true; }
+                else if (quit_dialog_visible) { quit_dialog_visible = false; need_rebuild = true; }
+                else if (dirty.is_dirty()) { quit_dialog_visible = true; need_rebuild = true; }
                 else running = false;
                 break;
             }
@@ -877,6 +889,52 @@ inline int run_demo() {
                 }
 
                 bool handled = false;
+
+                // Quit dialog takes priority over everything
+                if (quit_dialog_visible) {
+                    Arena qa = arena_create(4096);
+                    float dw = 340, dh = 120;
+                    Node* qroot = node_coord(&qa);
+                    qroot->size(win_w, win_h);
+                    auto panel = VStack(&qa, 8).size(dw, dh).id("quit-panel");
+                    panel.child(Box(&qa, dw, 28));
+                    auto btns = HStack(&qa, 8).size(dw, 36);
+                    btns.child(Box(&qa, 80, 32).id("quit-save"));
+                    btns.child(Box(&qa, 100, 32).id("quit-dontsave"));
+                    btns.child(Box(&qa, 80, 32).id("quit-cancel"));
+                    panel.child(std::move(btns));
+                    LayoutNode* pn = build(panel);
+                    pn->x = (win_w - dw) / 2; pn->y = (win_h - dh) / 2;
+                    auto kids = make_children(&qa, 1);
+                    kids[0] = pn;
+                    qroot->set_children(kids, 1);
+                    qroot->compute(win_w, win_h);
+
+                    HitResult qhit[16];
+                    int qn = hit_test_deep(qroot, ev.x, ev.y, qhit, 16);
+                    for (int qi = qn - 1; qi >= 0; qi--) {
+                        if (!qhit[qi].node->id) continue;
+                        if (strcmp(qhit[qi].node->id, "quit-save") == 0) {
+                            editor.commit_edit();
+                            ViewSlot* v = ws.active_view();
+                            if (v && v->type == VIEW_TABLE) {
+                                Table* t = (Table*)v->data;
+                                const char* path = (t == people) ? people_save : (t == cities) ? cities_save : "/tmp/bookkeeping_data/other.csv";
+                                file_save_csv(&arena, t, path);
+                            }
+                            running = false; handled = true; break;
+                        }
+                        if (strcmp(qhit[qi].node->id, "quit-dontsave") == 0) {
+                            running = false; handled = true; break;
+                        }
+                        if (strcmp(qhit[qi].node->id, "quit-cancel") == 0) {
+                            quit_dialog_visible = false; need_rebuild = true; handled = true; break;
+                        }
+                    }
+                    arena_destroy(&qa);
+                    if (!handled) handled = true; // consume click even if outside buttons
+                    continue; // skip all other click handling
+                }
 
                 // Check if click is on scrollbar area (right 10px or bottom 10px of table-scroll)
                 for (int i = 0; i < n; i++) {
@@ -1313,6 +1371,34 @@ inline int run_demo() {
             LayoutNode* fb_overlay = file_browser_build(&frame, &file_browser, win_w, win_h, th);
             fb_overlay->compute(win_w, win_h);
             render_tree(win->backend(), fb_overlay);
+        }
+
+        // ── Quit confirmation dialog overlay ─────────────────────────────────
+        if (quit_dialog_visible) {
+            Arena qa = arena_create(4096);
+            float dw = 340, dh = 120;
+            Node* qroot = node_coord(&qa);
+            qroot->size(win_w, win_h);
+            qroot->attach(make_elements(&qa, 1), 1);
+            qroot->elements[0] = elem_rect({0, 0, win_w, win_h, {0,0,0,120}, COLOR_TRANSPARENT, 0, 0});
+
+            auto panel = VStack(&qa, 8).size(dw, dh).id("quit-panel")
+                .bg(th.surface, th.border, 2);
+            panel.child(Box(&qa, dw, 28).text("Unsaved changes! Save before quitting?", th.font_small, th.text));
+            auto btns = HStack(&qa, 8).size(dw, 36);
+            btns.child(Box(&qa, 80, 32).id("quit-save").bg({220,252,231,255}, {22,163,74,255}, 1).text("Save", th.font_small, {22,163,74,255}));
+            btns.child(Box(&qa, 100, 32).id("quit-dontsave").bg({254,226,226,255}, {220,38,38,255}, 1).text("Don't Save", th.font_small, {220,38,38,255}));
+            btns.child(Box(&qa, 80, 32).id("quit-cancel").bg(th.surface, th.border, 1).text("Cancel", th.font_small, th.text_secondary));
+            panel.child(std::move(btns));
+
+            LayoutNode* pn = build(panel);
+            pn->x = (win_w - dw) / 2; pn->y = (win_h - dh) / 2;
+            auto kids = make_children(&qa, 1);
+            kids[0] = pn;
+            qroot->set_children(kids, 1);
+            qroot->compute(win_w, win_h);
+            render_tree(win->backend(), qroot);
+            arena_destroy(&qa);
         }
 
         // ── Scrollbar overlay (drawn after tree, always reflects live state) ──
