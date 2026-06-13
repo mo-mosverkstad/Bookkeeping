@@ -239,3 +239,26 @@ across phases.
 **Benchmark results:**
 - Search 10k cells (exact match): ~242μs/iter
 - Search 10k cells (substring, many matches): ~468μs/iter
+
+---
+
+## Phase 9 — File I/O — 2026-06-13
+
+**Added:**
+- `src/core/file_io.h` — File read/write primitives, CSV load/save, Graph JSON load/save, dirty tracking, session persistence
+- `test/test_file_io.cpp` — 16 tests (3 file primitives, 3 CSV round-trip, 5 graph JSON, 1 dirty state, 3 session, 1 benchmark)
+- Demo updated: Ctrl+S saves active view, dirty tracking, session save on exit
+
+**Decisions:**
+- Graph JSON format: minimal hand-rolled parser (no external JSON library)
+- Session file: one path per line in `/tmp/bookkeeping_session.txt`
+- Dirty state tracks table and graph separately
+- File dialog not implemented (platform-dependent; Ctrl+O prints message)
+- Save to default path `/tmp/bookkeeping_table.csv` when no explicit file path
+
+**Bug fixed:**
+- None
+
+**Benchmark results:**
+- Save 500-row CSV: ~238μs/iter
+- Load 500-row CSV: ~5.5μs/iter

@@ -904,6 +904,77 @@ Controls:
 
 ---
 
+## Phase 9 — File I/O
+
+### What it does
+Loads and saves CSV tables and graph JSON files from/to disk. Tracks dirty state
+and persists the user's session (last-opened files).
+
+### File I/O Architecture (`src/core/file_io.h`)
+
+```
+file_read(arena, path)  → Str (entire file in arena)
+file_write(path, data, len) → bool
+
+file_load_csv(arena, path) → Table*
+file_save_csv(arena, table, path) → bool
+
+file_load_graph(arena, path) → Graph*
+file_save_graph(arena, graph, path) → bool
+```
+
+The design follows the **Gateway Pattern** — file I/O is isolated in a single module
+that the rest of the application calls through simple functions. No file handles leak
+into business logic.
+
+### Graph JSON Format
+
+```json
+{
+  "nodes": [
+    {"id": "Start", "label": "Start Node"},
+    {"id": "End", "label": "End Node"}
+  ],
+  "edges": [
+    {"from": "Start", "to": "End", "label": "next"}
+  ]
+}
+```
+
+The parser is hand-rolled (no external JSON dependency). It uses `strstr` to find
+array keys, then parses objects with a simple state machine that extracts quoted
+string key-value pairs.
+
+### Dirty Tracking
+
+```cpp
+struct DirtyState {
+    bool table_dirty;
+    bool graph_dirty;
+    uint32_t last_save_history_pos;
+
+    void mark_clean(uint32_t history_pos);
+    void mark_table_dirty();
+    bool is_dirty() const;
+};
+```
+
+Dirty state enables save prompts on exit and visual indicators.
+
+### Session Persistence
+
+Session file format: one file path per line.
+
+```
+/home/user/data.csv
+/home/user/workflow.json
+```
+
+On exit, open file paths are saved. On startup, the session is restored
+so the user continues where they left off.
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

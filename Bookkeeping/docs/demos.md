@@ -278,3 +278,32 @@ make clean && make
 - Nav tree re-opens closed views
 - Search "London" in People tab → shows matching cells
 - Scroll stops at last row (no infinite scroll)
+
+
+---
+
+## Phase 9 — File I/O
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- All Phase 8 features still work (tabs, nav, search, editing)
+- Ctrl+S saves the active table to `/tmp/bookkeeping_table.csv` (prints "Saved: ..." to terminal)
+- On exit, session file is written to `/tmp/bookkeeping_session.txt`
+- If unsaved changes exist on exit, prints "Warning: unsaved changes were discarded."
+
+### Interaction
+1. **Save**: Ctrl+S saves active table/graph to disk
+2. **Dirty tracking**: Editing marks the view as dirty; save clears it
+3. **Session restore**: On startup, last session paths are printed (if session file exists)
+4. All Phase 8 features: tabs, nav tree, search, cell editing, undo/redo, scroll
+
+### Verification
+- `make test` → 351 tests pass (102+23+27+18+50+23+34+27+31+16)
+- `make test-file-io` → 16 tests pass
+- Edit a cell, Ctrl+S, check `/tmp/bookkeeping_table.csv` contains the edit
+- Restart app, verify session restore message

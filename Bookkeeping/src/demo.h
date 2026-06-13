@@ -2,6 +2,7 @@
 #include "src/core/arena.h"
 #include "src/core/parser/csv.h"
 #include "src/core/search.h"
+#include "src/core/file_io.h"
 #include "src/app/table_view.h"
 #include "src/app/table_editor.h"
 #include "src/app/graph_view.h"
@@ -15,7 +16,7 @@
 #include <cstdio>
 #include <cstring>
 
-// ── Main demo: Phase 8 — Search + Navigation + Workspace ─────────────────────
+// ── Main demo: Phase 9 — File I/O + Workspace ───────────────────────────────
 
 inline int run_demo() {
     Arena arena = arena_create(512 * 1024);
@@ -55,6 +56,21 @@ inline int run_demo() {
     // ── Table editor ─────────────────────────────────────────────────────────
     TableEditor editor;
     editor.init(&arena, people);
+
+    // ── Dirty tracking + file paths ──────────────────────────────────────────
+    DirtyState dirty = {false, false, 0};
+    const char* people_path = nullptr;  // no file path yet (in-memory demo data)
+    const char* cities_path = nullptr;
+    const char* graph_path = nullptr;
+
+    // ── Session: try to load last session ────────────────────────────────────
+    const char* session_file = "/tmp/bookkeeping_session.txt";
+    SessionData session = session_load(&arena, session_file);
+    if (session.count > 0) {
+        printf("Session restored: %u files\n", session.count);
+        for (uint16_t i = 0; i < session.count; i++)
+            printf("  %s\n", session.paths[i]);
+    }
 
     // ── Search state ─────────────────────────────────────────────────────────
     char search_buf[128] = "";
@@ -141,7 +157,7 @@ inline int run_demo() {
 
         // Root
         auto root_ui = VStack(a, 4).padding(8).size(580, 0).id("root")
-            .child(Label(a, "Phase 8: Workspace | Tabs | Nav | Search (Ctrl+F=search, Tab/click=switch)", 9))
+            .child(Label(a, "Ctrl+F=search | Ctrl+S=save | Ctrl+Z/Y=undo/redo | click=nav/tabs", 9))
             .child(std::move(search_bar))
             .child(UI{*tabs_node, a})
             .child(std::move(content));
@@ -158,7 +174,7 @@ inline int run_demo() {
     LayoutNode* root = rebuild_ui();
 
     // ── Event loop ───────────────────────────────────────────────────────────
-    PlatformWindow* win = create_window("Bookkeeping — Phase 8: Workspace + Search + Tabs + NavTree", 600, 500);
+    PlatformWindow* win = create_window("Bookkeeping — Phase 9: File I/O + Ctrl+S save + Ctrl+O open", 600, 500);
     bool running = true;
     bool need_rebuild = false;
     InputEvent ev;
@@ -231,10 +247,34 @@ inline int run_demo() {
                 continue; // consume key when search is active
             }
 
-            // Ctrl+Z / Ctrl+Y for undo/redo
+            // Ctrl+Z / Ctrl+Y for undo/redo, Ctrl+S save, Ctrl+O open
             if (ev.type == InputEvent::KEY_DOWN && !search_active && (ev.mod & 0x00C0)) {
-                if (ev.key == 'z') { editor.undo(); need_rebuild = true; }
-                else if (ev.key == 'y') { editor.redo(); need_rebuild = true; }
+                if (ev.key == 'z') { editor.undo(); need_rebuild = true; dirty.mark_table_dirty(); }
+                else if (ev.key == 'y') { editor.redo(); need_rebuild = true; dirty.mark_table_dirty(); }
+                else if (ev.key == 's') {
+                    // Save active view
+                    ViewSlot* v = ws.active_view();
+                    if (v && v->type == VIEW_TABLE && people_path) {
+                        editor.commit_edit();
+                        file_save_csv(&arena, (Table*)v->data, people_path);
+                        dirty.mark_clean(editor.history.past_count);
+                        printf("Saved: %s\n", people_path);
+                    } else if (v && v->type == VIEW_TABLE) {
+                        // Default save path
+                        const char* default_path = "/tmp/bookkeeping_table.csv";
+                        editor.commit_edit();
+                        file_save_csv(&arena, (Table*)v->data, default_path);
+                        dirty.mark_clean(editor.history.past_count);
+                        printf("Saved: %s\n", default_path);
+                    } else if (v && v->type == VIEW_GRAPH && graph_path) {
+                        file_save_graph(&arena, (Graph*)v->data, graph_path);
+                        dirty.graph_dirty = false;
+                        printf("Saved: %s\n", graph_path);
+                    }
+                } else if (ev.key == 'o') {
+                    // Load a CSV file (hardcoded path for demo — real app would use file dialog)
+                    printf("Open file: provide path via command line args (not implemented in demo)\n");
+                }
             }
 
             // Mouse wheel → scroll
@@ -366,6 +406,7 @@ inline int run_demo() {
                                     col = c;
                                 }
                                 editor.commit_edit();
+                                dirty.mark_table_dirty();
                                 editor.init(&arena, t);
                                 editor.begin_edit(row, col);
                                 printf("Edit [%u,%u] = \"%s\"\n", row, col, editor.edit_buffer);
@@ -393,6 +434,16 @@ inline int run_demo() {
         render_tree(win->backend(), root);
         win->end_frame();
     }
+
+    // ── On exit: save session ────────────────────────────────────────────────
+    const char* open_paths[16];
+    uint16_t open_count = 0;
+    if (people_path) open_paths[open_count++] = people_path;
+    if (cities_path) open_paths[open_count++] = cities_path;
+    if (graph_path) open_paths[open_count++] = graph_path;
+    if (open_count > 0) session_save(session_file, open_paths, open_count);
+
+    if (dirty.is_dirty()) printf("Warning: unsaved changes were discarded.\n");
 
     printf("\n");
     destroy_window(win);

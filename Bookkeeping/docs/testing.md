@@ -575,3 +575,49 @@ Custom lightweight test framework in `test/test.h`:
 | Nav leaf can't reopen closed view | `unmount()` removed view; `find()` returned -1 | Re-mount view on nav leaf click if missing |
 | Ctrl+F / Ctrl+Z not working | Checked ASCII control codes (6, 26); SDL sends keysym + mod | Added `mod` field to InputEvent, check `key == 'f'` with ctrl mod |
 | Infinite table scroll | Clamp only applied when `max_s > 0`; content < viewport → no clamp | Always clamp: `if (max_s < 0) max_s = 0` |
+
+
+---
+
+## Phase 9 — File I/O tests (16 tests)
+
+### File primitives (3 tests)
+| Test | Description | Result |
+|---|---|---|
+| file_read_basic | Read file, verify content | PASS |
+| file_read_nonexistent | Missing file returns empty | PASS |
+| file_write_basic | Write + re-read verifies content | PASS |
+
+### CSV file load/save (3 tests)
+| Test | Description | Result |
+|---|---|---|
+| csv_load_file | Load CSV from disk, verify table structure | PASS |
+| csv_save_file | Save table, reload, verify cells | PASS |
+| csv_roundtrip_edit_save_reload | Load→edit→save→reload, verify edit persisted | PASS |
+
+### Graph JSON (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| graph_load_json | Load 2-node 1-edge graph from JSON | PASS |
+| graph_save_json | Save graph, reload, verify nodes+edges | PASS |
+| graph_load_no_edges | Single node, empty edges array | PASS |
+| graph_load_empty | Empty nodes + edges arrays | PASS |
+| graph_roundtrip_many_nodes | 20 nodes, 19 edges round-trip | PASS |
+
+### Dirty tracking (1 test)
+| Test | Description | Result |
+|---|---|---|
+| dirty_state_basic | Mark dirty, mark clean, verify state | PASS |
+
+### Session persistence (3 tests)
+| Test | Description | Result |
+|---|---|---|
+| session_save_load | Save 3 paths, reload, verify | PASS |
+| session_load_empty | Empty file returns 0 paths | PASS |
+| session_load_nonexistent | Missing file returns 0 paths | PASS |
+
+### Benchmarks
+| Benchmark | Input | Time | Notes |
+|---|---|---|---|
+| save 500-row CSV | 500×5 table | 238μs/iter | 50 iterations |
+| load 500-row CSV | Same file | 5.5μs/iter | 50 iterations |
