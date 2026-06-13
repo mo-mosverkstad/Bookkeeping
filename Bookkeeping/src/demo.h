@@ -416,14 +416,14 @@ inline int run_demo() {
                 continue;
             }
 
-            // TEXT_INPUT: actual typed characters (handles shift, caps, special chars)
+            // TEXT_INPUT: actual typed characters (handles shift, caps, special chars, unicode)
             if (ev.type == InputEvent::TEXT_INPUT) {
-                char ch = ev.text[0];
-                if (ch && ch >= 32) {
-                    if (search_active && search_len < 126) {
-                        memmove(search_buf + search_cursor + 1, search_buf + search_cursor, search_len - search_cursor);
-                        search_buf[search_cursor] = ch;
-                        search_cursor++; search_len++;
+                uint16_t tlen = (uint16_t)strlen(ev.text);
+                if (tlen > 0) {
+                    if (search_active && search_len + tlen <= 126) {
+                        memmove(search_buf + search_cursor + tlen, search_buf + search_cursor, search_len - search_cursor);
+                        memcpy(search_buf + search_cursor, ev.text, tlen);
+                        search_cursor += tlen; search_len += tlen;
                         search_buf[search_len] = 0;
                         // Trigger search
                         Arena sa = arena_create(16384);
@@ -438,10 +438,10 @@ inline int run_demo() {
                         }
                         arena_destroy(&sa);
                         need_rebuild = true;
-                    } else if (source_focused && source_len < 510) {
-                        memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
-                        source_buf[source_cursor] = ch;
-                        source_cursor++; source_len++;
+                    } else if (source_focused && source_len + tlen <= 510) {
+                        memmove(source_buf + source_cursor + tlen, source_buf + source_cursor, source_len - source_cursor);
+                        memcpy(source_buf + source_cursor, ev.text, tlen);
+                        source_cursor += tlen; source_len += tlen;
                         source_buf[source_len] = 0;
                         need_rebuild = true;
                     }

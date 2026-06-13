@@ -37,9 +37,20 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
     // Compute column widths (based on header text measurement, min cfg.col_min_width)
     float* col_widths = (float*)arena_alloc(a, sizeof(float) * cols, 4);
     for (uint16_t c = 0; c < cols; c++) {
+        // Start with header width
         TextMeasure m = measure_text(table->columns[c].name.data, table->columns[c].name.len,
                                      "sans", 12, TEXT_BOLD);
         col_widths[c] = m.width + 16;
+        // Scan data rows for wider values
+        uint32_t scan = rows < 50 ? rows : 50; // sample first 50 rows for performance
+        for (uint32_t r = 0; r < scan; r++) {
+            Str val = table_get_cell(table, r, c);
+            if (val.len > 0) {
+                TextMeasure cm = measure_text(val.data, val.len, "sans", 12, TEXT_NORMAL);
+                float w = cm.width + 16;
+                if (w > col_widths[c]) col_widths[c] = w;
+            }
+        }
         if (col_widths[c] < cfg.col_min_width) col_widths[c] = cfg.col_min_width;
     }
 
@@ -82,7 +93,11 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
     }
 
     // ── Scroll viewport for data rows ────────────────────────────────────────
-    Node* scroll = node_scroll(a, cfg.viewport_width, cfg.viewport_height);
+    // Compute total table width from columns
+    float total_w = 0;
+    for (uint16_t c = 0; c < cols; c++) total_w += col_widths[c] + cfg.gap;
+    float scroll_w = total_w > cfg.viewport_width ? total_w : cfg.viewport_width;
+    Node* scroll = node_scroll(a, scroll_w, cfg.viewport_height);
     scroll->set_gap(0).set_id("table-scroll");
     scroll->set_children(row_nodes, rows);
 
