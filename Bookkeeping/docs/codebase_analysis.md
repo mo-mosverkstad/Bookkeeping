@@ -1626,6 +1626,65 @@ edge_elems[idx] = elem_line({x1, y1, x2, y2, edge_color, 1.5f});
 
 ---
 
+## Phase 17 — Table Polish (Arrow Navigation + Row Actions)
+
+### What it does
+Adds keyboard cell navigation and per-row insert/delete action buttons,
+matching the Webapp's interactive table editing experience.
+
+### Arrow Key Navigation
+
+When a cell is active (editor.editing = true) and the source editor is not focused:
+
+```cpp
+if (ev.key == 1073741906 && editor.active_cell.row > 0) {        // Up
+    editor.commit_edit();
+    editor.begin_edit(editor.active_cell.row - 1, editor.active_cell.col);
+}
+else if (ev.key == 1073741905 && row < t->row_count - 1) {       // Down
+    editor.commit_edit();
+    editor.begin_edit(editor.active_cell.row + 1, editor.active_cell.col);
+}
+// Left, Right, Tab similarly...
+```
+
+The source editor content updates to the new cell after each move.
+
+### Row Action Buttons
+
+Each row has a small HStack at the right edge with two buttons:
+
+```
+┌──────┬──────┬──────┬─────┐
+│ cell │ cell │ cell │[+][x]│  ← per-row actions
+└──────┴──────┴──────┴─────┘
+```
+
+- **[+]** (green): `table_insert_row(&arena, table, row + 1)` — inserts empty row below
+- **[x]** (red): `table_remove_row(table, row)` — deletes the row
+
+Button IDs follow the pattern `ins-N` / `del-N` for click detection:
+
+```cpp
+if (strncmp(deep[i].node->id, "ins-", 4) == 0) {
+    uint32_t row = (uint32_t)atoi(deep[i].node->id + 4);
+    table_insert_row(&arena, (Table*)v->data, row + 1);
+}
+```
+
+### Tab Navigation
+
+Tab moves to the next cell. At end of row, wraps to first column of next row:
+
+```cpp
+uint16_t nc = editor.active_cell.col + 1;
+uint32_t nr = editor.active_cell.row;
+if (nc >= t->col_count) { nc = 0; nr++; }
+if (nr < t->row_count) editor.begin_edit(nr, nc);
+```
+
+---
+
 ## Phase 16 — Graph Filter + Association Panel
 
 ### What it does

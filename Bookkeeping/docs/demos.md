@@ -502,3 +502,21 @@ make clean && make
 ### Verification
 - `make test` → 380 tests pass (13 suites)
 - `make test-gfilter` → 6 tests pass
+
+
+---
+
+## Phase 17 — Table Polish
+
+### Interaction
+- **Arrow keys** (Up/Down/Left/Right): Move active cell when editing
+- **Tab**: Move to next cell (wraps to next row)
+- **[+] button**: Insert empty row below (green button at row end)
+- **[x] button**: Delete row (red button at row end)
+- Source editor syncs when navigating via arrows/tab
+
+### Verification
+- `make test` → 380 tests pass
+- Click cell → arrow keys move between cells
+- Click [+] → new row appears below
+- Click [x] → row removed

@@ -771,3 +771,13 @@ Custom lightweight test framework in `test/test.h`:
 | get_relations | Unique edge labels, deduplicated | PASS |
 | get_associations | Outgoing + incoming edges for entity | PASS |
 | get_associations_empty | Node with no edges → empty | PASS |
+
+
+---
+
+## Phase 17 — Table Polish
+
+### No new test file (existing tests updated)
+- tableview_row_has_cells: updated child_count from 3 → 4 (cells + actions)
+- tableview_single_cell: updated child_count from 1 → 2 (cell + actions)
+- Arrow key navigation and insert/delete verified interactively
