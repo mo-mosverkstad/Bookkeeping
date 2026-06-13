@@ -382,3 +382,222 @@ void init_trig_lut() {
 | Events | DOM events | SDL2 event poll loop |
 | Text shaping | Browser's text engine | stb_truetype or FreeType |
 | Testing | Vitest + happy-dom | Custom test harness + framebuffer capture |
+
+
+---
+
+## Webapp Parity — Additional Phases
+
+These phases bring the C/C++ port to full visual and functional parity with the
+TypeScript/HTML/CSS Webapp.
+
+---
+
+### Phase 11 — Visual Theme + Layout Parity
+
+**Goal**: Match the Webapp's exact layout structure, color palette, fonts, and spacing.
+
+**Tasks**:
+- Implement the Webapp's light theme color palette:
+  - `--bg`: #f8fafc (light gray background)
+  - `--surface`: #ffffff (white panels)
+  - `--border`: #e2e8f0 (light border)
+  - `--text`: #1e293b (dark text)
+  - `--text-secondary`: #334155
+  - `--text-muted`: #64748b (gray annotations)
+  - `--accent-light`: #f1f5f9 (hover highlight)
+  - Tab active: white surface, bold, raised 2px
+  - Tab inactive: #cbd5e1 background, #475569 text
+  - Status bar: #f1f5f9 background, 0.8em text
+- Match the layout structure (top to bottom):
+  1. Toolbar bar (2.4em height, white, border-bottom)
+  2. Tab bar (2em, #e2e8f0 background, tabs with close ✕)
+  3. Content area (flex row):
+     - Nav tree panel (220px, left, collapsible)
+     - Workspace (flex:1, white, scrollable)
+     - Sidebar/Source editor (340px, right, collapsible)
+  4. Status bar (1.6em, accent-light)
+- Font: primary body = "SangBleu Sunrise Light" fallback "Segoe UI";
+  heading = "SangBleu Empire"; UI = Arial. Size: 13px base.
+- Table styling: border-collapse, sticky header, row-number column (2.5em),
+  checkbox column (sticky left, 2em), actions column (sticky right, 3.2em),
+  alternating row hover (#f8fafc)
+
+**Tests**: Visual regression via pixel capture comparing against reference colors.
+
+---
+
+### Phase 12 — control.json + Folder Loading
+
+**Goal**: Load `control.json` manifests and multi-CSV folder structures.
+
+**Tasks**:
+- Parse `control.json` format:
+  ```json
+  {
+    "entries": [
+      { "type": "table", "id": "basic-algebra", "file": "Basic algebra.csv" },
+      { "type": "table", "id": "derivatives", "file": "Derivatives.csv" }
+    ]
+  }
+  ```
+  Also support extended format with diagram declarations:
+  ```json
+  { "id": "flow", "view": "flow", "nodes": {"file":"nodes.csv","mapping":{...}}, "edges": {...} }
+  ```
+- Folder loading: given a directory path, find `control.json`, parse it,
+  load all referenced CSV files relative to that directory
+- If no `control.json`, load all `.csv` files in the directory as standalone tables
+- Populate the navigation tree from the folder structure:
+  - Root folder → nav folder node (📁 icon)
+  - Each table entry → nav leaf (▤ icon)
+  - Each graph/diagram entry → nav leaf (◈ icon)
+- Load the testresources/ folders as demo data
+
+**Tests**: Load Mathematics/Chemistry/Software reference sheets, verify table counts and content.
+
+---
+
+### Phase 13 — Source Editor Panel
+
+**Goal**: A text editor panel in the right sidebar for editing cell source code.
+
+**Tasks**:
+- Text editor widget: monospace textarea with cursor, selection, scroll
+- Syntax highlighting overlay (color-coded tokens for math/chem/physics/text)
+- Syntax types: math, chemistry, geometry, physics, table-source, graph-source, text, rich
+- Token colors: keyword=#7c3aed, number=#b45309, string=#15803d, operator=#dc2626,
+  comment=#94a3b8 italic, element=#0f766e bold
+- Local undo/redo stack (independent of table EditHistory)
+- 300ms debounce parsing with live preview
+- "Parse" button (manual trigger) and "Apply" button (commit to model)
+- Toggle collapse (▾/▸ button)
+- Focus state: 2px blue border when focused, 1px thin when not
+- Layout: header row (label + buttons) → editor pane (flex:1) → preview pane (35%)
+
+**Tests**: Parse various expressions, verify highlight tokens, test local undo/redo.
+
+---
+
+### Phase 14 — Flow Diagram View
+
+**Goal**: SVG-style flow diagram renderer matching the Webapp's FlowDiagramView.
+
+**Tasks**:
+- Layout algorithm: Tarjan SCC → cycle nodes on circle, DAG nodes in layered ranks
+- Node shapes: rect (default), ellipse, diamond — driven by `nodeStyles` config
+- Node sizing: width = max(64, label.length * 7 + 28), height = 32
+- Edge routing: orthogonal for DAG edges, curved arcs for back-edges
+- Edge arrows: open, filled, flat — driven by `edgeStyles` config
+- Diagram view: pan (mouse drag), zoom (Ctrl+scroll), node selection (click)
+- Sequence diagram mode: actors as columns, messages as horizontal arrows
+- Spatial diagram mode: nodes positioned by x,y from data, edges connect them
+- Interactive: click node → show in source editor, drag to reposition
+
+**Tests**: Layout 10+ node graphs, verify positions, render to pixels.
+
+---
+
+### Phase 15 — Document View
+
+**Goal**: Composite view that renders a Document as stacked sections.
+
+**Tasks**:
+- Document model: name + ordered sections, each section has: id, title, block (table or graph)
+- Render as vertical stack: sticky document title (heading font, border-bottom)
+- Each section: collapsible header (toggle ▼/▸ + title) + body (table or diagram)
+- Section header styling: accent-light background, cursor pointer, hover highlight
+- Mount/unmount child views (TableView or FlowDiagramView) per section
+- Scroll state and collapse state preserved across tab switches
+
+**Tests**: Create document with mixed sections, verify render and collapse.
+
+---
+
+### Phase 16 — Graph Filter + Association Panel
+
+**Goal**: Filter tables by graph relationships and show association details.
+
+**Tasks**:
+- Association graph model: entities linked by typed relations (directed edges)
+- Graph filter UI: two dropdowns (Relation type, Target entity) + Filter/All buttons
+- Filter action: show only table rows whose entity appears in filtered graph
+- Association detail panel: floating popup showing outgoing/incoming edges for an entity
+- Entity links: clickable, navigate to the entity's associations
+- Relation types: support inverse relation names
+
+**Tests**: Filter by relation, verify correct rows shown. Click entity, verify associations.
+
+---
+
+### Phase 17 — Table Polish (drag-to-reorder, multi-cell, clipboard)
+
+**Goal**: Full table interaction parity with the Webapp.
+
+**Tasks**:
+- Row checkbox column (sticky left): select rows for bulk operations
+- Row drag-to-reorder: visual drop indicator (2px line), ghost opacity 0.35
+- Row actions column (sticky right): insert (+) and delete (×) buttons per row
+- Multi-cell selection: Shift+click range, Ctrl+click toggle, visual highlight (#dbeafe)
+- Cut/Paste: Ctrl+X cuts cells (dashed outline #d97706), Ctrl+V pastes
+- Cell drag-to-move: selected cells draggable to new position (green dashed ghost)
+- Arrow key navigation between cells
+- Active cell styling: 2px solid #475569 outline, accent-light background
+- Row number column (2.5em, right-aligned, gray, sticky)
+
+**Tests**: Simulate multi-select, drag, cut/paste, verify model state.
+
+---
+
+### Phase 18 — Search + Neighbourhood Panels
+
+**Goal**: Match the Webapp's search UI with floating result panels.
+
+**Tasks**:
+- Search bar in toolbar: text input (160px) + "Search" button + identifier input + "Find Symbol" + "Clear"
+- Floating results panel: fixed position below toolbar, max-height 260px, shadow, scrollable
+- Result items: location (muted, small) + value (monospace) with match highlight (yellow #fef08a)
+- Graph neighbourhood panel: triggered from entity clicks, shows nodes within N hops
+- Neighbourhood items: hop count badge + node label + relation type (italic)
+- Close panels on outside click
+
+**Tests**: Search, verify panel content. Click entity, verify neighbourhood panel.
+
+---
+
+### Phase 19 — Cell Renderers (math/chem/physics/geometry fidelity)
+
+**Goal**: Match the Webapp's native-math.css rendering exactly.
+
+**Tasks**:
+- Math renderer: match Cambria Math font, fractions (inline-block, border-bottom),
+  large operators (1.5em), integral (inline-flex), sqrt (border-top + √ pseudo-element),
+  matrix (inline-table), piecewise (table with left border), opstack (subscript/superscript stacking)
+- Chemistry: subscript numbers, reaction arrows, state symbols
+- Physics: same as math (delegated)
+- Geometry: same as math (delegated)
+- Rich text cells: inline rendering with embedded $math{}, $chem{}, $phys{}, $geom{}
+- Line-height: 1.6 for rich cells
+- Error display: red monospace for parse failures within cells
+
+**Tests**: Render complex expressions, compare pixel output against reference.
+
+---
+
+### Phase 20 — Final Integration + Toolbar
+
+**Goal**: Complete toolbar, keyboard shortcuts, session management, and polish.
+
+**Tasks**:
+- Toolbar layout: Open | (dynamic) | Save + Export + ◀Editor + ☰Nav | Filter | Search
+- Dynamic toolbar: context-sensitive buttons from active view (e.g., "+ Row" for tables)
+- File open: load from filesystem path (platform dialog or CLI argument)
+- Export CSV: serialize active table, write to file
+- Toggle sidebar/nav: animated collapse (width 0 transition)
+- Session banner in status bar: shows last restore info
+- Dirty indicator: file names marked with * when modified
+- Ctrl+S saves all modified files
+- Error message panel: red background, monospace, below sidebar
+
+**Tests**: Full end-to-end workflow: open folder → navigate → edit → save → verify.
+**Benchmark**: Full application with 20-table reference sheet loaded, measure startup + first-frame time.
