@@ -964,7 +964,7 @@ inline int run_demo() {
                 bool in_tab_strip = false;
                 if (!handled) {
                     for (int i = 0; i < n; i++) {
-                        if (deep[i].node->id && strcmp(deep[i].node->id, "tab-strip") == 0) {
+                        if (deep[i].node->id && strcmp(deep[i].node->id, "tab-bar") == 0) {
                             in_tab_strip = true; break;
                         }
                     }
