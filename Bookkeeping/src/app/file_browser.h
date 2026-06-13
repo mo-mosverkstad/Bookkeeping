@@ -66,11 +66,16 @@ struct FileBrowser {
         }
         closedir(dir);
 
-        // Sort: dirs first, then files (but keep ".." always at index 0)
-        for (uint16_t i = 2; i < entry_count; i++) {
+        // Sort: dirs first (alphabetical), then files (alphabetical). Keep ".." at index 0.
+        uint16_t start = (entry_count > 0 && strcmp(entries[0].name, "..") == 0) ? 1 : 0;
+        for (uint16_t i = start + 1; i < entry_count; i++) {
             FileBrowserEntry tmp = entries[i];
             uint16_t j = i;
-            while (j > 1 && !entries[j-1].is_dir && tmp.is_dir) {
+            while (j > start) {
+                bool swap = false;
+                if (tmp.is_dir && !entries[j-1].is_dir) swap = true;
+                else if (tmp.is_dir == entries[j-1].is_dir && strcasecmp(tmp.name, entries[j-1].name) < 0) swap = true;
+                if (!swap) break;
                 entries[j] = entries[j-1]; j--;
             }
             entries[j] = tmp;
