@@ -271,6 +271,12 @@ inline int run_demo() {
                     }
                 }
 
+                // Click outside search bar → deactivate search
+                if (!handled && search_active) {
+                    search_active = false;
+                    need_rebuild = true;
+                }
+
                 // Check tab clicks (only if click is inside tab-strip)
                 bool in_tab_strip = false;
                 if (!handled) {
