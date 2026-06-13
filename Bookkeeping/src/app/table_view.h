@@ -36,6 +36,7 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
 
     // Compute column widths (based on header text measurement, min cfg.col_min_width)
     float* col_widths = (float*)arena_alloc(a, sizeof(float) * cols, 4);
+    if (!col_widths) return node_leaf(a, 100, 20); // OOM guard
     for (uint16_t c = 0; c < cols; c++) {
         // Start with header width
         TextMeasure m = measure_text(table->columns[c].name.data, table->columns[c].name.len,

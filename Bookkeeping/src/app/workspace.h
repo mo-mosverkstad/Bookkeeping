@@ -29,8 +29,8 @@ struct Workspace {
     uint16_t view_capacity;
 
     void init(Arena* a, uint16_t view_cap = 16) {
-        tabs.init(a);
-        nav.init(a);
+        tabs.init(a, view_cap);
+        nav.init(a, view_cap);
         views = (ViewSlot*)arena_alloc(a, sizeof(ViewSlot) * view_cap, 8);
         memset(views, 0, sizeof(ViewSlot) * view_cap);
         view_count = 0;

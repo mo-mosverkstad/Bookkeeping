@@ -3,6 +3,7 @@
 #include "src/core/parser/csv.h"
 #include "src/core/search.h"
 #include "src/core/file_io.h"
+#include "src/core/control.h"
 #include "src/core/theme.h"
 #include "src/app/table_view.h"
 #include "src/app/table_editor.h"
@@ -35,7 +36,7 @@ static inline uint16_t utf8_next(const char* buf, uint16_t len, uint16_t pos) {
 }
 
 inline int run_demo() {
-    Arena arena = arena_create(512 * 1024);
+    Arena arena = arena_create(4 * 1024 * 1024);
 
     // ── Persistent save paths ────────────────────────────────────────────────
     const char* save_dir = "/tmp/bookkeeping_data/";
@@ -77,7 +78,7 @@ inline int run_demo() {
 
     // ── Workspace setup ──────────────────────────────────────────────────────
     Workspace ws;
-    ws.init(&arena);
+    ws.init(&arena, 64);
     ws.mount("People", "people", VIEW_TABLE, people);
     ws.mount("Cities", "cities", VIEW_TABLE, cities);
     ws.mount("Workflow", "workflow", VIEW_GRAPH, &demo_graph);
@@ -125,7 +126,7 @@ inline int run_demo() {
     char source_preview[256] = "";  // parsed preview text
 
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
-    Arena frame = arena_create(256 * 1024);
+    Arena frame = arena_create(8 * 1024 * 1024);
     Theme th = theme_light();
 
     // ── Build functions ──────────────────────────────────────────────────────
@@ -498,16 +499,8 @@ inline int run_demo() {
                     }
                     need_rebuild = true;
                 } else if (ev.key == 'o') {
-                    // Open: load from testresources path
-                    const char* test_path = "/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources/Mathematics reference sheet/Basic algebra.csv";
-                    Table* loaded = file_load_csv(&arena, test_path);
-                    if (loaded) {
-                        ws.mount(loaded->name.data, "loaded", VIEW_TABLE, loaded);
-                        editor.init(&arena, loaded);
-                        printf("Opened: %s (%u rows)\n", test_path, loaded->row_count);
-                    } else {
-                        printf("Failed to open: %s\n", test_path);
-                    }
+                    // Same as Open button click
+                    printf("Use the Open button to load a folder.\n");
                     need_rebuild = true;
                 } else if (ev.key == 1073741906) { // Ctrl+Up arrow — move row up
                     ViewSlot* v = ws.active_view();
@@ -539,7 +532,7 @@ inline int run_demo() {
 
             // Mouse wheel → scroll
             if (ev.type == InputEvent::MOUSE_WHEEL) {
-                HitResult deep[16];
+                HitResult deep[32];
                 int n = root->hit_deep(ev.x, ev.y, deep, 16);
                 for (int i = n - 1; i >= 0; i--) {
                     if (deep[i].node->type == LAYOUT_SCROLL) {
@@ -556,7 +549,7 @@ inline int run_demo() {
 
             // Mouse click
             if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
-                HitResult deep[16];
+                HitResult deep[32];
                 int n = hit_test_deep(root, ev.x, ev.y, deep, 16);
 
                 bool handled = false;
@@ -577,14 +570,23 @@ inline int run_demo() {
                         break;
                     }
                     if (deep[i].node->id && strcmp(deep[i].node->id, "btn-open") == 0) {
-                        const char* test_path = "/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources/Mathematics reference sheet/Basic algebra.csv";
-                        Table* loaded = file_load_csv(&arena, test_path);
-                        if (loaded) {
-                            ws.mount(loaded->name.data, "loaded", VIEW_TABLE, loaded);
-                            editor.init(&arena, loaded);
-                            printf("Opened: %s (%u rows)\n", test_path, loaded->row_count);
+                        const char* folder = "/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources/Mathematics reference sheet";
+                        Arena load_arena = arena_create(4 * 1024 * 1024);
+                        LoadedFolder lf = folder_load(&load_arena, folder);
+                        if (lf.table_count > 0) {
+                            // Add a nav folder
+                            NavNode* nav_folder = ws.nav.add_root(&arena, lf.name, "loaded-folder", 32);
+                            for (uint16_t ti = 0; ti < lf.table_count; ti++) {
+                                // Copy table into main arena (load_arena will be destroyed)
+                                // Actually keep load_arena alive — store pointer
+                                ws.mount(lf.table_ids[ti], lf.table_ids[ti], VIEW_TABLE, lf.tables[ti]);
+                                NavTree::add_child(&arena, nav_folder, lf.table_ids[ti], lf.table_ids[ti], 0);
+                            }
+                            printf("Opened folder: %s (%u tables)\n", lf.name, lf.table_count);
+                            // Don't destroy load_arena — tables live there
                         } else {
-                            printf("Failed to open: %s\n", test_path);
+                            printf("No tables found in: %s\n", folder);
+                            arena_destroy(&load_arena);
                         }
                         need_rebuild = true;
                         handled = true;
