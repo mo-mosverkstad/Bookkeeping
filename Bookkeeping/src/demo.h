@@ -735,7 +735,19 @@ inline int run_demo() {
                                 float lx = deep[i].local_x, accum = 0;
                                 Table* t = (Table*)v->data;
                                 for (uint16_t c = 0; c < t->col_count; c++) {
-                                    accum += tvcfg.col_min_width + tvcfg.gap;
+                                    // Compute actual col width (same logic as table_view_build)
+                                    TextMeasure hm = measure_text(t->columns[c].name.data, t->columns[c].name.len, "sans", 12, TEXT_BOLD);
+                                    float cw = hm.width + 16;
+                                    uint32_t scan = t->row_count < 50 ? t->row_count : 50;
+                                    for (uint32_t sr = 0; sr < scan; sr++) {
+                                        Str sv = table_get_cell(t, sr, c);
+                                        if (sv.len > 0 && sv.data) {
+                                            TextMeasure cm = measure_text(sv.data, sv.len, "sans", 12, TEXT_NORMAL);
+                                            if (cm.width + 16 > cw) cw = cm.width + 16;
+                                        }
+                                    }
+                                    if (cw < tvcfg.col_min_width) cw = tvcfg.col_min_width;
+                                    accum += cw + tvcfg.gap;
                                     if (lx < accum) { col = c; break; }
                                     col = c;
                                 }
