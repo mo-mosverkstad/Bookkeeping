@@ -173,10 +173,11 @@ inline int run_demo() {
             }
 
             // Ctrl+F → toggle search
-            if (ev.type == InputEvent::KEY_DOWN && ev.key == 6) { // Ctrl+F
+            if (ev.type == InputEvent::KEY_DOWN && ev.key == 'f' && (ev.mod & 0x00C0)) { // KMOD_CTRL
                 search_active = !search_active;
                 if (!search_active) { search_len = 0; search_buf[0] = 0; search_results.count = 0; }
                 need_rebuild = true;
+                continue;
             }
 
             // Search input
@@ -203,7 +204,7 @@ inline int run_demo() {
                         SearchHit& h = search_results.hits[0];
                         printf("Jump to [%u, %u]\n", h.row, h.col);
                     }
-                } else if (ev.key >= 32 && ev.key < 127 && search_len < 126) {
+                } else if (ev.key >= 32 && ev.key < 127 && search_len < 126 && !(ev.mod & 0x00C0)) {
                     search_buf[search_len++] = (char)ev.key;
                     search_buf[search_len] = 0;
                     // Search
@@ -225,9 +226,9 @@ inline int run_demo() {
             }
 
             // Ctrl+Z / Ctrl+Y for undo/redo
-            if (ev.type == InputEvent::KEY_DOWN && !search_active) {
-                if (ev.key == 26) { editor.undo(); need_rebuild = true; }
-                else if (ev.key == 25) { editor.redo(); need_rebuild = true; }
+            if (ev.type == InputEvent::KEY_DOWN && !search_active && (ev.mod & 0x00C0)) {
+                if (ev.key == 'z') { editor.undo(); need_rebuild = true; }
+                else if (ev.key == 'y') { editor.redo(); need_rebuild = true; }
             }
 
             // Mouse wheel → scroll

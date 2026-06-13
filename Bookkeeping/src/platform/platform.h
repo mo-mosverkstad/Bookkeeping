@@ -23,6 +23,7 @@ struct InputEvent {
     float scroll_x, scroll_y; // wheel delta
     int key;            // key code
     uint8_t button;     // mouse button (1=left, 2=middle, 3=right)
+    uint16_t mod;       // modifier flags (shift, ctrl, alt)
 };
 
 // Window + rendering context — abstract interface.

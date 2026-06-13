@@ -42,10 +42,12 @@ struct SDL2Window : PlatformWindow {
                 case SDL_KEYDOWN:
                     out.type = InputEvent::KEY_DOWN;
                     out.key = ev.key.keysym.sym;
+                    out.mod = ev.key.keysym.mod;
                     return true;
                 case SDL_KEYUP:
                     out.type = InputEvent::KEY_UP;
                     out.key = ev.key.keysym.sym;
+                    out.mod = ev.key.keysym.mod;
                     return true;
             }
         }
