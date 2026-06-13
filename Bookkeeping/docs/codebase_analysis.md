@@ -1626,62 +1626,45 @@ edge_elems[idx] = elem_line({x1, y1, x2, y2, edge_color, 1.5f});
 
 ---
 
-## Phase 17 — Table Polish (Arrow Navigation + Row Actions)
+## Phase 15 — Document View (available, not active in demo)
 
 ### What it does
-Adds keyboard cell navigation and per-row insert/delete action buttons,
-matching the Webapp's interactive table editing experience.
+Provides a composite view renderer that displays multiple tables as collapsible
+sections in a single scrollable page. Created in `src/app/doc_view.h` but not
+used in the demo (individual table tabs are the primary UX).
 
-### Arrow Key Navigation
-
-When a cell is active (editor.editing = true) and the source editor is not focused:
-
-```cpp
-if (ev.key == 1073741906 && editor.active_cell.row > 0) {        // Up
-    editor.commit_edit();
-    editor.begin_edit(editor.active_cell.row - 1, editor.active_cell.col);
-}
-else if (ev.key == 1073741905 && row < t->row_count - 1) {       // Down
-    editor.commit_edit();
-    editor.begin_edit(editor.active_cell.row + 1, editor.active_cell.col);
-}
-// Left, Right, Tab similarly...
-```
-
-The source editor content updates to the new cell after each move.
-
-### Row Action Buttons
-
-Each row has a small HStack at the right edge with two buttons:
-
-```
-┌──────┬──────┬──────┬─────┐
-│ cell │ cell │ cell │[+][x]│  ← per-row actions
-└──────┴──────┴──────┴─────┘
-```
-
-- **[+]** (green): `table_insert_row(&arena, table, row + 1)` — inserts empty row below
-- **[x]** (red): `table_remove_row(table, row)` — deletes the row
-
-Button IDs follow the pattern `ins-N` / `del-N` for click detection:
+### Data Model
 
 ```cpp
-if (strncmp(deep[i].node->id, "ins-", 4) == 0) {
-    uint32_t row = (uint32_t)atoi(deep[i].node->id + 4);
-    table_insert_row(&arena, (Table*)v->data, row + 1);
-}
+struct DocSection {
+    const char* id;
+    const char* title;
+    Table* table;
+    bool collapsed;
+};
+
+struct DocumentModel {
+    const char* name;
+    DocSection* sections;
+    uint16_t section_count;
+};
 ```
 
-### Tab Navigation
+### Renderer
 
-Tab moves to the next cell. At end of row, wraps to first column of next row:
+`doc_view_build()` produces a scrollable VStack of sections, each with a
+clickable header (▼/▶ toggle) and an inline table body. Collapsed sections
+hide their content. Tables are limited to 50 rows per section for performance.
 
-```cpp
-uint16_t nc = editor.active_cell.col + 1;
-uint32_t nr = editor.active_cell.row;
-if (nc >= t->col_count) { nc = 0; nr++; }
-if (nr < t->row_count) editor.begin_edit(nr, nc);
-```
+### Decision: Not used in demo
+
+The document view tab was removed because:
+- Users find individual table tabs more intuitive
+- The nav tree already provides folder-level organization
+- Clicking a nav leaf opens the specific table directly
+
+The file is retained for future use cases (e.g., "overview" mode showing
+summaries of all tables in a folder).
 
 ---
 
@@ -1745,45 +1728,62 @@ The UI layer (Phase 20) will wire these into toolbar dropdown controls.
 
 ---
 
-## Phase 15 — Document View (available, not active in demo)
+## Phase 17 — Table Polish (Arrow Navigation + Row Actions)
 
 ### What it does
-Provides a composite view renderer that displays multiple tables as collapsible
-sections in a single scrollable page. Created in `src/app/doc_view.h` but not
-used in the demo (individual table tabs are the primary UX).
+Adds keyboard cell navigation and per-row insert/delete action buttons,
+matching the Webapp's interactive table editing experience.
 
-### Data Model
+### Arrow Key Navigation
+
+When a cell is active (editor.editing = true) and the source editor is not focused:
 
 ```cpp
-struct DocSection {
-    const char* id;
-    const char* title;
-    Table* table;
-    bool collapsed;
-};
-
-struct DocumentModel {
-    const char* name;
-    DocSection* sections;
-    uint16_t section_count;
-};
+if (ev.key == 1073741906 && editor.active_cell.row > 0) {        // Up
+    editor.commit_edit();
+    editor.begin_edit(editor.active_cell.row - 1, editor.active_cell.col);
+}
+else if (ev.key == 1073741905 && row < t->row_count - 1) {       // Down
+    editor.commit_edit();
+    editor.begin_edit(editor.active_cell.row + 1, editor.active_cell.col);
+}
+// Left, Right, Tab similarly...
 ```
 
-### Renderer
+The source editor content updates to the new cell after each move.
 
-`doc_view_build()` produces a scrollable VStack of sections, each with a
-clickable header (▼/▶ toggle) and an inline table body. Collapsed sections
-hide their content. Tables are limited to 50 rows per section for performance.
+### Row Action Buttons
 
-### Decision: Not used in demo
+Each row has a small HStack at the right edge with two buttons:
 
-The document view tab was removed because:
-- Users find individual table tabs more intuitive
-- The nav tree already provides folder-level organization
-- Clicking a nav leaf opens the specific table directly
+```
+┌──────┬──────┬──────┬─────┐
+│ cell │ cell │ cell │[+][x]│  ← per-row actions
+└──────┴──────┴──────┴─────┘
+```
 
-The file is retained for future use cases (e.g., "overview" mode showing
-summaries of all tables in a folder).
+- **[+]** (green): `table_insert_row(&arena, table, row + 1)` — inserts empty row below
+- **[x]** (red): `table_remove_row(table, row)` — deletes the row
+
+Button IDs follow the pattern `ins-N` / `del-N` for click detection:
+
+```cpp
+if (strncmp(deep[i].node->id, "ins-", 4) == 0) {
+    uint32_t row = (uint32_t)atoi(deep[i].node->id + 4);
+    table_insert_row(&arena, (Table*)v->data, row + 1);
+}
+```
+
+### Tab Navigation
+
+Tab moves to the next cell. At end of row, wraps to first column of next row:
+
+```cpp
+uint16_t nc = editor.active_cell.col + 1;
+uint32_t nr = editor.active_cell.row;
+if (nc >= t->col_count) { nc = 0; nr++; }
+if (nr < t->row_count) editor.begin_edit(nr, nc);
+```
 
 ---
 
