@@ -410,3 +410,27 @@ make test-control
 - `make test-control` → 7 tests pass (loads real testresources)
 - Open button loads 21 tables from Mathematics reference sheet
 - Chemistry (19 tables) and Software (18 tables) also verified in tests
+
+
+---
+
+## Phase 13 — Source Editor Enhancement
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Interaction
+1. Click a cell → source editor loads value, focused
+2. Edit text (type, Enter for newlines, Unicode)
+3. Ctrl+Z → undo last edit (local to source editor)
+4. Ctrl+Y → redo (local)
+5. Click [Parse] → preview shows type-aware info
+6. Click [Apply] → commits back to cell
+
+### Verification
+- `make test` → 374 tests pass
+- Edit in source editor, Ctrl+Z reverts change, Ctrl+Y restores it
+- Local undo doesn't affect table undo (they're independent stacks)

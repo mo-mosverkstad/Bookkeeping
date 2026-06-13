@@ -1348,6 +1348,120 @@ Loading 21+ tables requires increased capacities:
 
 ---
 
+## Phase 13 — Source Editor (Local Undo/Redo + Parse Preview)
+
+### What it does
+Enhances the source editor panel with an independent undo/redo history and
+type-aware parsing, matching the Webapp's `SourceEditorView` behavior where
+the editor has its own local history separate from the global table EditHistory.
+
+### Design: Dual Undo Stacks
+
+The application now has **two independent undo stacks**:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Table EditHistory (global)       │  Source Editor LocalHistory  │
+│  ─────────────────────────────    │  ────────────────────────── │
+│  Tracks cell value changes:       │  Tracks keystrokes in editor:│
+│    push(old→new cell value)       │    push(full buffer snapshot)│
+│    undo → restore old cell        │    undo → restore prev text  │
+│    redo → reapply new cell        │    redo → restore next text  │
+│                                   │                              │
+│  Ctrl+Z/Y when NOT in editor     │  Ctrl+Z/Y when IN editor    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This mirrors the Webapp's architecture where `EditHistory` handles model-level
+changes and `LocalHistory` handles text-level edits within the source textarea.
+
+### Implementation: Snapshot Stack
+
+```cpp
+// Fixed-size stack of full buffer snapshots
+struct SourceSnapshot { char text[512]; uint16_t len; uint16_t cursor; };
+SourceSnapshot source_undo[32];
+SourceSnapshot source_redo_stack[32];
+uint8_t source_undo_count = 0;
+uint8_t source_redo_count = 0;
+```
+
+**Push** (called before every edit):
+```cpp
+auto source_push_undo = [&]() {
+    if (source_undo_count < 32) {
+        memcpy(source_undo[source_undo_count].text, source_buf, source_len + 1);
+        source_undo[source_undo_count].len = source_len;
+        source_undo[source_undo_count].cursor = source_cursor;
+        source_undo_count++;
+        source_redo_count = 0;  // new edit clears redo
+    }
+};
+```
+
+**Undo** (swaps current ↔ top of undo stack, pushes current to redo):
+```cpp
+auto source_do_undo = [&]() {
+    if (source_undo_count == 0) return;
+    // Save current state to redo stack
+    memcpy(source_redo_stack[source_redo_count].text, source_buf, ...);
+    source_redo_count++;
+    // Restore from undo stack
+    source_undo_count--;
+    memcpy(source_buf, source_undo[source_undo_count].text, ...);
+    source_len = source_undo[source_undo_count].len;
+    source_cursor = source_undo[source_undo_count].cursor;
+};
+```
+
+### Keyboard Routing
+
+When `source_focused` is true, Ctrl+Z/Y is intercepted before the global handler:
+
+```cpp
+// Source editor: Ctrl+Z/Y local undo/redo (checked BEFORE global handler)
+if (ev.type == InputEvent::KEY_DOWN && source_focused && (ev.mod & 0x00C0)) {
+    if (ev.key == 'z') { source_do_undo(); need_rebuild = true; }
+    else if (ev.key == 'y') { source_do_redo(); need_rebuild = true; }
+    continue;  // consume — don't fall through to table undo
+}
+```
+
+This matches the Webapp where `SourceEditorView` uses `e.stopPropagation()` to
+prevent the global keyboard handler from seeing Ctrl+Z when the textarea is focused.
+
+### Edit Points (where undo snapshots are pushed)
+
+Every destructive operation pushes a snapshot before modifying:
+
+| Operation | Trigger |
+|---|---|
+| Backspace | `ev.key == 8` |
+| Delete | `ev.key == 127` |
+| Enter (newline) | `ev.key == 13` |
+| Character input | `TEXT_INPUT` event |
+
+Arrow keys, Home, End do NOT push undo (cursor movement isn't undoable).
+
+### Parse Preview
+
+The Parse button provides type-aware feedback:
+
+```cpp
+if (strcmp(source_type, "math") == 0)
+    snprintf(source_preview, 256, "✓ Math: \"%.*s\"", ...);
+else if (strcmp(source_type, "chem") == 0)
+    snprintf(source_preview, 256, "✓ Chem: \"%.*s\"", ...);
+else
+    snprintf(source_preview, 256, "✓ Text (%u chars, %u lines)", ...);
+```
+
+In the Webapp, Parse triggers the actual cell renderer and shows the visual result.
+In the C++ port, the preview is textual (full visual rendering will be added with
+Phase 19 cell renderer fidelity).
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

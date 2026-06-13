@@ -125,6 +125,50 @@ inline int run_demo() {
     bool source_focused = false;
     char source_preview[256] = "";  // parsed preview text
 
+    // Local undo/redo for source editor (independent of table history)
+    struct SourceSnapshot { char text[512]; uint16_t len; uint16_t cursor; };
+    SourceSnapshot source_undo[32];
+    SourceSnapshot source_redo_stack[32];
+    uint8_t source_undo_count = 0;
+    uint8_t source_redo_count = 0;
+    auto source_push_undo = [&]() {
+        if (source_undo_count < 32) {
+            memcpy(source_undo[source_undo_count].text, source_buf, source_len + 1);
+            source_undo[source_undo_count].len = source_len;
+            source_undo[source_undo_count].cursor = source_cursor;
+            source_undo_count++;
+            source_redo_count = 0; // clear redo on new change
+        }
+    };
+    auto source_do_undo = [&]() {
+        if (source_undo_count == 0) return;
+        // Push current to redo
+        if (source_redo_count < 32) {
+            memcpy(source_redo_stack[source_redo_count].text, source_buf, source_len + 1);
+            source_redo_stack[source_redo_count].len = source_len;
+            source_redo_stack[source_redo_count].cursor = source_cursor;
+            source_redo_count++;
+        }
+        source_undo_count--;
+        memcpy(source_buf, source_undo[source_undo_count].text, source_undo[source_undo_count].len + 1);
+        source_len = source_undo[source_undo_count].len;
+        source_cursor = source_undo[source_undo_count].cursor;
+    };
+    auto source_do_redo = [&]() {
+        if (source_redo_count == 0) return;
+        // Push current to undo
+        if (source_undo_count < 32) {
+            memcpy(source_undo[source_undo_count].text, source_buf, source_len + 1);
+            source_undo[source_undo_count].len = source_len;
+            source_undo[source_undo_count].cursor = source_cursor;
+            source_undo_count++;
+        }
+        source_redo_count--;
+        memcpy(source_buf, source_redo_stack[source_redo_count].text, source_redo_stack[source_redo_count].len + 1);
+        source_len = source_redo_stack[source_redo_count].len;
+        source_cursor = source_redo_stack[source_redo_count].cursor;
+    };
+
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
     Arena frame = arena_create(8 * 1024 * 1024);
     Theme th = theme_light();
@@ -417,9 +461,17 @@ inline int run_demo() {
                 continue; // consume key when search is active
             }
 
+            // Source editor: Ctrl+Z/Y local undo/redo
+            if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && (ev.mod & 0x00C0)) {
+                if (ev.key == 'z') { source_do_undo(); need_rebuild = true; }
+                else if (ev.key == 'y') { source_do_redo(); need_rebuild = true; }
+                continue;
+            }
+
             // Source editor keyboard input
             if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && !(ev.mod & 0x00C0)) {
                 if (ev.key == 8 && source_cursor > 0) { // Backspace
+                    source_push_undo();
                     uint16_t prev = utf8_prev(source_buf, source_cursor);
                     uint16_t del = source_cursor - prev;
                     memmove(source_buf + prev, source_buf + source_cursor, source_len - source_cursor);
@@ -427,12 +479,14 @@ inline int run_demo() {
                     source_buf[source_len] = 0;
                     need_rebuild = true;
                 } else if (ev.key == 127 && source_cursor < source_len) { // Delete
+                    source_push_undo();
                     uint16_t next = utf8_next(source_buf, source_len, source_cursor);
                     uint16_t del = next - source_cursor;
                     memmove(source_buf + source_cursor, source_buf + next, source_len - next);
                     source_len -= del; source_buf[source_len] = 0;
                     need_rebuild = true;
                 } else if (ev.key == 13 && source_len < 510) { // Enter → newline in source editor
+                    source_push_undo();
                     memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
                     source_buf[source_cursor] = '\n';
                     source_cursor++; source_len++;
@@ -468,6 +522,7 @@ inline int run_demo() {
                         arena_destroy(&sa);
                         need_rebuild = true;
                     } else if (source_focused && source_len + tlen <= 510) {
+                        source_push_undo();
                         memmove(source_buf + source_cursor + tlen, source_buf + source_cursor, source_len - source_cursor);
                         memcpy(source_buf + source_cursor, ev.text, tlen);
                         source_cursor += tlen; source_len += tlen;
@@ -635,8 +690,17 @@ inline int run_demo() {
                         break;
                     }
                     if (deep[i].node->id && strcmp(deep[i].node->id, "se-parse") == 0) {
-                        // Parse: just show preview
-                        snprintf(source_preview, 256, "Parsed [%s]: \"%.*s\"", source_type, source_len > 60 ? 60 : (int)source_len, source_buf);
+                        // Parse: show type-aware preview
+                        if (source_len > 0) {
+                            if (strcmp(source_type, "math") == 0)
+                                snprintf(source_preview, 256, "✓ Math: \"%.*s\"", source_len > 80 ? 80 : (int)source_len, source_buf);
+                            else if (strcmp(source_type, "chem") == 0)
+                                snprintf(source_preview, 256, "✓ Chem: \"%.*s\"", source_len > 80 ? 80 : (int)source_len, source_buf);
+                            else
+                                snprintf(source_preview, 256, "✓ Text (%u chars, %u lines)", source_len, ({uint32_t l=1; for(uint16_t k=0;k<source_len;k++) if(source_buf[k]=='\n')l++; l;}));
+                        } else {
+                            snprintf(source_preview, 256, "(empty)");
+                        }
                         need_rebuild = true;
                         handled = true;
                         break;

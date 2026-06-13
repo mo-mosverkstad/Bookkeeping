@@ -352,3 +352,20 @@ across phases.
 - Segfault after loading 21 tables: workspace/tab capacity overflow (16→64)
 - Segfault on nav click after folder load: frame arena too small for large tables (512KB→8MB)
 - control.json parser only returned last entry: rewritten with proper object-level scanning
+
+---
+
+## Phase 13 — Source Editor Enhancement — 2026-06-13
+
+**Added:**
+- Local undo/redo stack for source editor (32 snapshots, independent of table EditHistory)
+- Ctrl+Z/Y in source editor uses local history (doesn't affect table undo)
+- Undo snapshots pushed before every edit (backspace, delete, enter, text input)
+- Parse button shows type-aware preview (Math/Chem/Text with char+line count)
+- Undo/redo cleared when a new cell is loaded into source editor
+
+**Decisions:**
+- Local history uses fixed 32-entry stack (no arena allocation needed during editing)
+- Each snapshot stores full buffer (512 bytes) — simple and fast for small edits
+- Ctrl+Z/Y intercepted before global handler when source_focused is true
+- Parse preview is informational (not rendered layout — rendering happens in workspace)

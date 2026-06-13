@@ -698,3 +698,14 @@ Custom lightweight test framework in `test/test.h`:
 | folder_load_real_testresources | Mathematics reference sheet (21 tables) | PASS |
 | folder_load_chemistry | Chemistry reference sheet (19 tables) | PASS |
 | folder_load_software | Software reference sheet (18 tables) | PASS |
+
+
+---
+
+## Phase 13 — Source Editor Enhancement
+
+### Local undo/redo
+- Ctrl+Z/Y in source editor uses independent local history
+- 32-snapshot stack, does not interfere with table EditHistory
+- Parse button shows type-aware preview (math/chem/text)
+- No new test file (functionality verified interactively)
