@@ -63,7 +63,7 @@ TEST(tableview_row_has_cells) {
 
     LayoutNode* scroll = view->children[1]->children[0];
     LayoutNode* row0 = scroll->children[0];
-    ASSERT_EQ(row0->child_count, (uint16_t)3); // 3 cells per row
+    ASSERT_EQ(row0->child_count, (uint16_t)4); // 3 cells + actions
     ASSERT_TRUE(strcmp(row0->id, "row-0") == 0);
     arena_destroy(&a);
 }
@@ -205,7 +205,7 @@ TEST(tableview_single_cell) {
     LayoutNode* scroll = view->children[1]->children[0];
     ASSERT_EQ(scroll->child_count, (uint16_t)1);
     LayoutNode* row = scroll->children[0];
-    ASSERT_EQ(row->child_count, (uint16_t)1);
+    ASSERT_EQ(row->child_count, (uint16_t)2); // 1 cell + actions
     arena_destroy(&a);
 }
 

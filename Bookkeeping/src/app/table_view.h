@@ -82,7 +82,6 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
     // ── Data rows ────────────────────────────────────────────────────────────
     auto row_nodes = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * rows, 8);
     for (uint32_t r = 0; r < rows; r++) {
-        auto cell_kids = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * cols, 8);
         Color bg = (r % 2 == 0) ? cfg.cell_bg_even : cfg.cell_bg_odd;
         // First pass: measure row height from tallest cell
         float row_h = cfg.cell_height;
@@ -97,7 +96,8 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
                 if (needed > row_h) row_h = needed;
             }
         }
-        // Second pass: build cells with computed row height
+        // Second pass: build cells with computed row height + action buttons
+        auto cell_kids = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * (cols + 1), 8);
         for (uint16_t c = 0; c < cols; c++) {
             Str val = table_get_cell(table, r, c);
             bool is_active = ((int32_t)r == cfg.active_row && (int16_t)c == cfg.active_col);
@@ -109,9 +109,19 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
                 .text(val.data, 12, cfg.cell_text);
             cell_kids[c] = build(cell);
         }
+        // Action buttons: [+] [x]
+        char* ins_id = (char*)arena_alloc(a, 16, 1);
+        char* del_id = (char*)arena_alloc(a, 16, 1);
+        snprintf(ins_id, 16, "ins-%u", r);
+        snprintf(del_id, 16, "del-%u", r);
+        auto actions = HStack(a, 2).size(40, row_h);
+        actions.child(Box(a, 18, 18).id(ins_id).bg({220,252,231,255}, {22,163,74,200}, 1).text("+", 11, {22,163,74,255}));
+        actions.child(Box(a, 18, 18).id(del_id).bg({254,226,226,255}, {220,38,38,200}, 1).text("x", 11, {220,38,38,255}));
+        cell_kids[cols] = build(actions);
+
         Node* row = node_linear_h(a);
         row->set_gap(cfg.gap).size(0, row_h);
-        row->set_children(cell_kids, cols);
+        row->set_children(cell_kids, cols + 1);
         // Set row id
         char* rid = (char*)arena_alloc(a, 16, 1);
         snprintf(rid, 16, "row-%u", r);

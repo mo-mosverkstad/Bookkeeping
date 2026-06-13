@@ -494,6 +494,40 @@ inline int run_demo() {
                 continue; // consume key when search is active
             }
 
+            // Arrow key cell navigation (when not in source editor or search)
+            if (ev.type == InputEvent::KEY_DOWN && !source_focused && !search_active && !(ev.mod & 0x00C0) && editor.editing) {
+                ViewSlot* v = ws.active_view();
+                if (v && v->type == VIEW_TABLE) {
+                    Table* t = (Table*)v->data;
+                    bool moved = false;
+                    if (ev.key == 1073741906 && editor.active_cell.row > 0) { // Up
+                        editor.commit_edit(); editor.begin_edit(editor.active_cell.row - 1, editor.active_cell.col); moved = true;
+                    } else if (ev.key == 1073741905 && editor.active_cell.row < t->row_count - 1) { // Down
+                        editor.commit_edit(); editor.begin_edit(editor.active_cell.row + 1, editor.active_cell.col); moved = true;
+                    } else if (ev.key == 1073741904 && editor.active_cell.col > 0) { // Left
+                        editor.commit_edit(); editor.begin_edit(editor.active_cell.row, editor.active_cell.col - 1); moved = true;
+                    } else if (ev.key == 1073741903 && editor.active_cell.col < t->col_count - 1) { // Right
+                        editor.commit_edit(); editor.begin_edit(editor.active_cell.row, editor.active_cell.col + 1); moved = true;
+                    } else if (ev.key == 9) { // Tab → next cell
+                        editor.commit_edit();
+                        uint16_t nc = editor.active_cell.col + 1;
+                        uint32_t nr = editor.active_cell.row;
+                        if (nc >= t->col_count) { nc = 0; nr++; }
+                        if (nr < t->row_count) editor.begin_edit(nr, nc);
+                        moved = true;
+                    }
+                    if (moved) {
+                        source_len = editor.edit_len > 511 ? 511 : editor.edit_len;
+                        memcpy(source_buf, editor.edit_buffer, source_len);
+                        source_buf[source_len] = 0;
+                        source_cursor = source_len;
+                        if (editor.active_cell.col < t->col_count) source_type = t->columns[editor.active_cell.col].type_id.data;
+                        need_rebuild = true;
+                        continue;
+                    }
+                }
+            }
+
             // Source editor: Ctrl+Z/Y local undo/redo
             if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && (ev.mod & 0x00C0)) {
                 if (ev.key == 'z') { source_do_undo(); need_rebuild = true; }
@@ -900,6 +934,35 @@ inline int run_demo() {
                                 }
                             }
                             if (handled) break;
+                        }
+                    }
+                }
+
+                // Check row action buttons (insert/delete)
+                if (!handled) {
+                    for (int i = n - 1; i >= 0; i--) {
+                        if (!deep[i].node->id) continue;
+                        if (strncmp(deep[i].node->id, "ins-", 4) == 0) {
+                            ViewSlot* v = ws.active_view();
+                            if (v && v->type == VIEW_TABLE) {
+                                uint32_t row = (uint32_t)atoi(deep[i].node->id + 4);
+                                table_insert_row(&arena, (Table*)v->data, row + 1);
+                                dirty.mark_table_dirty();
+                                need_rebuild = true;
+                                handled = true;
+                            }
+                            break;
+                        }
+                        if (strncmp(deep[i].node->id, "del-", 4) == 0) {
+                            ViewSlot* v = ws.active_view();
+                            if (v && v->type == VIEW_TABLE) {
+                                uint32_t row = (uint32_t)atoi(deep[i].node->id + 4);
+                                table_remove_row((Table*)v->data, row);
+                                dirty.mark_table_dirty();
+                                need_rebuild = true;
+                                handled = true;
+                            }
+                            break;
                         }
                     }
                 }

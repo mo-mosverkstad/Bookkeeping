@@ -445,3 +445,20 @@ across phases.
 - Associations return both outgoing and incoming edges with direction flag
 - Relation list deduplicates edge labels
 - UI integration deferred (functions available for toolbar filter controls in Phase 20)
+
+---
+
+## Phase 17 — Table Polish — 2026-06-13
+
+**Added:**
+- Arrow key cell navigation (Up/Down/Left/Right moves active cell)
+- Tab key moves to next cell (wraps to next row)
+- Row insert button [+] per row (inserts empty row below)
+- Row delete button [x] per row (removes row)
+- Source editor syncs when navigating via arrows/tab
+
+**Decisions:**
+- Arrow keys only active when a cell is being edited and source editor is not focused
+- Row actions are HStack at end of each row (green [+] / red [x])
+- Insert/delete use existing table_insert_row/table_remove_row functions
+- Dirty state marked on insert/delete
