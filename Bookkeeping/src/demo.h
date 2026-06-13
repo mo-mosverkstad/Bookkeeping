@@ -379,12 +379,6 @@ inline int run_demo() {
                         SearchHit& h = search_results.hits[0];
                         printf("Jump to [%u, %u]\n", h.row, h.col);
                     }
-                } else if (ev.key >= 32 && ev.key < 127 && search_len < 126 && !(ev.mod & 0x00C0)) {
-                    memmove(search_buf + search_cursor + 1, search_buf + search_cursor, search_len - search_cursor);
-                    search_buf[search_cursor] = (char)ev.key;
-                    search_cursor++; search_len++;
-                    search_buf[search_len] = 0;
-                    goto do_search;
                 }
                 if (false) { do_search:
                     Arena sa = arena_create(16384);
@@ -417,13 +411,40 @@ inline int run_demo() {
                     need_rebuild = true;
                 } else if (ev.key == 1073741904 && source_cursor > 0) { source_cursor--; need_rebuild = true; } // Left
                 else if (ev.key == 1073741903 && source_cursor < source_len) { source_cursor++; need_rebuild = true; } // Right
-                else if (ev.key == 13) { // Enter — does nothing (single-line for now)
-                } else if (ev.key >= 32 && ev.key < 127 && source_len < 510) {
-                    memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
-                    source_buf[source_cursor] = (char)ev.key;
-                    source_cursor++; source_len++;
-                    source_buf[source_len] = 0;
-                    need_rebuild = true;
+                else if (ev.key == 1073741898) { source_cursor = 0; need_rebuild = true; } // Home
+                else if (ev.key == 1073741901) { source_cursor = source_len; need_rebuild = true; } // End
+                continue;
+            }
+
+            // TEXT_INPUT: actual typed characters (handles shift, caps, special chars)
+            if (ev.type == InputEvent::TEXT_INPUT) {
+                char ch = ev.text[0];
+                if (ch && ch >= 32) {
+                    if (search_active && search_len < 126) {
+                        memmove(search_buf + search_cursor + 1, search_buf + search_cursor, search_len - search_cursor);
+                        search_buf[search_cursor] = ch;
+                        search_cursor++; search_len++;
+                        search_buf[search_len] = 0;
+                        // Trigger search
+                        Arena sa = arena_create(16384);
+                        ViewSlot* v = ws.active_view();
+                        if (v && v->type == VIEW_TABLE && search_len > 0)
+                            search_results = search_table(&sa, (Table*)v->data, search_buf, search_len);
+                        else search_results.count = 0;
+                        if (search_results.count > 0) {
+                            SearchHit* copy = (SearchHit*)arena_alloc(&arena, sizeof(SearchHit) * search_results.count, 4);
+                            memcpy(copy, search_results.hits, sizeof(SearchHit) * search_results.count);
+                            search_results.hits = copy;
+                        }
+                        arena_destroy(&sa);
+                        need_rebuild = true;
+                    } else if (source_focused && source_len < 510) {
+                        memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
+                        source_buf[source_cursor] = ch;
+                        source_cursor++; source_len++;
+                        source_buf[source_len] = 0;
+                        need_rebuild = true;
+                    }
                 }
                 continue;
             }

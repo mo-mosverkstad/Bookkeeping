@@ -43,11 +43,18 @@ struct SDL2Window : PlatformWindow {
                     out.type = InputEvent::KEY_DOWN;
                     out.key = ev.key.keysym.sym;
                     out.mod = ev.key.keysym.mod;
+                    out.text[0] = 0;
                     return true;
                 case SDL_KEYUP:
                     out.type = InputEvent::KEY_UP;
                     out.key = ev.key.keysym.sym;
                     out.mod = ev.key.keysym.mod;
+                    out.text[0] = 0;
+                    return true;
+                case SDL_TEXTINPUT:
+                    out.type = InputEvent::TEXT_INPUT;
+                    memcpy(out.text, ev.text.text, 7);
+                    out.text[7] = 0;
                     return true;
                 case SDL_WINDOWEVENT:
                     if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
