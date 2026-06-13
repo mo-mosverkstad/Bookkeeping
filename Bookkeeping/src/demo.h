@@ -5,6 +5,7 @@
 #include "src/core/file_io.h"
 #include "src/core/control.h"
 #include "src/core/theme.h"
+#include "src/core/utf8.h"
 #include "src/app/table_view.h"
 #include "src/app/table_editor.h"
 #include "src/app/table_sort.h"
@@ -14,6 +15,7 @@
 #include "src/app/nav_tree.h"
 #include "src/app/tab_strip.h"
 #include "src/app/workspace.h"
+#include "src/app/source_history.h"
 #include "src/graphics/ui.h"
 #include "src/graphics/layout/layout.h"
 #include "src/graphics/backend/backend.h"
@@ -21,21 +23,7 @@
 #include <cstdio>
 #include <cstring>
 
-// ── Main demo: Phase 9 — File I/O + Workspace ───────────────────────────────
-
-// UTF-8 helpers: find start of previous/next code point
-static inline uint16_t utf8_prev(const char* buf, uint16_t pos) {
-    if (pos == 0) return 0;
-    pos--;
-    while (pos > 0 && (buf[pos] & 0xC0) == 0x80) pos--; // skip continuation bytes
-    return pos;
-}
-static inline uint16_t utf8_next(const char* buf, uint16_t len, uint16_t pos) {
-    if (pos >= len) return len;
-    pos++;
-    while (pos < len && (buf[pos] & 0xC0) == 0x80) pos++;
-    return pos;
-}
+// ── Main demo ────────────────────────────────────────────────────────────────
 
 inline int run_demo() {
     Arena arena = arena_create(4 * 1024 * 1024);
@@ -137,48 +125,7 @@ inline int run_demo() {
     char source_preview[256] = "";  // parsed preview text
 
     // Local undo/redo for source editor (independent of table history)
-    struct SourceSnapshot { char text[512]; uint16_t len; uint16_t cursor; };
-    SourceSnapshot source_undo[32];
-    SourceSnapshot source_redo_stack[32];
-    uint8_t source_undo_count = 0;
-    uint8_t source_redo_count = 0;
-    auto source_push_undo = [&]() {
-        if (source_undo_count < 32) {
-            memcpy(source_undo[source_undo_count].text, source_buf, source_len + 1);
-            source_undo[source_undo_count].len = source_len;
-            source_undo[source_undo_count].cursor = source_cursor;
-            source_undo_count++;
-            source_redo_count = 0; // clear redo on new change
-        }
-    };
-    auto source_do_undo = [&]() {
-        if (source_undo_count == 0) return;
-        // Push current to redo
-        if (source_redo_count < 32) {
-            memcpy(source_redo_stack[source_redo_count].text, source_buf, source_len + 1);
-            source_redo_stack[source_redo_count].len = source_len;
-            source_redo_stack[source_redo_count].cursor = source_cursor;
-            source_redo_count++;
-        }
-        source_undo_count--;
-        memcpy(source_buf, source_undo[source_undo_count].text, source_undo[source_undo_count].len + 1);
-        source_len = source_undo[source_undo_count].len;
-        source_cursor = source_undo[source_undo_count].cursor;
-    };
-    auto source_do_redo = [&]() {
-        if (source_redo_count == 0) return;
-        // Push current to undo
-        if (source_undo_count < 32) {
-            memcpy(source_undo[source_undo_count].text, source_buf, source_len + 1);
-            source_undo[source_undo_count].len = source_len;
-            source_undo[source_undo_count].cursor = source_cursor;
-            source_undo_count++;
-        }
-        source_redo_count--;
-        memcpy(source_buf, source_redo_stack[source_redo_count].text, source_redo_stack[source_redo_count].len + 1);
-        source_len = source_redo_stack[source_redo_count].len;
-        source_cursor = source_redo_stack[source_redo_count].cursor;
-    };
+    SourceHistory source_hist;
 
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
     Arena frame = arena_create(8 * 1024 * 1024);
@@ -556,15 +503,15 @@ inline int run_demo() {
 
             // Source editor: Ctrl+Z/Y local undo/redo
             if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && (ev.mod & 0x00C0)) {
-                if (ev.key == 'z') { source_do_undo(); need_rebuild = true; }
-                else if (ev.key == 'y') { source_do_redo(); need_rebuild = true; }
+                if (ev.key == 'z') { source_hist.do_undo(source_buf, source_len, source_cursor); need_rebuild = true; }
+                else if (ev.key == 'y') { source_hist.do_redo(source_buf, source_len, source_cursor); need_rebuild = true; }
                 continue;
             }
 
             // Source editor keyboard input
             if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && !(ev.mod & 0x00C0)) {
                 if (ev.key == 8 && source_cursor > 0) { // Backspace
-                    source_push_undo();
+                    source_hist.push(source_buf, source_len, source_cursor);
                     uint16_t prev = utf8_prev(source_buf, source_cursor);
                     uint16_t del = source_cursor - prev;
                     memmove(source_buf + prev, source_buf + source_cursor, source_len - source_cursor);
@@ -572,14 +519,14 @@ inline int run_demo() {
                     source_buf[source_len] = 0;
                     need_rebuild = true;
                 } else if (ev.key == 127 && source_cursor < source_len) { // Delete
-                    source_push_undo();
+                    source_hist.push(source_buf, source_len, source_cursor);
                     uint16_t next = utf8_next(source_buf, source_len, source_cursor);
                     uint16_t del = next - source_cursor;
                     memmove(source_buf + source_cursor, source_buf + next, source_len - next);
                     source_len -= del; source_buf[source_len] = 0;
                     need_rebuild = true;
                 } else if (ev.key == 13 && source_len < 510) { // Enter → newline in source editor
-                    source_push_undo();
+                    source_hist.push(source_buf, source_len, source_cursor);
                     memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
                     source_buf[source_cursor] = '\n';
                     source_cursor++; source_len++;
@@ -615,7 +562,7 @@ inline int run_demo() {
                         arena_destroy(&sa);
                         need_rebuild = true;
                     } else if (source_focused && source_len + tlen <= 510) {
-                        source_push_undo();
+                        source_hist.push(source_buf, source_len, source_cursor);
                         memmove(source_buf + source_cursor + tlen, source_buf + source_cursor, source_len - source_cursor);
                         memcpy(source_buf + source_cursor, ev.text, tlen);
                         source_cursor += tlen; source_len += tlen;
