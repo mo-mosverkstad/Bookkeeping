@@ -1046,6 +1046,48 @@ if (ev.key == 1073741906 /* Up */ && editor.active_cell.row > 0) {
 
 ---
 
+## Phase 12 — control.json + Folder Loading
+
+### What it does
+Loads multi-CSV folder workspaces using a `control.json` manifest file.
+
+### control.json Format
+
+```json
+{
+  "entries": [
+    { "type": "table", "id": "basic-algebra", "file": "Basic algebra.csv" },
+    { "type": "table", "id": "derivatives", "file": "Derivatives.csv" }
+  ]
+}
+```
+
+### Folder Loading (`src/core/control.h`)
+
+```cpp
+// Parse control.json
+ControlFile cf = control_parse(arena, json_text, len);
+// → cf.entries[i].type, .id, .file
+
+// Load a folder
+LoadedFolder lf = folder_load(arena, "/path/to/folder");
+// → lf.name = "Mathematics reference sheet"
+// → lf.tables[0..20], lf.table_ids[0..20], lf.table_count = 21
+```
+
+The loader reads `control.json` from the directory, parses all entries, and loads
+each referenced CSV file. Results are arena-allocated for zero-cost bulk cleanup.
+
+### Integration with Workspace
+
+When Open is clicked, the folder loader:
+1. Parses control.json
+2. Loads all CSV files into Table structs
+3. Mounts each table into the workspace (creates tab + view slot)
+4. Adds a nav folder with children for each table
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

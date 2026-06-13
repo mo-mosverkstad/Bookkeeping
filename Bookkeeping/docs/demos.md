@@ -382,3 +382,31 @@ make clean && make
 - Backspace on Unicode → deletes whole character, not single byte
 - Save → restart → data persists
 - Click correct cell despite variable-width columns
+
+
+---
+
+## Phase 12 — control.json + Folder Loading
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Testing folder load
+```bash
+make test-control
+```
+
+### Expected output
+- Click [Open] → loads Mathematics reference sheet (21 tables appear as tabs + nav folder)
+- Nav tree shows "Mathematics reference sheet" folder with children for each table
+- Click any child (e.g., "derivatives") → that table becomes active in the workspace
+- Large tables (400+ rows) render without crashing
+
+### Verification
+- `make test` → 374 tests pass
+- `make test-control` → 7 tests pass (loads real testresources)
+- Open button loads 21 tables from Mathematics reference sheet
+- Chemistry (19 tables) and Software (18 tables) also verified in tests

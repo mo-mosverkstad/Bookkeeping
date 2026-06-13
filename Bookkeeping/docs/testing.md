@@ -678,3 +678,23 @@ Custom lightweight test framework in `test/test.h`:
 | Window resize breaks layout | Hardcoded W=600, H=500 | Track `win_w`/`win_h` from WINDOW_RESIZE events |
 | No cell highlight on selection | No visual indicator | Active cell gets blue bg + 2px outline |
 | Source editor empty on cell click | Not wired to cell data | Copy cell value to source_buf on begin_edit |
+
+
+---
+
+## Phase 12 — control.json + Folder Loading tests (7 tests)
+
+### control.json parsing (3 tests)
+| Test | Description | Result |
+|---|---|---|
+| control_parse_basic | Parse 2-entry compact JSON | PASS |
+| control_parse_with_whitespace | Parse formatted JSON with newlines/spaces | PASS |
+| control_parse_empty | Empty entries array → count=0 | PASS |
+
+### Folder loading (4 tests)
+| Test | Description | Result |
+|---|---|---|
+| folder_load_with_control | Temp folder with control.json + CSV | PASS |
+| folder_load_real_testresources | Mathematics reference sheet (21 tables) | PASS |
+| folder_load_chemistry | Chemistry reference sheet (19 tables) | PASS |
+| folder_load_software | Software reference sheet (18 tables) | PASS |

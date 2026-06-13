@@ -328,3 +328,27 @@ across phases.
 - Table scroll width: expands to fit total column width (no horizontal clipping)
 - Click column detection: uses actual computed column widths instead of fixed `col_min_width`
 - Toolbar buttons (Open/Save): given proper ids and click handlers
+
+---
+
+## Phase 12 — control.json + Folder Loading — 2026-06-13
+
+**Added:**
+- `src/core/control.h` — control.json parser + folder loader
+- `test/test_control.cpp` — 7 tests (3 parsing, 4 folder loading from real testresources)
+- Open button loads entire Mathematics reference sheet (21 tables) with nav tree folder
+- All testresource folders verified: Mathematics (21), Chemistry (19), Software (18)
+
+**Decisions:**
+- control.json parser: hand-rolled, scans for "entries" array, extracts type/id/file per object
+- Folder loader: reads control.json, loads all CSV files relative to folder path
+- Loaded folder tables live in a separate arena (not freed during app lifetime)
+- Nav tree gets a new folder node with children for each loaded table
+- Capacities increased: workspace=64 views/tabs, nav child=32, frame arena=8MB, main arena=4MB
+- Hit result buffer increased to 32 entries for deep layout hierarchies
+- OOM guard in table_view_build (returns dummy node if arena full)
+
+**Bug fixed:**
+- Segfault after loading 21 tables: workspace/tab capacity overflow (16→64)
+- Segfault on nav click after folder load: frame arena too small for large tables (512KB→8MB)
+- control.json parser only returned last entry: rewritten with proper object-level scanning
