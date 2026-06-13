@@ -124,6 +124,9 @@ inline int run_demo() {
     bool diagram_dragging = false;
     float drag_last_x = 0, drag_last_y = 0;
 
+    // ── Table scroll state (persistent across rebuilds) ──────────────────────
+    float table_scroll_x = 0, table_scroll_y = 0;
+
     // ── Source editor state ──────────────────────────────────────────────────
     char source_buf[512] = "";
     uint16_t source_len = 0;
@@ -209,6 +212,8 @@ inline int run_demo() {
         if (v->type == VIEW_TABLE) {
             tvcfg.viewport_width = active_view_w;
             tvcfg.viewport_height = active_view_h * zoom;
+            tvcfg.scroll_x = table_scroll_x;
+            tvcfg.scroll_y = table_scroll_y;
             return table_view_build(a, (Table*)v->data, tvcfg);
         } else if (v->type == VIEW_GRAPH) {
             FlowDiagramConfig fdcfg;
@@ -635,11 +640,26 @@ inline int run_demo() {
                         if (deep[i].node->type == LAYOUT_SCROLL) {
                             LayoutNode* sn = deep[i].node;
                             if (sn->id && strcmp(sn->id, "diagram-scroll") == 0) break;
-                            sn->scroll_y -= ev.scroll_y * 20;
-                            if (sn->scroll_y < 0) sn->scroll_y = 0;
-                            float max_s = sn->content_height - sn->height;
-                            if (max_s < 0) max_s = 0;
-                            if (sn->scroll_y > max_s) sn->scroll_y = max_s;
+                            bool shift_held = (ev.mod & 0x0003) != 0;
+                            if (shift_held || ev.scroll_x != 0) {
+                                // Horizontal: Shift+wheel or native horizontal
+                                float delta = ev.scroll_x != 0 ? ev.scroll_x : ev.scroll_y;
+                                sn->scroll_x += delta * 20;
+                                if (sn->scroll_x < 0) sn->scroll_x = 0;
+                                float max_sx = sn->content_width - sn->width;
+                                if (max_sx < 0) max_sx = 0;
+                                if (sn->scroll_x > max_sx) sn->scroll_x = max_sx;
+                                table_scroll_x = sn->scroll_x;
+                            } else {
+                                // Vertical
+                                sn->scroll_y -= ev.scroll_y * 20;
+                                if (sn->scroll_y < 0) sn->scroll_y = 0;
+                                float max_s = sn->content_height - sn->height;
+                                if (max_s < 0) max_s = 0;
+                                if (sn->scroll_y > max_s) sn->scroll_y = max_s;
+                                table_scroll_y = sn->scroll_y;
+                            }
+                            need_rebuild = true;
                             break;
                         }
                     }

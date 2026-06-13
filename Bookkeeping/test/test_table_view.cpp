@@ -48,7 +48,7 @@ TEST(tableview_scroll_has_rows) {
     TableViewConfig cfg;
     LayoutNode* view = table_view_build(&a, t, cfg);
 
-    LayoutNode* scroll = view->children[1];
+    LayoutNode* scroll = view->children[1]->children[0];
     ASSERT_TRUE(strcmp(scroll->id, "table-scroll") == 0);
     ASSERT_EQ(scroll->child_count, (uint16_t)3); // 3 data rows
     ASSERT_EQ(scroll->type, LAYOUT_SCROLL);
@@ -61,7 +61,7 @@ TEST(tableview_row_has_cells) {
     TableViewConfig cfg;
     LayoutNode* view = table_view_build(&a, t, cfg);
 
-    LayoutNode* scroll = view->children[1];
+    LayoutNode* scroll = view->children[1]->children[0];
     LayoutNode* row0 = scroll->children[0];
     ASSERT_EQ(row0->child_count, (uint16_t)3); // 3 cells per row
     ASSERT_TRUE(strcmp(row0->id, "row-0") == 0);
@@ -80,7 +80,7 @@ TEST(tableview_computes_layout) {
     ASSERT_TRUE(view->width > 0);
     ASSERT_TRUE(view->height > 0);
     // Scroll viewport should match config
-    LayoutNode* scroll = view->children[1];
+    LayoutNode* scroll = view->children[1]->children[0];
     ASSERT_NEAR(scroll->width, 400.0f, 0.01f);
     ASSERT_NEAR(scroll->height, 200.0f, 0.01f);
     arena_destroy(&a);
@@ -114,7 +114,7 @@ TEST(tableview_cells_have_content) {
     LayoutNode* view = table_view_build(&a, t, cfg);
 
     // Check that cells have text elements
-    LayoutNode* scroll = view->children[1];
+    LayoutNode* scroll = view->children[1]->children[0];
     LayoutNode* row0 = scroll->children[0];
     LayoutNode* cell0 = row0->children[0];
     ASSERT_TRUE(cell0->element_count >= 2); // bg + text
@@ -183,7 +183,7 @@ TEST(tableview_empty_table) {
     view->compute(300, 200);
 
     // Should not crash, scroll has 0 children
-    LayoutNode* scroll = view->children[1];
+    LayoutNode* scroll = view->children[1]->children[0];
     ASSERT_EQ(scroll->child_count, (uint16_t)0);
 
     SoftwareBackend sw(300, 200);
@@ -202,7 +202,7 @@ TEST(tableview_single_cell) {
     LayoutNode* view = table_view_build(&a, t, cfg);
     view->compute(200, 200);
 
-    LayoutNode* scroll = view->children[1];
+    LayoutNode* scroll = view->children[1]->children[0];
     ASSERT_EQ(scroll->child_count, (uint16_t)1);
     LayoutNode* row = scroll->children[0];
     ASSERT_EQ(row->child_count, (uint16_t)1);
@@ -224,7 +224,7 @@ TEST(tableview_many_rows) {
     LayoutNode* view = table_view_build(&a, t, cfg);
     view->compute(400, 300);
 
-    LayoutNode* scroll = view->children[1];
+    LayoutNode* scroll = view->children[1]->children[0];
     ASSERT_EQ(scroll->child_count, (uint16_t)100);
     ASSERT_TRUE(scroll->content_height > 200); // content exceeds viewport
     arena_destroy(&a);

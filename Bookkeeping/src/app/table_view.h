@@ -27,6 +27,9 @@ struct TableViewConfig {
     Color active_cell_border = {71, 85, 105, 255}; // #475569
     int32_t active_row = -1;  // -1 = no active cell
     int16_t active_col = -1;
+    // Persistent scroll offsets
+    float scroll_x = 0;
+    float scroll_y = 0;
 };
 
 // Build the table view tree. All allocations from the provided arena.
@@ -111,15 +114,59 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
     // Compute total table width from columns
     float total_w = 0;
     for (uint16_t c = 0; c < cols; c++) total_w += col_widths[c] + cfg.gap;
-    float scroll_w = total_w > cfg.viewport_width ? total_w : cfg.viewport_width;
-    Node* scroll = node_scroll(a, scroll_w, cfg.viewport_height);
+    // Scroll viewport = visible area; content may be wider and scrolls within
+    Node* scroll = node_scroll(a, cfg.viewport_width, cfg.viewport_height);
     scroll->set_gap(0).set_id("table-scroll");
+    scroll->scroll_x = cfg.scroll_x;
+    scroll->scroll_y = cfg.scroll_y;
     scroll->set_children(row_nodes, rows);
 
-    // ── Root: header + scroll ────────────────────────────────────────────────
+    // ── Scroll bars (as overlay nodes after scroll in a coordinate wrapper) ──
+    float total_h = 0;
+    for (uint32_t r = 0; r < rows; r++) total_h += cfg.cell_height + cfg.gap;
+    bool need_vbar = total_h > cfg.viewport_height;
+    bool need_hbar = total_w > cfg.viewport_width;
+
+    // Wrap scroll + bars in a coordinate layout
+    Node* wrapper = node_coord(a);
+    wrapper->size(cfg.viewport_width, cfg.viewport_height).set_id("table-scroll-wrapper");
+    uint16_t wrapper_kids_count = 1 + (need_vbar ? 1 : 0) + (need_hbar ? 1 : 0);
+    auto wrapper_kids = make_children(a, wrapper_kids_count);
+    scroll->pos(0, 0);
+    wrapper_kids[0] = scroll;
+    uint16_t wi = 1;
+    if (need_vbar) {
+        float ratio = cfg.viewport_height / total_h;
+        float bar_h = ratio * cfg.viewport_height;
+        if (bar_h < 20) bar_h = 20;
+        float bar_y = 0;
+        if (total_h > cfg.viewport_height && cfg.scroll_y > 0)
+            bar_y = (cfg.scroll_y / (total_h - cfg.viewport_height)) * (cfg.viewport_height - bar_h);
+        Node* vbar = node_leaf(a, 6, bar_h);
+        vbar->pos(cfg.viewport_width - 10, bar_y + 2);
+        vbar->attach(make_elements(a, 1), 1);
+        vbar->elements[0] = elem_rect({0, 0, 6, bar_h, {140, 145, 155, 200}, COLOR_TRANSPARENT, 0, 3});
+        wrapper_kids[wi++] = vbar;
+    }
+    if (need_hbar) {
+        float ratio = cfg.viewport_width / total_w;
+        float bar_w = ratio * cfg.viewport_width;
+        if (bar_w < 20) bar_w = 20;
+        float bar_x = 0;
+        if (total_w > cfg.viewport_width && cfg.scroll_x > 0)
+            bar_x = (cfg.scroll_x / (total_w - cfg.viewport_width)) * (cfg.viewport_width - bar_w);
+        Node* hbar = node_leaf(a, bar_w, 6);
+        hbar->pos(bar_x + 2, cfg.viewport_height - 10);
+        hbar->attach(make_elements(a, 1), 1);
+        hbar->elements[0] = elem_rect({0, 0, bar_w, 6, {140, 145, 155, 200}, COLOR_TRANSPARENT, 0, 3});
+        wrapper_kids[wi++] = hbar;
+    }
+    wrapper->set_children(wrapper_kids, wi);
+
+    // ── Root: header + wrapper ───────────────────────────────────────────────
     auto root_kids = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * 2, 8);
     root_kids[0] = header;
-    root_kids[1] = scroll;
+    root_kids[1] = wrapper;
 
     Node* root = node_linear_v(a);
     root->set_gap(0).set_id("table-view");
