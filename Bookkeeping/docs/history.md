@@ -288,3 +288,24 @@ across phases.
 **Benchmark results:**
 - Full startup to first frame (parse+layout+render): ~134μs
 - Sort 1000 rows: ~29μs
+
+---
+
+## Phase 11 — Visual Theme + Layout Parity — 2026-06-13
+
+**Added:**
+- `src/core/theme.h` — Theme struct with all Webapp CSS design tokens (50+ color values, font sizes)
+- `theme_light()` — complete light theme matching the Webapp's `:root` CSS variables
+- `NavTreeStyle` — configurable nav tree rendering colors
+- Demo rewritten with Webapp layout: Toolbar → Tab bar → Content [Nav|Workspace] → Status bar
+- Table view colors now driven by theme (header, cells, borders)
+- Tab bar uses proper light/active/inactive styling from the Webapp
+
+**Decisions:**
+- Theme is a plain struct (no inheritance, no globals) — passed into build functions
+- Layout dimensions match Webapp: toolbar=31px, tabs=26px, status=21px, nav=180px
+- Tab rendering inline in rebuild_ui (not using tab_strip_build) for full theme control
+- Font sizes expressed as float pixels (13, 11.4, 10.1, 14.3) matching em ratios
+
+**Bug fixed:**
+- Nav tree used COLOR_WHITE text which was invisible on light background → now uses theme colors

@@ -3,6 +3,7 @@
 #include "src/core/parser/csv.h"
 #include "src/core/search.h"
 #include "src/core/file_io.h"
+#include "src/core/theme.h"
 #include "src/app/table_view.h"
 #include "src/app/table_editor.h"
 #include "src/app/table_sort.h"
@@ -85,11 +86,18 @@ inline int run_demo() {
 
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
     Arena frame = arena_create(256 * 1024);
+    Theme th = theme_light();
 
     // ── Build functions ──────────────────────────────────────────────────────
     TableViewConfig tvcfg;
     tvcfg.viewport_width = 520;
     tvcfg.viewport_height = 200;
+    tvcfg.header_bg = th.table_header_bg;
+    tvcfg.header_text = th.table_header_text;
+    tvcfg.cell_bg_even = th.surface;
+    tvcfg.cell_bg_odd = th.surface;
+    tvcfg.cell_text = th.text_secondary;
+    tvcfg.border = th.table_cell_border;
 
     GraphViewConfig gvcfg;
     gvcfg.viewport_width = 520;
@@ -97,7 +105,12 @@ inline int run_demo() {
 
     auto build_active_view = [&](Arena* a) -> LayoutNode* {
         ViewSlot* v = ws.active_view();
-        if (!v) { auto lbl = Label(a, "(no view)", 12); return build(lbl); }
+        if (!v) {
+            auto lbl = Box(a, 400, 80).id("drop-hint")
+                .bg(th.surface, th.border, 1)
+                .text("Select an item from the navigation tree", th.font_base, th.text_muted);
+            return build(lbl);
+        }
         if (v->type == VIEW_TABLE) {
             tvcfg.viewport_width = 520; tvcfg.viewport_height = (float)(int)(200 * zoom);
             return table_view_build(a, (Table*)v->data, tvcfg);
@@ -105,30 +118,25 @@ inline int run_demo() {
             gvcfg.viewport_width = 520; gvcfg.viewport_height = (float)(int)(90 * zoom);
             return graph_view_build(a, (Graph*)v->data, gvcfg);
         }
-        auto lbl = Label(a, "(unknown view)", 12);
+        auto lbl = Label(a, "(unknown view)", th.font_small, th.text_muted);
         return build(lbl);
     };
 
     auto build_search_results_view = [&](Arena* a) -> LayoutNode* {
-        if (!search_active || search_results.count == 0) {
-            auto lbl = Label(a, "No results", 11, {120,120,120,255});
-            return build(lbl);
-        }
-        auto vstack = VStack(a, 1).size(520, 0).id("search-results");
-        uint32_t show = search_results.count > 10 ? 10 : search_results.count;
+        if (!search_active || search_results.count == 0) return nullptr;
+        auto vstack = VStack(a, 0).size(320, 0).id("search-results")
+            .bg(th.surface, th.border, 1);
+        char* hdr = (char*)arena_alloc(a, 32, 1);
+        snprintf(hdr, 32, " %u results", search_results.count);
+        vstack.child(Box(a, 320, 16).text(hdr, th.font_tiny, th.text_muted));
+        uint32_t show = search_results.count > 8 ? 8 : search_results.count;
         for (uint32_t i = 0; i < show; i++) {
             SearchHit& h = search_results.hits[i];
-            // Determine which table
             Table* t = (Table*)ws.active_view()->data;
             Str val = table_get_cell(t, h.row, h.col);
             char* line = (char*)arena_alloc(a, 80, 1);
-            snprintf(line, 80, "  [%u,%u] \"%.*s\"", h.row, h.col, val.len > 40 ? 40 : (int)val.len, val.data);
-            vstack.child(Label(a, line, 10, {200,200,200,255}));
-        }
-        if (search_results.count > 10) {
-            char* more = (char*)arena_alloc(a, 32, 1);
-            snprintf(more, 32, "  ... +%u more", search_results.count - 10);
-            vstack.child(Label(a, more, 10, {140,140,140,255}));
+            snprintf(line, 80, " [%u,%u] %.*s", h.row, h.col, val.len > 40 ? 40 : (int)val.len, val.data);
+            vstack.child(Box(a, 320, 18).text(line, th.font_tiny, th.text_secondary));
         }
         return build(vstack);
     };
@@ -136,63 +144,98 @@ inline int run_demo() {
     auto rebuild_ui = [&]() -> LayoutNode* {
         arena_reset(&frame);
         Arena* a = &frame;
+        float W = 600, H = 500;
 
-        // Tab strip
-        LayoutNode* tabs_node = tab_strip_build(a, &ws.tabs, 560);
-
-        // Nav tree (left panel)
-        LayoutNode* nav_node = nav_tree_build(a, &ws.nav, 150, 280);
-
-        // Active view (right panel)
-        LayoutNode* view_node = build_active_view(a);
-
-        // Search bar
+        // ── 1. Toolbar (2.4em = ~31px) ───────────────────────────────────────
+        auto toolbar = HStack(a, 4).size(W, 31).id("toolbar")
+            .bg(th.toolbar_bg, th.border, 1);
+        toolbar.child(Box(a, 40, 24).bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 1, 18).bg(th.border));
+        toolbar.child(Box(a, 36, 24).bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 1, 18).bg(th.border));
+        // Search in toolbar
         char* search_label = (char*)arena_alloc(a, 160, 1);
-        snprintf(search_label, 160, "Search: %.*s|%s", search_cursor, search_buf, search_active ? search_buf + search_cursor : "");
-        auto search_bar = HStack(a, 4).size(560, 22).id("search-bar")
-            .bg({45, 45, 55, 255}, {80, 80, 100, 255}, 1)
-            .text(search_label, 11, {200, 220, 255, 255});
+        snprintf(search_label, 160, "%s%s", search_buf, search_active ? "|" : "");
+        auto search_input = Box(a, 140, 22).id("search-bar")
+            .bg(th.surface, search_active ? th.cell_active_outline : th.border, 1)
+            .text(search_label[0] ? search_label : "Search...", th.font_small, search_label[0] ? th.text : th.text_muted);
+        toolbar.child(std::move(search_input));
 
-        // Search results (shown below content when active)
-        LayoutNode* results_node = build_search_results_view(a);
+        // ── 2. Tab bar (2em = ~26px) ─────────────────────────────────────────
+        auto tab_bar = HStack(a, 2).size(W, 26).id("tab-bar")
+            .bg(th.tab_bar_bg, th.border_heavy, 1);
+        for (uint16_t i = 0; i < ws.tabs.count; i++) {
+            bool active = ws.tabs.tabs[i].active;
+            Color bg = active ? th.tab_active_bg : th.tab_inactive_bg;
+            Color txt = active ? th.tab_active_text : th.tab_inactive_text;
+            Color bdr = active ? th.border_heavy : th.tab_inactive_border;
 
-        // Status bar
-        char* status_text = (char*)arena_alloc(a, 128, 1);
-        snprintf(status_text, 128, "%s | Zoom: %d%% | %s",
-            dirty.is_dirty() ? "[*] Modified" : "Saved",
-            (int)(zoom * 100),
-            ws.active_view() ? (ws.active_view()->type == VIEW_TABLE ? "Table" : "Graph") : "—");
-        auto status_bar = HStack(a, 0).size(560, 18).id("status-bar")
-            .bg({25, 25, 30, 255}, {50, 50, 60, 255}, 1)
-            .text(status_text, 9, {140, 160, 180, 255});
+            TextMeasure m = measure_text(ws.tabs.tabs[i].label, (uint32_t)strlen(ws.tabs.tabs[i].label), "sans", th.font_small, active ? TEXT_BOLD : TEXT_NORMAL);
 
-        // Content area: nav (left) + view (right)
-        auto content = HStack(a, 4).size(560, 0).id("content")
-            .child(UI{*nav_node, a})
-            .child(UI{*view_node, a});
+            // Close button child
+            char* close_id = (char*)arena_alloc(a, strlen(ws.tabs.tabs[i].id) + 7, 1);
+            snprintf(close_id, strlen(ws.tabs.tabs[i].id) + 7, "close:%s", ws.tabs.tabs[i].id);
 
-        // Root
-        auto root_ui = VStack(a, 4).padding(8).size(580, 0).id("root")
-            .child(Label(a, "Ctrl+F=search | Ctrl+S=save | Ctrl+Z/Y=undo/redo | Ctrl+Up/Down=reorder", 9))
-            .child(std::move(search_bar))
-            .child(UI{*tabs_node, a})
-            .child(std::move(content));
-
-        if (search_active && search_results.count > 0) {
-            root_ui.child(UI{*results_node, a});
+            auto tab = HStack(a, 0).size(m.width + 36, 24).id(ws.tabs.tabs[i].id)
+                .bg(bg, bdr, 1);
+            tab.child(Box(a, m.width + 16, 24).text(ws.tabs.tabs[i].label, th.font_small, txt, active ? TEXT_BOLD : TEXT_NORMAL));
+            tab.child(Box(a, 16, 24).id(close_id).text("x", th.font_tiny, th.text_muted));
+            tab_bar.child(std::move(tab));
         }
 
-        root_ui.child(std::move(status_bar));
+        // ── 3. Content area (flex row: nav | workspace) ──────────────────────
+        float content_h = H - 31 - 26 - 21; // toolbar + tabs + status
+        LayoutNode* nav_node = nav_tree_build(a, &ws.nav, 180, content_h);
+        LayoutNode* view_node = build_active_view(a);
+
+        // Nav tree panel with themed colors
+        // (nav_tree_build already builds a scroll; wrap it with bg)
+
+        auto content = HStack(a, 0).size(W, content_h).id("content");
+        // Nav panel (left, 180px)
+        auto nav_panel = VStack(a, 0).size(180, content_h).id("nav-tree-panel")
+            .bg(th.nav_bg, th.border, 0);
+        nav_panel.child(Box(a, 180, 20).bg(th.nav_header_bg, th.border, 1).text("Contents", th.font_tiny, th.nav_header_text, TEXT_BOLD));
+        nav_panel.child(UI{*nav_node, a});
+        content.child(std::move(nav_panel));
+        // Workspace (right, flex)
+        auto workspace = VStack(a, 0).size(W - 180, content_h).id("workspace")
+            .bg(th.surface);
+        workspace.child(UI{*view_node, a});
+        content.child(std::move(workspace));
+
+        // ── 4. Status bar (1.6em = ~21px) ────────────────────────────────────
+        char* status_text = (char*)arena_alloc(a, 128, 1);
+        const Tab* at = ws.tabs.active_tab();
+        snprintf(status_text, 128, " %s%s   Zoom: %d%%",
+            at ? at->label : "",
+            dirty.is_dirty() ? " [modified]" : "",
+            (int)(zoom * 100));
+        auto status_bar = HStack(a, 0).size(W, 21).id("status-bar")
+            .bg(th.status_bg, th.border, 1)
+            .text(status_text, th.font_tiny, th.status_text);
+
+        // ── Root (vertical stack, no padding — fills window) ─────────────────
+        auto root_ui = VStack(a, 0).size(W, H).id("root")
+            .bg(th.bg)
+            .child(std::move(toolbar))
+            .child(std::move(tab_bar))
+            .child(std::move(content))
+            .child(std::move(status_bar));
+
+        // Overlay: search results
+        LayoutNode* results_node = build_search_results_view(a);
+        (void)results_node; // TODO: overlay positioning
 
         LayoutNode* root = build(root_ui);
-        root->compute(600, 500);
+        root->compute(W, H);
         return root;
     };
 
     LayoutNode* root = rebuild_ui();
 
     // ── Event loop ───────────────────────────────────────────────────────────
-    PlatformWindow* win = create_window("Bookkeeping — Phase 9: File I/O + Ctrl+S save + Ctrl+O open", 600, 500);
+    PlatformWindow* win = create_window("Bookkeeping", 600, 500);
     bool running = true;
     bool need_rebuild = false;
     InputEvent ev;

@@ -75,29 +75,37 @@ private:
 
 // ── Render navigation tree to LayoutNode ─────────────────────────────────────
 
-static inline void nav_render_node(Arena* a, NavNode* node, UI& parent, float indent_px, float row_h) {
+struct NavTreeStyle {
+    Color text = {51, 65, 85, 255};         // --text-secondary
+    Color folder_text = {30, 41, 59, 255};  // --text
+    Color arrow_color = {148, 163, 184, 255}; // --text-muted
+    float font_size = 11;
+};
+
+static inline void nav_render_node(Arena* a, NavNode* node, UI& parent, float indent_px, float row_h, const NavTreeStyle& style) {
     float x_off = node->depth * indent_px;
-    const char* prefix = (node->child_count > 0) ? (node->expanded ? "▼ " : "▶ ") : "  ";
+    bool is_folder = node->child_count > 0;
+    const char* prefix = is_folder ? (node->expanded ? "▼ " : "▶ ") : "  ";
     char* text = (char*)arena_alloc(a, strlen(prefix) + strlen(node->label) + 1, 1);
     snprintf(text, strlen(prefix) + strlen(node->label) + 1, "%s%s", prefix, node->label);
 
+    Color txt = is_folder ? style.folder_text : style.text;
     auto row = HStack(a, 0).size(0, row_h).id(node->id);
     if (x_off > 0) row.child(Box(a, x_off, row_h)); // indent spacer
-    row.child(Label(a, text, 11, COLOR_WHITE));
+    row.child(Label(a, text, style.font_size, txt));
     parent.child(std::move(row));
 
     if (node->expanded) {
         for (uint16_t i = 0; i < node->child_count; i++)
-            nav_render_node(a, &node->children[i], parent, indent_px, row_h);
+            nav_render_node(a, &node->children[i], parent, indent_px, row_h, style);
     }
 }
 
-inline LayoutNode* nav_tree_build(Arena* a, NavTree* tree, float width = 200, float height = 300) {
+inline LayoutNode* nav_tree_build(Arena* a, NavTree* tree, float width = 200, float height = 300, NavTreeStyle style = {}) {
     auto vstack = VStack(a, 1).size(width, 0).id("nav-tree");
     for (uint16_t i = 0; i < tree->root_count; i++)
-        nav_render_node(a, &tree->root[i], vstack, 14, 20);
+        nav_render_node(a, &tree->root[i], vstack, 14, 20, style);
 
-    // Wrap in scroll if needed
     auto scroll = Scroll(a, width, height, 0).id("nav-scroll").child(std::move(vstack));
     return build(scroll);
 }
