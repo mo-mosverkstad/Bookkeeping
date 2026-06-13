@@ -16,6 +16,7 @@ TEST_FILE_IO = test_file_io
 TEST_INTEGRATION = test_integration
 TEST_CONTROL = test_control
 TEST_GFILTER = test_graph_filter
+TEST_REQS = test_requirements
 
 SRC = main.cpp \
       src/graphics/layout/layout.cpp \
@@ -82,12 +83,18 @@ TEST_GFILTER_SRC = test/test_graph_filter.cpp \
                    src/core/model/table.cpp \
                    src/core/parser/csv.cpp
 
+TEST_REQS_SRC = test/test_requirements.cpp \
+                src/core/model/table.cpp \
+                src/core/parser/csv.cpp \
+                src/graphics/layout/layout.cpp \
+                src/graphics/backend/backend.cpp
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET) $(SDL_FLAGS)
 
-test: test-gfx test-table test-ui test-tview test-math test-editor test-rend test-graph test-workspace test-file-io test-integration test-control test-gfilter
+test: test-gfx test-table test-ui test-tview test-math test-editor test-rend test-graph test-workspace test-file-io test-integration test-control test-gfilter test-reqs
 
 test-gfx: $(TEST_GFX_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_GFX_SRC) -o $(TEST_GFX) -lm
@@ -141,9 +148,13 @@ test-gfilter: $(TEST_GFILTER_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_GFILTER_SRC) -o $(TEST_GFILTER) -lm
 	./$(TEST_GFILTER)
 
+test-reqs: $(TEST_REQS_SRC)
+	$(CXX) $(CXXFLAGS) $(TEST_REQS_SRC) -o $(TEST_REQS) -lm
+	./$(TEST_REQS)
+
 bench: test
 
 clean:
-	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI) $(TEST_TVIEW) $(TEST_MATH) $(TEST_EDITOR) $(TEST_REND) $(TEST_GRAPH) $(TEST_WORKSPACE) $(TEST_FILE_IO) $(TEST_INTEGRATION) $(TEST_CONTROL) $(TEST_GFILTER)
+	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI) $(TEST_TVIEW) $(TEST_MATH) $(TEST_EDITOR) $(TEST_REND) $(TEST_GRAPH) $(TEST_WORKSPACE) $(TEST_FILE_IO) $(TEST_INTEGRATION) $(TEST_CONTROL) $(TEST_GFILTER) $(TEST_REQS)
 
 .PHONY: all test test-gfx test-table bench clean

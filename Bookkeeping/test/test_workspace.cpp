@@ -329,7 +329,7 @@ TEST(workspace_mount_unmount) {
     ASSERT_TRUE(ws.active_view() != nullptr);
     ASSERT_EQ(ws.active_view()->type, VIEW_TABLE);
     ws.unmount("people");
-    ASSERT_EQ(ws.view_count, (uint16_t)0);
+    ASSERT_EQ(ws.view_count, (uint16_t)1); // view slot kept for re-open
     ASSERT_EQ(ws.tabs.count, (uint16_t)0);
     arena_destroy(&a);
 }

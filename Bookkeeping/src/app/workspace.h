@@ -52,20 +52,13 @@ struct Workspace {
             }
         }
         if (view_count >= view_capacity) return -1;
-        views[view_count++] = {id, type, data, nullptr};
+        views[view_count++] = {id, type, data, nullptr, 0, 0};
         return tab_idx;
     }
 
-    // Unmount a view (closes tab, removes view slot)
+    // Unmount a view (closes tab only — view slot kept for re-opening from nav)
     void unmount(const char* id) {
         tabs.close_by_id(id);
-        for (uint16_t i = 0; i < view_count; i++) {
-            if (strcmp(views[i].id, id) == 0) {
-                memmove(&views[i], &views[i + 1], (view_count - i - 1) * sizeof(ViewSlot));
-                view_count--;
-                return;
-            }
-        }
     }
 
     // Get the active view slot (or nullptr)

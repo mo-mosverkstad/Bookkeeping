@@ -216,7 +216,7 @@ TEST(e2e_workspace_multi_table) {
 
     // Close T1
     ws.unmount("t1");
-    ASSERT_EQ(ws.view_count, (uint16_t)1);
+    ASSERT_EQ(ws.view_count, (uint16_t)2); // views kept
     ASSERT_TRUE(str_eq_cstr(table_get_cell((Table*)ws.active_view()->data, 0, 0), "3"));
     arena_destroy(&a);
 }

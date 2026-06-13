@@ -1011,13 +1011,24 @@ inline int run_demo() {
                                 if (tidx >= 0) {
                                     ws.tabs.activate(tidx);
                                 } else {
-                                    // Re-mount the view
-                                    if (strcmp(nav->id, "people") == 0)
-                                        ws.mount("People", "people", VIEW_TABLE, people);
-                                    else if (strcmp(nav->id, "cities") == 0)
-                                        ws.mount("Cities", "cities", VIEW_TABLE, cities);
-                                    else if (strcmp(nav->id, "workflow") == 0)
-                                        ws.mount("Workflow", "workflow", VIEW_GRAPH, &demo_graph);
+                                    // Try to find the view data in workspace views (tab closed but data exists)
+                                    bool remounted = false;
+                                    for (uint16_t vi = 0; vi < ws.view_count; vi++) {
+                                        if (strcmp(ws.views[vi].id, nav->id) == 0) {
+                                            ws.tabs.open(nav->id, nav->id);
+                                            remounted = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!remounted) {
+                                        // Known built-in views
+                                        if (strcmp(nav->id, "people") == 0)
+                                            ws.mount("People", "people", VIEW_TABLE, people);
+                                        else if (strcmp(nav->id, "cities") == 0)
+                                            ws.mount("Cities", "cities", VIEW_TABLE, cities);
+                                        else if (strcmp(nav->id, "workflow") == 0)
+                                            ws.mount("Workflow", "workflow", VIEW_GRAPH, &demo_graph);
+                                    }
                                 }
                                 ViewSlot* v = ws.active_view();
                                 if (v && v->type == VIEW_TABLE) {
