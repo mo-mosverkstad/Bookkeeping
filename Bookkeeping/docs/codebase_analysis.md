@@ -50,12 +50,66 @@ Written for developers new to the codebase.
 **Key principle**: Dependencies flow downward. `app/` uses `graphics/` and `core/`.
 `graphics/` uses only `core/`. `core/` has no dependencies.
 
+This is a strict **layered architecture** (sometimes called "onion" or "clean architecture"):
+- No circular dependencies between layers
+- Upper layers can call lower layers, never vice versa
+- Each layer is testable in isolation (core has zero deps, graphics only needs core)
+
+The design also applies the **Dependency Inversion Principle** at the platform boundary:
+`app/` depends on the *abstract* `PlatformWindow` interface, not on SDL2 directly.
+The concrete SDL2 implementation is injected at link time via `sdl2_platform.cpp`.
+
+```cpp
+// main.cpp — the entire application entry point:
+#include "src/demo.h"
+int main() { return run_demo(); }
+```
+
+The single `run_demo()` function orchestrates all subsystems. There is no framework,
+no event bus, no DI container — just direct function calls through a clear hierarchy.
+
 ---
 
 ## Phase 1 — Graphics Library Foundation
 
 ### What it does
 Provides the building blocks for all visual rendering: shapes, layouts, and backends.
+
+### Design Patterns
+
+**Composite Pattern** — `LayoutNode` is a tree where each node can contain child nodes
+and leaf elements. The same `compute()` / `render()` / `hit_test()` operations work
+uniformly on any subtree regardless of depth.
+
+**Strategy Pattern** — `RenderBackend` defines a rendering strategy. The layout tree
+doesn't know whether it's drawing to a pixel buffer (tests) or an SDL window (display).
+Backends are swapped without changing any tree logic.
+
+**Tagged Union (Discriminated Union)** — Elements use a C-style tagged union instead of
+virtual inheritance. This avoids vtable overhead for shape types (which are allocated
+by the millions):
+
+```cpp
+// src/graphics/elements/element.h
+enum ElementType : uint8_t {
+    ELEM_RECT = 0, ELEM_ELLIPSE, ELEM_LINE,
+    ELEM_POLYLINE, ELEM_POLYGON, ELEM_TEXT,
+};
+
+struct Element {
+    ElementType type;  // 1-byte tag
+    union {
+        Rect rect; Ellipse ellipse; Line line;
+        Polyline polyline; Polygon polygon; Text text;
+    };
+};
+
+// Factory: construct + tag in one call
+inline Element elem_rect(Rect r) { Element e; e.type = ELEM_RECT; e.rect = r; return e; }
+```
+
+This is the **Data-Oriented Design** approach: store related data contiguously, tag it,
+and dispatch on the tag. No pointer chasing, no vtable indirection.
 
 ### Architecture
 
@@ -87,7 +141,42 @@ Provides the building blocks for all visual rendering: shapes, layouts, and back
 ```
 Why: Avoids malloc/free overhead in hot paths. All allocations O(1).
 
+The arena implements the **Bump Allocator** pattern — the simplest possible allocator:
+
+```cpp
+// src/core/arena.h
+inline void* arena_alloc(Arena* a, size_t size, size_t align = 8) {
+    size_t aligned = (a->offset + align - 1) & ~(align - 1);
+    if (aligned + size > a->capacity) return nullptr; // OOM
+    void* ptr = a->base + aligned;
+    a->offset = aligned + size;
+    return ptr;
+}
+
+inline void arena_reset(Arena* a) { a->offset = 0; }  // free everything at once
+```
+
+Key insight: there is no `free()` for individual objects. The arena follows a
+**region-based memory management** strategy where all allocations in a region
+share the same lifetime. When the region is done, one `arena_reset()` call
+reclaims all memory in O(1). This eliminates use-after-free bugs and fragmentation.
+
+Typed helpers provide ergonomic construction:
+
+```cpp
+template<typename T>
+inline T* arena_new(Arena* a) {
+    void* mem = arena_alloc(a, sizeof(T), alignof(T));
+    return new (mem) T{};  // placement new with zero-init
+}
+```
+
 **`src/graphics/elements/`** — One file per shape
+
+Each shape is a plain **POD struct** (Plain Old Data) — no constructors, no destructors,
+no virtual methods. This means they can be `memcpy`'d, stored in arrays without gaps,
+and initialized with aggregate syntax:
+
 - `rect.h`: x, y, w, h, fill color, stroke color, stroke width, corner radius
 - `ellipse.h`: center (cx, cy), radii (rx, ry), fill, stroke
 - `line.h`: endpoints (x1,y1)→(x2,y2), color, width
@@ -95,6 +184,22 @@ Why: Avoids malloc/free overhead in hot paths. All allocations O(1).
 - `polygon.h`: closed path (last point connects to first), fill + stroke
 - `text.h`: position, content string, font, size, color, style flags (bold/italic/underline packed into 1 byte)
 - `element.h`: Tagged union wrapping all shapes + factory functions
+
+**Bit-packing** in TextStyle demonstrates the data density approach:
+
+```cpp
+// src/graphics/elements/text.h
+enum TextStyle : uint8_t {
+    TEXT_NORMAL        = 0,
+    TEXT_BOLD          = 1 << 0,  // bit 0
+    TEXT_ITALIC        = 1 << 1,  // bit 1
+    TEXT_UNDERLINE     = 1 << 2,  // bit 2
+    TEXT_STRIKETHROUGH = 1 << 3,  // bit 3
+    TEXT_SUBSCRIPT     = 1 << 4,  // bit 4
+    TEXT_SUPERSCRIPT   = 1 << 5,  // bit 5
+};
+// 6 boolean flags in 1 byte. Scattered bools would take 6 bytes + padding.
+```
 
 **`src/graphics/layout/layout.h`** — The LayoutNode struct
 ```cpp
@@ -128,6 +233,33 @@ RenderBackend (abstract interface)
 ```
 The backend is the ONLY place with `virtual` (polymorphism cost justified at platform boundary).
 
+This follows the principle of **minimal abstraction cost**: virtual dispatch (indirect
+function call via vtable) is only used where runtime polymorphism is genuinely needed.
+The rendering visitor switches based on the `ElementType` tag:
+
+```cpp
+// src/graphics/layout/layout.cpp — render dispatch
+void LayoutNode::render(RenderBackend* backend, float offset_x, float offset_y) {
+    float abs_x = offset_x + x;
+    float abs_y = offset_y + y + y_offset;
+    for (uint16_t i = 0; i < element_count; i++) {
+        Element& e = elements[i];
+        switch (e.type) {
+            case ELEM_RECT:    backend->render_rect(abs_x, abs_y, e.rect); break;
+            case ELEM_ELLIPSE: backend->render_ellipse(abs_x, abs_y, e.ellipse); break;
+            case ELEM_LINE:    backend->render_line(abs_x, abs_y, e.line); break;
+            // ... etc
+        }
+    }
+    // Recurse into children (clip if SCROLL type)
+    ...
+}
+```
+
+The `LayoutNode::compute()` method implements a **single-pass top-down layout algorithm**:
+parent determines available space, each child computes within that space. This is
+analogous to CSS flexbox but without two-pass min/max negotiation.
+
 ### Extension: ScrollLayout, Hit Testing, Text Measurement, Clipping
 
 **ScrollLayout**: Children positioned in content space. `scroll_x/scroll_y` shift the viewport. Clipping prevents drawing outside viewport bounds.
@@ -137,6 +269,23 @@ The backend is the ONLY place with `virtual` (polymorphism cost justified at pla
 - `hit_deep()`: Returns ALL nodes containing (x,y) — like "what's the full stack here?"
 
 **Text measurement hook**: Pluggable function pointer. Default = mock (width = chars × size × 0.6). Can be replaced with real font metrics.
+
+This is the **Strategy Pattern via function pointer** — lighter weight than a virtual class:
+
+```cpp
+// src/graphics/layout/layout.h
+typedef TextMeasure (*TextMeasureFn)(const char* text, uint32_t len,
+                                     const char* font, float size, uint8_t style);
+void set_text_measure_hook(TextMeasureFn fn);
+
+// Default implementation (used in tests):
+static TextMeasure default_measure(const char* text, uint32_t len, ...) {
+    return { max_line_chars * size * 0.6f, lines * size };
+}
+```
+
+In production, SDL2_ttf provides real glyph metrics. In tests, the mock lets us
+validate layout logic without loading font files.
 
 ### Extension: FunctionalLayout + VirtualLayout
 
@@ -153,6 +302,29 @@ State (business data)
 User clicks → event_fn(state, event)
     │
     └── mutates state → marks dirty → re-renders
+```
+
+This is **Unidirectional Data Flow** (inspired by React/Elm/Redux):
+state is the single source of truth, the UI is a pure function of state,
+and events modify state which triggers a re-render. The separation makes
+the UI deterministic and testable:
+
+```cpp
+// Render function: state → UI tree (pure, no side effects)
+static LayoutNode* counter_render(void* state, Arena* a) {
+    CounterState* cs = (CounterState*)state;
+    char* txt = (char*)arena_alloc(a, 48, 1);
+    snprintf(txt, 48, "Clicks: %d", cs->count);
+    auto row = HStack(a, 3).size(370, 40).id("counter");
+    row.child(Label(a, txt, 12));
+    return build(row);
+}
+
+// Event handler: state + event → mutated state
+static bool counter_event(void* state, const UIEvent* ev) {
+    if (ev->type == EVENT_CLICK) { ((CounterState*)state)->count++; return true; }
+    return false;
+}
 ```
 
 ---
@@ -189,6 +361,42 @@ Recursive field parser handles:
 
 All strings arena-allocated (pointer + length, null-terminated for C compat).
 
+The string type follows the **fat pointer** pattern — storing length alongside data
+avoids strlen() scans and enables O(1) comparison short-circuit:
+
+```cpp
+// src/core/str.h
+struct Str {
+    const char* data;
+    uint32_t len;
+};
+
+inline Str arena_str(Arena* a, const char* src, uint32_t len) {
+    char* buf = (char*)arena_alloc(a, len + 1, 1);
+    memcpy(buf, src, len);
+    buf[len] = '\0';  // null-terminated for C compat
+    return {buf, len};
+}
+
+inline bool str_eq(Str a, Str b) {
+    if (a.len != b.len) return false;      // fast path: length mismatch
+    return memcmp(a.data, b.data, a.len) == 0;
+}
+```
+
+The Table API uses the **Repository Pattern** — pure CRUD operations on an
+in-memory data structure, with no knowledge of persistence or rendering:
+
+```cpp
+// src/core/model/table.h — clean data access interface
+Str table_get_cell(const Table* t, uint32_t row, uint16_t col);
+void table_set_cell(Arena* a, Table* t, uint32_t row, uint16_t col, Str value);
+uint32_t table_append_row(Arena* a, Table* t);
+void table_insert_row(Arena* a, Table* t, uint32_t at);
+void table_remove_row(Table* t, uint32_t at);
+void table_move_row(Table* t, uint32_t from, uint32_t to);
+```
+
 ---
 
 ## Phase 3 — Table Rendering
@@ -213,6 +421,27 @@ table_view (LinearV)
 ```
 
 Column widths auto-sized from header text measurement. Alternating row colors. Scroll viewport clips overflow rows.
+
+The table renderer demonstrates the **Model-View separation** — the Table model
+(Phase 2) has no rendering knowledge; `table_view_build()` is a pure function that
+transforms model → visual tree:
+
+```cpp
+// src/app/table_view.h — transforms data model to visual layout
+inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableViewConfig& cfg) {
+    // Measure column widths from header text
+    for (uint16_t c = 0; c < cols; c++) {
+        TextMeasure m = measure_text(table->columns[c].name.data, ...);
+        col_widths[c] = m.width + 16;
+    }
+    // Build header row (LinearH)
+    // Build data rows inside ScrollLayout
+    // Return root (LinearV containing header + scroll)
+}
+```
+
+The config struct acts as a **Value Object** encapsulating all visual parameters,
+making the renderer fully configurable without modifying code.
 
 ---
 
@@ -255,6 +484,23 @@ Fraction(a, b):
 
 The `y_offset` field on LayoutNode shifts rendering vertically without affecting layout flow — zero-cost way to achieve baseline shifting.
 
+The math parser is implemented as a classic **Recursive Descent Parser** with
+**Pratt precedence climbing**. Each precedence level is a function that calls
+the next higher level, producing an AST node:
+
+```
+parse_relational() calls parse_additive()
+  parse_additive() calls parse_multiplicative()
+    parse_multiplicative() calls parse_power()
+      parse_power() calls parse_unary()
+        parse_unary() calls parse_primary()
+          parse_primary() → Number | Identifier | Paren | Sqrt | Set
+```
+
+The renderer then performs a **tree-to-tree transformation**: MathAST → LayoutNode.
+This is the **Interpreter Pattern** — each AST node type has a render rule that
+produces the corresponding visual subtree.
+
 ---
 
 ## Phase 5 — Cell Editing + Undo/Redo
@@ -292,6 +538,40 @@ undo()  → past--, future++, return action
 redo()  → future--, past++, return action
 ```
 
+This is the **Command Pattern** — each edit is reified as a data object (`EditAction`)
+that can be executed (apply), undone (reverse), or replayed (redo). The history stack
+uses a fixed-capacity arena-allocated array — no heap allocation during editing:
+
+```cpp
+// src/app/edit_history.h
+struct EditAction {
+    EditActionType type;     // EDIT_CELL, EDIT_ADD_ROW, etc.
+    uint32_t row;
+    uint16_t col;
+    Str old_value;           // for undo
+    Str new_value;           // for redo
+};
+
+struct EditHistory {
+    EditAction* actions;     // pre-allocated in arena
+    uint16_t capacity;
+    uint16_t past_count;
+    uint16_t future_count;
+
+    void push(EditAction action) {
+        actions[past_count++] = action;
+        future_count = 0;    // push clears redo stack
+    }
+    EditAction* undo() { past_count--; future_count++; return &actions[past_count]; }
+    EditAction* redo() { future_count--; return &actions[past_count++]; }
+};
+```
+
+The `TableEditor` aggregates the command pattern with an **edit buffer** (in-place
+text editing) and a **selection model** (multi-cell tracking). This is the
+**Mediator Pattern** — the editor coordinates between table, history, and selection
+without them knowing about each other.
+
 ---
 
 ## Phase 6 — Chemistry/Physics/Geometry/Rich Text
@@ -320,6 +600,25 @@ Output:
 - `$geom{expr}` — geometry (delegates to math)
 
 Newlines inside `$tag{...}` produce separate rendered lines (stacked).
+
+The rich text parser uses the **Template Method** approach — a common parsing loop
+that detects `$tag{...}` markers, dispatches to the appropriate domain renderer,
+and assembles all fragments into a unified layout tree. Each domain renderer is
+a plug-in that conforms to the same interface (input string → LayoutNode*):
+
+```
+rich_render(arena, text, len, font_size, color)
+  │
+  ├── encounters plain text → creates Text element directly
+  ├── encounters $math{...} → delegates to math_render(arena, expr)
+  ├── encounters $chem{...} → delegates to chem_render(arena, formula)
+  ├── encounters $phys{...} → delegates to math_render (same as math)
+  └── encounters $geom{...} → delegates to math_render (same as math)
+```
+
+This is the **Open/Closed Principle** in action — adding a new domain renderer
+requires only adding a new `else if` branch in the parser, without changing
+existing renderers.
 
 ---
 
@@ -354,6 +653,28 @@ Edge lines are shortened: instead of center-to-center, they stop at the node bor
 ### Layout
 Currently uses grid layout (simple row-major positioning). Can be extended with force-directed or layered algorithms.
 
+The graph renderer demonstrates the **Coordinate Layout** pattern — nodes are positioned
+absolutely based on their computed x/y coordinates, while edges are drawn as root-level
+elements behind the children (exploiting draw order = z-order):
+
+```cpp
+// src/app/graph_view.h — edge shortening to node borders
+float dx = x2 - x1, dy = y2 - y1;
+float len = sqrtf(dx*dx + dy*dy);
+if (len > 0) {
+    float nx = dx / len, ny = dy / len;  // normalized direction
+    x1 += nx * (from.w / 2);             // start at source border
+    y1 += ny * (from.h / 2);
+    x2 -= nx * (to.w / 2);              // end at target border
+    y2 -= ny * (to.h / 2);
+}
+root->elements[i] = elem_line({x1, y1, x2, y2, cfg.edge_color, 1.5f});
+```
+
+The `Graph` struct uses an **adjacency list** representation via indexed arrays
+(nodes[] + edges[] with from/to as indices). This is cache-friendly compared to
+pointer-based adjacency lists.
+
 ---
 
 ## Cross-cutting: Platform Abstraction
@@ -370,6 +691,45 @@ SDL2Window : PlatformWindow
 ```
 
 Application code (demo.h) NEVER includes SDL headers. It uses only `PlatformWindow` and `InputEvent`. Swapping to Vulkan/DirectX/etc. only requires a new `xxx_platform.cpp`.
+
+This is the **Abstract Factory + Bridge Pattern** combination:
+
+```cpp
+// src/platform/platform.h — abstract interface
+struct InputEvent {
+    enum Type : uint8_t { QUIT, MOUSE_DOWN, MOUSE_UP, MOUSE_MOVE, MOUSE_WHEEL, KEY_DOWN, KEY_UP };
+    Type type;
+    float x, y;
+    float scroll_x, scroll_y;
+    int key;
+    uint8_t button;
+    uint16_t mod;       // modifier flags (ctrl, shift, alt)
+};
+
+struct PlatformWindow {
+    virtual bool poll_event(InputEvent& out) = 0;
+    virtual RenderBackend* backend() = 0;
+    virtual void begin_frame() = 0;
+    virtual void end_frame() = 0;
+};
+
+// Factory function — hides implementation details
+PlatformWindow* create_window(const char* title, int w, int h);
+```
+
+The SDL2 implementation translates platform-specific events into the generic format:
+
+```cpp
+// src/platform/sdl2_platform.cpp
+case SDL_KEYDOWN:
+    out.type = InputEvent::KEY_DOWN;
+    out.key = ev.key.keysym.sym;    // SDL keycode → generic int
+    out.mod = ev.key.keysym.mod;    // SDL modifier → generic uint16
+    return true;
+```
+
+The application only sees `InputEvent` — it never touches SDL types, making the
+entire app layer portable to any windowing system.
 
 ---
 
@@ -400,6 +760,31 @@ NeighbourResult = graph_neighbours(arena, graph, start_idx, max_depth)
   └── BFS queue (arena-allocated)
        Returns all reachable node indices within depth limit
 ```
+
+The BFS implementation is notable for using the arena as a queue — no `std::queue`
+or linked list. The queue is a flat array where `qhead` and `qtail` advance forward:
+
+```cpp
+// src/core/search.h — arena-backed BFS
+uint16_t* queue = (uint16_t*)arena_alloc(a, sizeof(uint16_t) * cap, 2);
+uint16_t* depths = (uint16_t*)arena_alloc(a, sizeof(uint16_t) * cap, 2);
+uint16_t qhead = 0, qtail = 0;
+
+queue[qtail] = start; depths[qtail] = 0; qtail++;
+seen[start] = 1;
+
+while (qhead < qtail) {
+    uint16_t cur = queue[qhead];
+    uint16_t d = depths[qhead]; qhead++;
+    visited[vcount++] = cur;
+    if (d >= max_depth) continue;
+    for (uint16_t e = 0; e < g->edge_count; e++) {
+        // ... traverse edges, enqueue unseen neighbours
+    }
+}
+```
+
+This is a **monotonic queue** — it only grows forward, perfectly suited for arena allocation.
 
 **Cross-table join**:
 ```
@@ -468,6 +853,28 @@ Operations:
 
 ViewType enum: `VIEW_NONE`, `VIEW_TABLE`, `VIEW_GRAPH`, `VIEW_SEARCH_RESULTS`.
 
+The Workspace follows the **Controller Pattern** (MVC) — it coordinates between
+the data model (views/tabs) and the UI rendering, handling mount/unmount lifecycle:
+
+```cpp
+// src/app/workspace.h
+int Workspace::mount(const char* label, const char* id, ViewType type, void* data) {
+    int tab_idx = tabs.open(label, id);   // open/reactivate tab
+    // ... register or update view slot
+    views[view_count++] = {id, type, data, nullptr};
+    return tab_idx;
+}
+
+void Workspace::unmount(const char* id) {
+    tabs.close_by_id(id);                 // remove tab
+    // ... remove view slot (memmove to preserve order)
+}
+```
+
+The `void* data` pointer uses **type erasure** — the workspace doesn't know
+the concrete type of each view's data. The `ViewType` enum enables safe
+downcasting when the view needs to be rendered.
+
 ### Demo integration
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -516,6 +923,38 @@ tree->render(backend);
 
 Methods on `UI` struct are `inline` — compile to direct field assignment. Zero runtime cost vs manual struct initialization.
 
+This is the **Builder Pattern** with a fluent (chaining) API. Each method returns
+`*this` by reference, enabling call chains. At compile time, the optimizer inlines
+everything into simple struct field writes:
+
+```cpp
+// src/graphics/ui.h — the builder struct
+struct UI {
+    LayoutNode node;
+    Arena* arena;
+
+    UI& id(const char* s)    { node.id = s; return *this; }
+    UI& padding(float p)     { node.padding = p; return *this; }
+    UI& gap(float g)         { node.gap = g; return *this; }
+    UI& child(UI&& c)        { return add_child(c); }  // move semantics
+    UI& bg(Color fill, ...)  { /* append Rect element */ return *this; }
+    UI& text(const char* s, ...) { /* append Text element */ return *this; }
+};
+```
+
+The factory functions act as **named constructors** that produce pre-configured builders:
+
+```cpp
+inline UI VStack(Arena* a, float g = 0) {
+    UI ui = {}; ui.arena = a;
+    ui.node.type = LAYOUT_LINEAR; ui.node.direction = LINEAR_VERTICAL; ui.node.gap = g;
+    return ui;
+}
+```
+
+`build(ui)` finalizes the builder by copying the node into the arena, returning a
+persistent pointer. This mirrors React's `React.createElement()` → virtual DOM node pattern.
+
 ---
 
 ## Performance Techniques Used
@@ -528,3 +967,28 @@ Methods on `UI` struct are `inline` — compile to direct field assignment. Zero
 | Virtual only at boundary | RenderBackend, PlatformWindow (2 vtables total) |
 | No malloc in hot path | All rendering, layout, hit testing from arena |
 | Bulk free | arena_reset() frees everything at once |
+| Frame arena pattern | UI rebuilt every frame from a resettable arena |
+
+### Frame Arena (Double-Buffer Memory)
+
+The demo uses two arenas: a **persistent arena** (holds data that lives across frames:
+tables, graphs, workspace state) and a **frame arena** (holds transient UI layout nodes,
+reset every frame). This prevents memory growth during interaction:
+
+```cpp
+Arena arena = arena_create(512 * 1024);  // persistent data
+Arena frame = arena_create(256 * 1024);  // UI layout (reset each rebuild)
+
+auto rebuild_ui = [&]() -> LayoutNode* {
+    arena_reset(&frame);       // reclaim all UI memory in O(1)
+    Arena* a = &frame;
+    // ... build entire UI tree from scratch using frame arena
+    LayoutNode* root = build(root_ui);
+    root->compute(600, 500);
+    return root;
+};
+```
+
+This is the **double-buffering** strategy applied to memory: one buffer is stable
+(data), the other is volatile (rendering). It guarantees bounded memory usage regardless
+of how many times the UI is rebuilt.
