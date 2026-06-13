@@ -21,6 +21,7 @@ struct ViewSlot {
     void* data;            // pointer to Table*, Graph*, SearchResult*, etc.
     LayoutNode* cached_tree; // last rendered layout (nullptr = needs rebuild)
     float scroll_x, scroll_y; // per-view scroll state
+    const char* save_path;   // file path for saving (nullptr = no file)
 };
 
 struct Workspace {
@@ -52,7 +53,7 @@ struct Workspace {
             }
         }
         if (view_count >= view_capacity) return -1;
-        views[view_count++] = {id, type, data, nullptr, 0, 0};
+        views[view_count++] = {id, type, data, nullptr, 0, 0, nullptr};
         return tab_idx;
     }
 

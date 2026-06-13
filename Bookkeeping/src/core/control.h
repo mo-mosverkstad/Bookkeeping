@@ -94,6 +94,7 @@ struct LoadedFolder {
     const char* name;       // folder name (last path component)
     Table** tables;
     const char** table_ids;
+    const char** table_paths; // full file paths for saving
     uint16_t table_count;
 };
 
@@ -116,16 +117,20 @@ inline LoadedFolder folder_load(Arena* a, const char* dir_path) {
         ControlFile cf = control_parse(a, ctrl_content.data, ctrl_content.len);
         result.tables = (Table**)arena_alloc(a, sizeof(Table*) * cf.count, 8);
         result.table_ids = (const char**)arena_alloc(a, sizeof(const char*) * cf.count, 8);
+        result.table_paths = (const char**)arena_alloc(a, sizeof(const char*) * cf.count, 8);
         result.table_count = 0;
 
         for (uint16_t i = 0; i < cf.count; i++) {
             if (strcmp(cf.entries[i].type, "table") != 0) continue;
-            char file_path[512];
-            snprintf(file_path, 512, "%s/%s", dir_path, cf.entries[i].file);
+            // Build full path in arena (persists)
+            uint32_t plen = (uint32_t)(strlen(dir_path) + 1 + strlen(cf.entries[i].file));
+            char* file_path = (char*)arena_alloc(a, plen + 1, 1);
+            snprintf(file_path, plen + 1, "%s/%s", dir_path, cf.entries[i].file);
             Table* t = file_load_csv(a, file_path);
             if (t) {
                 result.tables[result.table_count] = t;
                 result.table_ids[result.table_count] = cf.entries[i].id;
+                result.table_paths[result.table_count] = file_path;
                 result.table_count++;
             }
         }

@@ -72,9 +72,12 @@ inline int run_demo() {
     Workspace ws;
     ws.init(&arena, 64);
     ws.mount("People", "people", VIEW_TABLE, people);
+    ws.views[0].save_path = people_save;
     ws.mount("Cities", "cities", VIEW_TABLE, cities);
+    ws.views[1].save_path = cities_save;
     ws.mount("Workflow", "workflow", VIEW_GRAPH, &demo_graph);
-    ws.tabs.activate(0); // start on People
+    ws.views[2].save_path = graph_save;
+    ws.tabs.activate(0);
 
     // ── Navigation tree ──────────────────────────────────────────────────────
     NavNode* nav_tables = ws.nav.add_root(&arena, "Tables", "nav-tables");
@@ -689,19 +692,18 @@ inline int run_demo() {
                 if (ev.key == 'z') { editor.undo(); need_rebuild = true; dirty.mark_table_dirty(); }
                 else if (ev.key == 'y') { editor.redo(); need_rebuild = true; dirty.mark_table_dirty(); }
                 else if (ev.key == 's') {
-                    // Save active view to its persistent path
+                    // Save active view using its save_path
                     ViewSlot* v = ws.active_view();
-                    if (v && v->type == VIEW_TABLE) {
+                    if (v && v->save_path) {
                         editor.commit_edit();
-                        Table* t = (Table*)v->data;
-                        const char* path = (t == people) ? people_save : cities_save;
-                        file_save_csv(&arena, t, path);
+                        if (v->type == VIEW_TABLE)
+                            file_save_csv(&arena, (Table*)v->data, v->save_path);
+                        else if (v->type == VIEW_GRAPH)
+                            file_save_graph(&arena, (Graph*)v->data, v->save_path);
                         dirty.mark_clean(editor.history.past_count);
-                        printf("Saved: %s\n", path);
-                    } else if (v && v->type == VIEW_GRAPH) {
-                        file_save_graph(&arena, (Graph*)v->data, graph_save);
-                        dirty.graph_dirty = false;
-                        printf("Saved: %s\n", graph_save);
+                        printf("Saved: %s\n", v->save_path);
+                    } else if (v) {
+                        printf("No save path for this view\n");
                     }
                     need_rebuild = true;
                 } else if (ev.key == 'o') {
@@ -1030,17 +1032,16 @@ inline int run_demo() {
                     }
                     if (deep[i].node->id && strcmp(deep[i].node->id, "btn-save") == 0) {
                         ViewSlot* v = ws.active_view();
-                        if (v && v->type == VIEW_TABLE) {
+                        if (v && v->save_path) {
                             editor.commit_edit();
-                            Table* t = (Table*)v->data;
-                            const char* path = (t == people) ? people_save : (t == cities) ? cities_save : "/tmp/bookkeeping_data/other.csv";
-                            file_save_csv(&arena, t, path);
+                            if (v->type == VIEW_TABLE)
+                                file_save_csv(&arena, (Table*)v->data, v->save_path);
+                            else if (v->type == VIEW_GRAPH)
+                                file_save_graph(&arena, (Graph*)v->data, v->save_path);
                             dirty.mark_clean(editor.history.past_count);
-                            printf("Saved: %s\n", path);
-                        } else if (v && v->type == VIEW_GRAPH) {
-                            file_save_graph(&arena, (Graph*)v->data, graph_save);
-                            dirty.graph_dirty = false;
-                            printf("Saved: %s\n", graph_save);
+                            printf("Saved: %s\n", v->save_path);
+                        } else if (v) {
+                            printf("No save path for this view\n");
                         }
                         need_rebuild = true;
                         handled = true;
@@ -1327,6 +1328,7 @@ inline int run_demo() {
                                 NavNode* nav_folder = ws.nav.add_root(&arena, lf.name, "loaded-folder", 32);
                                 for (uint16_t ti = 0; ti < lf.table_count; ti++) {
                                     ws.mount(lf.table_ids[ti], lf.table_ids[ti], VIEW_TABLE, lf.tables[ti]);
+                                    ws.views[ws.view_count - 1].save_path = lf.table_paths[ti];
                                     NavTree::add_child(&arena, nav_folder, lf.table_ids[ti], lf.table_ids[ti], 0);
                                 }
                                 ws.tabs.activate(ws.tabs.find(lf.table_ids[0]));
