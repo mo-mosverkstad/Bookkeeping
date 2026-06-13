@@ -204,3 +204,33 @@ across phases.
 - Edge lines shortened to node border (avoids overlapping node fill)
 - Nodes as CoordinateLayout children (pre-positioned by layout_grid)
 - Edges as Element lines on root (rendered behind nodes due to draw order)
+
+---
+
+## Phase 8 — Search + navigation tree + workspace — 2026-06-13
+
+**Added:**
+- `src/core/search.h` — Full-text search engine (substring, identifier-aware, graph BFS neighbourhood, cross-table join)
+- `src/app/nav_tree.h` — Navigation tree widget (expandable/collapsible hierarchy, rendering)
+- `src/app/tab_strip.h` — Tab strip widget (open, close, switch, rendering)
+- `src/app/workspace.h` — Workspace controller (mount/unmount views, tab management, cache invalidation)
+- `test/test_workspace.cpp` — 31 tests (8 search, 4 graph neighbourhood, 3 join, 4 nav tree, 7 tab strip, 4 workspace, 1 benchmark)
+- Demo rewritten with full workspace: tabbed views, nav tree, Ctrl+F search
+
+**Decisions:**
+- Search is case-insensitive by default (tolower comparison)
+- Identifier-aware search checks word boundaries (non-alnum chars on both sides)
+- Graph neighbourhood uses BFS with depth limit — arena-allocated queue
+- Cross-table join is brute-force O(n×m) — acceptable for expected table sizes
+- NavTree nodes store depth for indent calculation during rendering
+- TabStrip uses memmove for close (preserves order, O(n) but n≤16 tabs)
+- Workspace holds ViewSlot array — each slot has type, data pointer, and cached LayoutNode
+- Demo uses Ctrl+F to toggle search mode, ESC to dismiss, characters to filter
+- Tab switching re-initializes editor to point at the active table
+
+**Bug fixed:**
+- None (clean implementation)
+
+**Benchmark results:**
+- Search 10k cells (exact match): ~242μs/iter
+- Search 10k cells (substring, many matches): ~468μs/iter

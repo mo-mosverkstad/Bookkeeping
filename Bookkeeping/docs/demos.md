@@ -241,3 +241,37 @@ make clean && make
 - `make test` → 291 tests pass (102+23+27+18+50+23+34+14)
 - `make test-graph` → 14 tests pass
 - Graph nodes are hit-testable (click prints id)
+
+
+---
+
+## Phase 8 — Workspace + Search + Navigation + Tabs
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Window title: "Bookkeeping — Phase 8: Workspace + Search + Tabs + NavTree"
+- Top: search bar (type Ctrl+F to activate)
+- Below search: tab strip showing [People] [Cities] [Workflow]
+- Left panel: navigation tree (Tables → People, Cities; Graphs → Workflow)
+- Right panel: active view content (table or graph depending on tab)
+- Switching tabs changes the right panel content
+- Nav tree items are expandable/collapsible (click ▼/▶ indicators)
+
+### Interaction
+1. **Tab switching**: Click any tab → right panel updates
+2. **Nav tree**: Click category (▼ Tables) to collapse/expand; click leaf (People) to activate that tab
+3. **Search**: Press Ctrl+F, type a query → results appear below. ESC dismisses search.
+4. **Cell editing**: Click a table cell → begin editing (terminal shows edit state). Type, Enter to commit, Ctrl+Z/Y for undo/redo.
+5. **Scroll**: Mouse wheel scrolls the deepest scroll container under cursor
+
+### Verification
+- `make test` → 335 tests pass (102+23+27+18+50+23+34+27+31)
+- `make test-workspace` → 31 tests pass
+- Tab clicks switch the visible content
+- Search "London" in People tab → shows matching cells
+- Nav tree expand/collapse toggles children visibility

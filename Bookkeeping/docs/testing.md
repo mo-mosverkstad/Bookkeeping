@@ -496,3 +496,72 @@ Custom lightweight test framework in `test/test.h`:
 | graphview_node_labels_are_text_elements | Rect + text verified | PASS |
 | graphview_edge_shortening | Line endpoints shortened | PASS |
 | graphview_deep_hit_includes_root | Deep hit has root + node | PASS |
+
+
+---
+
+## Phase 8 — Workspace tests (31 tests)
+
+### Search — substring (5 tests)
+| Test | Description | Result |
+|---|---|---|
+| search_substring_basic | "london" finds 2 hits in City col | PASS |
+| search_substring_case_insensitive | "HELLO" matches all case variants | PASS |
+| search_substring_no_match | "xyz" returns 0 hits | PASS |
+| search_substring_empty_query | Empty query returns 0 hits | PASS |
+| search_substring_partial_match | "world" in "hello_world" at offset 6 | PASS |
+
+### Search — identifier-aware (3 tests)
+| Test | Description | Result |
+|---|---|---|
+| search_identifier_basic | "foo" matches only exact word, not foo_bar or foobar | PASS |
+| search_identifier_at_boundaries | "x" in "x + y" and "2*x+3" but not "x_var" | PASS |
+| search_max_hits_limit | Stops at max_hits=3 despite 10 matches | PASS |
+
+### Graph neighbourhood (4 tests)
+| Test | Description | Result |
+|---|---|---|
+| graph_neighbours_depth_1 | A→B→C→D, depth=1 from A → {A,B} | PASS |
+| graph_neighbours_depth_2 | Same graph, depth=2 → {A,B,C} | PASS |
+| graph_neighbours_all | depth=10, all 3 connected nodes found | PASS |
+| graph_neighbours_disconnected | Isolated B not reached from A | PASS |
+
+### Cross-table join (3 tests)
+| Test | Description | Result |
+|---|---|---|
+| join_basic | Join on Dept column → 2 matches | PASS |
+| join_no_match | No common values → 0 hits | PASS |
+| join_multiple_matches | Duplicate keys → cartesian product (4 hits) | PASS |
+
+### Navigation tree (4 tests)
+| Test | Description | Result |
+|---|---|---|
+| nav_tree_basic | Add root + children, verify structure | PASS |
+| nav_tree_toggle | Toggle expands/collapses | PASS |
+| nav_tree_deep_find | Find deeply nested node by id | PASS |
+| nav_tree_render | Build produces SCROLL layout with correct dimensions | PASS |
+
+### Tab strip (7 tests)
+| Test | Description | Result |
+|---|---|---|
+| tab_open_activate | Open 2 tabs, last one active | PASS |
+| tab_switch | Activate tab 0, verify flags | PASS |
+| tab_close_active | Close active → previous becomes active | PASS |
+| tab_close_inactive | Close inactive → active index adjusts | PASS |
+| tab_reopen_existing | Open same id → reactivates, no duplicate | PASS |
+| tab_close_last | Close only tab → active_index=UINT16_MAX | PASS |
+| tab_strip_render | Build produces HStack with 2 children | PASS |
+
+### Workspace (4 tests)
+| Test | Description | Result |
+|---|---|---|
+| workspace_mount_unmount | Mount adds view+tab, unmount removes both | PASS |
+| workspace_multiple_views | 2 views, switch between them | PASS |
+| workspace_invalidate | Clears cached_tree to nullptr | PASS |
+| workspace_remount_updates_data | Same id remount updates data pointer | PASS |
+
+### Benchmarks
+| Benchmark | Input | Time | Notes |
+|---|---|---|---|
+| search 10k cells (exact match) | 1000×10 table, "val_500_5" | 242μs/iter | 100 iterations |
+| search 10k cells (many matches) | 1000×10 table, "val_5" | 468μs/iter | 100 iterations |

@@ -373,6 +373,124 @@ Application code (demo.h) NEVER includes SDL headers. It uses only `PlatformWind
 
 ---
 
+## Phase 8 — Search + Navigation Tree + Workspace
+
+### What it does
+Provides full-text search across table cells, hierarchical file navigation, tabbed multi-view workspace, and graph neighbourhood queries.
+
+### Search Engine (`src/core/search.h`)
+
+```
+SearchResult = search_table(arena, table, "query", len)
+  │
+  └── For each cell: case-insensitive substring match
+       Returns: [{row, col, match_offset, match_len}, ...]
+
+SearchResult = search_table_identifier(arena, table, "x", 1)
+  │
+  └── Same scan but checks word boundaries:
+       left boundary:  i==0 or !is_ident_char(prev)
+       right boundary: i+len==end or !is_ident_char(next)
+```
+
+**Graph neighbourhood** (BFS from a start node):
+```
+NeighbourResult = graph_neighbours(arena, graph, start_idx, max_depth)
+  │
+  └── BFS queue (arena-allocated)
+       Returns all reachable node indices within depth limit
+```
+
+**Cross-table join**:
+```
+JoinResult = search_join(arena, table_a, col_a, table_b, col_b)
+  │
+  └── For each row in A, scan all rows in B for exact value match
+       Returns: [{row_a, row_b, col_a, col_b}, ...]
+```
+
+### Navigation Tree (`src/app/nav_tree.h`)
+
+```
+NavTree
+  └── root[]: NavNode[]
+       ├── NavNode {label, id, children[], expanded, depth}
+       │    ├── NavNode (child)
+       │    └── NavNode (child)
+       └── NavNode ...
+
+Operations:
+  add_root(arena, label, id)   → add top-level category
+  add_child(arena, parent, label, id) → nest under parent
+  toggle(id)                    → expand/collapse by id
+```
+
+Rendering produces a VStack of HStack rows with indent spacers. Wrapped in a ScrollLayout for overflow. Expand/collapse indicators: `▼` (expanded), `▶` (collapsed).
+
+### Tab Strip (`src/app/tab_strip.h`)
+
+```
+TabStrip
+  └── tabs[]: Tab[]
+       ├── Tab {label, id, active}
+       └── ...
+  active_index: which tab is showing
+
+Operations:
+  open(label, id)    → add tab or reactivate existing
+  close(idx)         → remove tab, activate neighbour
+  close_by_id(id)    → find + close
+  activate(idx)      → switch active tab
+  find(id) → int     → lookup by id
+```
+
+Rendering produces an HStack of sized boxes with active/inactive styling.
+
+### Workspace (`src/app/workspace.h`)
+
+```
+Workspace
+  ├── tabs: TabStrip
+  ├── nav: NavTree
+  └── views[]: ViewSlot[]
+       └── ViewSlot {id, type, data*, cached_tree*}
+
+Operations:
+  mount(label, id, type, data)  → register view + open tab
+  unmount(id)                   → remove view + close tab
+  active_view()                 → get current ViewSlot*
+  invalidate(id)                → clear cached layout tree
+```
+
+ViewType enum: `VIEW_NONE`, `VIEW_TABLE`, `VIEW_GRAPH`, `VIEW_SEARCH_RESULTS`.
+
+### Demo integration
+```
+┌─────────────────────────────────────────────────────┐
+│ Phase 8: Workspace | Tabs | Nav | Search           │
+├─────────────────────────────────────────────────────┤
+│ Search: _________                                   │
+├─────────────────────────────────────────────────────┤
+│ [People] [Cities] [Workflow]    ← tab strip        │
+├─────────┬───────────────────────────────────────────┤
+│ ▼ Tables│  ┌──────────────────────────────────┐    │
+│   People│  │  (active table/graph view)        │    │
+│   Cities│  │                                   │    │
+│ ▼ Graphs│  └──────────────────────────────────┘    │
+│   Workfl│                                          │
+└─────────┴───────────────────────────────────────────┘
+```
+
+Controls:
+- Click tabs to switch views
+- Click nav items to expand/collapse or activate
+- Ctrl+F toggles search mode
+- Type to filter (live results shown below)
+- ESC dismisses search
+- All previous editing (click cell, type, Ctrl+Z/Y) still works
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp
