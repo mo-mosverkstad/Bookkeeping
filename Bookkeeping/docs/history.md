@@ -462,3 +462,20 @@ across phases.
 - Row actions are HStack at end of each row (green [+] / red [x])
 - Insert/delete use existing table_insert_row/table_remove_row functions
 - Dirty state marked on insert/delete
+
+---
+
+## Phase 18 — Search + Neighbourhood Panels — 2026-06-13
+
+**Added:**
+- Search results panel rendered in workspace (below table view when active)
+- Results show column name + row index + cell value (formatted)
+- Clickable results: click navigates to cell, highlights it, loads source editor
+- Result click scrolls table to the target row
+- Search panel dismissed on result click
+
+**Decisions:**
+- Results rendered as VStack of Box nodes with `sr-N` ids for click detection
+- Max 10 results shown (with "+N more" indicator)
+- Clicking a result sets `v->scroll_y` to approximate row position
+- Search dismissed after navigation (less clutter)

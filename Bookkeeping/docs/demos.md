@@ -520,3 +520,19 @@ make clean && make
 - Click cell → arrow keys move between cells
 - Click [+] → new row appears below
 - Click [x] → row removed
+
+
+---
+
+## Phase 18 — Search + Neighbourhood Panels
+
+### Interaction
+- Click search bar or Ctrl+F → type query → results appear in workspace
+- Results show `ColumnName[row]: cell value` for each match
+- Click a result → navigates to that cell (highlights, loads source editor, scrolls)
+- Search panel dismissed after clicking a result
+
+### Verification
+- `make test` → 380 tests pass
+- Search "Alice" → result panel shows matches
+- Click a result → cell highlighted, source editor loaded

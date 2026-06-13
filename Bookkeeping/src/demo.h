@@ -244,19 +244,31 @@ inline int run_demo() {
 
     auto build_search_results_view = [&](Arena* a) -> LayoutNode* {
         if (!search_active || search_results.count == 0) return nullptr;
-        auto vstack = VStack(a, 0).size(320, 0).id("search-results")
+        auto vstack = VStack(a, 1).size(340, 0).id("search-results")
             .bg(th.surface, th.border, 1);
-        char* hdr = (char*)arena_alloc(a, 32, 1);
-        snprintf(hdr, 32, " %u results", search_results.count);
-        vstack.child(Box(a, 320, 16).text(hdr, th.font_tiny, th.text_muted));
-        uint32_t show = search_results.count > 8 ? 8 : search_results.count;
+        char* hdr = (char*)arena_alloc(a, 48, 1);
+        snprintf(hdr, 48, " %u results for \"%s\"", search_results.count, search_buf);
+        vstack.child(Box(a, 340, 18).bg(th.accent_light, th.border, 1).text(hdr, th.font_tiny, th.text_muted));
+        uint32_t show = search_results.count > 10 ? 10 : search_results.count;
+        ViewSlot* sv = ws.active_view();
         for (uint32_t i = 0; i < show; i++) {
             SearchHit& h = search_results.hits[i];
-            Table* t = (Table*)ws.active_view()->data;
+            if (!sv || sv->type != VIEW_TABLE) continue;
+            Table* t = (Table*)sv->data;
             Str val = table_get_cell(t, h.row, h.col);
-            char* line = (char*)arena_alloc(a, 80, 1);
-            snprintf(line, 80, " [%u,%u] %.*s", h.row, h.col, val.len > 40 ? 40 : (int)val.len, val.data);
-            vstack.child(Box(a, 320, 18).text(line, th.font_tiny, th.text_secondary));
+            const char* col_name = h.col < t->col_count ? t->columns[h.col].name.data : "?";
+            char* line = (char*)arena_alloc(a, 96, 1);
+            snprintf(line, 96, " %s[%u]: %.*s", col_name, h.row, val.len > 35 ? 35 : (int)val.len, val.data);
+            char* sr_id = (char*)arena_alloc(a, 12, 1);
+            snprintf(sr_id, 12, "sr-%u", i);
+            vstack.child(Box(a, 340, 20).id(sr_id)
+                .bg(th.surface, COLOR_TRANSPARENT, 0)
+                .text(line, th.font_tiny, th.text_secondary));
+        }
+        if (search_results.count > 10) {
+            char* more = (char*)arena_alloc(a, 32, 1);
+            snprintf(more, 32, " ... +%u more", search_results.count - 10);
+            vstack.child(Box(a, 340, 16).text(more, th.font_tiny, th.text_muted));
         }
         return build(vstack);
     };
@@ -336,6 +348,9 @@ inline int run_demo() {
         auto workspace = VStack(a, 0).size(workspace_w, content_h).id("workspace")
             .bg(th.surface);
         workspace.child(UI{*view_node, a});
+        // Search results panel (shown below/over the view when active)
+        LayoutNode* results_node = build_search_results_view(a);
+        if (results_node) workspace.child(UI{*results_node, a});
         content.child(std::move(workspace));
 
         // Sidebar / Source editor (right)
@@ -405,10 +420,6 @@ inline int run_demo() {
             .child(std::move(tab_bar))
             .child(std::move(content))
             .child(std::move(status_bar));
-
-        // Overlay: search results
-        LayoutNode* results_node = build_search_results_view(a);
-        (void)results_node; // TODO: overlay positioning
 
         LayoutNode* root = build(root_ui);
         root->compute(W, H);
@@ -832,6 +843,37 @@ inline int run_demo() {
                         need_rebuild = true;
                         handled = true;
                         break;
+                    }
+                }
+
+                // Click on search result → navigate to that cell
+                if (!handled) {
+                    for (int i = n - 1; i >= 0; i--) {
+                        if (!deep[i].node->id) continue;
+                        if (strncmp(deep[i].node->id, "sr-", 3) == 0) {
+                            uint32_t idx = (uint32_t)atoi(deep[i].node->id + 3);
+                            if (idx < search_results.count) {
+                                SearchHit& h = search_results.hits[idx];
+                                ViewSlot* v = ws.active_view();
+                                if (v && v->type == VIEW_TABLE) {
+                                    Table* t = (Table*)v->data;
+                                    editor.commit_edit();
+                                    editor.init(&arena, t);
+                                    editor.begin_edit(h.row, h.col);
+                                    source_len = editor.edit_len > 511 ? 511 : editor.edit_len;
+                                    memcpy(source_buf, editor.edit_buffer, source_len);
+                                    source_buf[source_len] = 0;
+                                    source_cursor = source_len;
+                                    if (h.col < t->col_count) source_type = t->columns[h.col].type_id.data;
+                                    // Scroll to make the row visible
+                                    v->scroll_y = h.row * 30.0f;
+                                    search_active = false;
+                                    need_rebuild = true;
+                                    handled = true;
+                                }
+                            }
+                            break;
+                        }
                     }
                 }
 

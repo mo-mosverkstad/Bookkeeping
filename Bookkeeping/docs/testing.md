@@ -781,3 +781,13 @@ Custom lightweight test framework in `test/test.h`:
 - tableview_row_has_cells: updated child_count from 3 → 4 (cells + actions)
 - tableview_single_cell: updated child_count from 1 → 2 (cell + actions)
 - Arrow key navigation and insert/delete verified interactively
+
+
+---
+
+## Phase 18 — Search + Neighbourhood Panels
+
+### No new test file (interactive feature)
+- Search results panel: renders when search is active + results found
+- Click result: navigates to cell, verified interactively
+- Existing search tests (Phase 8) cover the search engine logic

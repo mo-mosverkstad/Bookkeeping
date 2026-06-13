@@ -1787,6 +1787,45 @@ if (nr < t->row_count) editor.begin_edit(nr, nc);
 
 ---
 
+## Phase 18 — Search + Neighbourhood Panels
+
+### What it does
+Renders search results as a clickable panel in the workspace, with navigation
+to matched cells on click.
+
+### Results Panel
+
+When the search bar is active and has matches, a panel appears below the table:
+
+```
+┌──────────────────────────────────────┐
+│ 5 results for "London"               │ ← header (count + query)
+├──────────────────────────────────────┤
+│ City[0]: London                      │ ← clickable (id="sr-0")
+│ City[2]: London                      │ ← clickable (id="sr-1")
+└──────────────────────────────────────┘
+```
+
+Each result shows `ColumnName[row]: value` for context.
+
+### Click-to-Navigate
+
+Clicking a result item (`sr-N`):
+
+```cpp
+if (strncmp(deep[i].node->id, "sr-", 3) == 0) {
+    uint32_t idx = atoi(deep[i].node->id + 3);
+    SearchHit& h = search_results.hits[idx];
+    editor.begin_edit(h.row, h.col);      // activate the cell
+    v->scroll_y = h.row * 30.0f;          // scroll table to row
+    search_active = false;                 // dismiss search
+}
+```
+
+This provides the same "jump to result" behavior as the Webapp's search panel.
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp
