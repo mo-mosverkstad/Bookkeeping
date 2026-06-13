@@ -230,6 +230,7 @@ inline int run_demo() {
     float win_w = 800, win_h = 600;
     bool sidebar_visible = true;
     float nav_width = 180, sidebar_width = 260;
+    float tab_scroll_offset = 0; // horizontal scroll for tab bar
 
     auto rebuild_ui = [&]() -> LayoutNode* {
         arena_reset(&frame);
@@ -265,16 +266,20 @@ inline int run_demo() {
             .text(search_label[0] ? search_label : "Search...", th.font_small, search_label[0] ? th.text : th.text_muted);
         toolbar.child(std::move(search_input));
 
-        // ── 2. Tab bar (2em = ~26px) ─────────────────────────────────────────
-        auto tab_bar = HStack(a, 2).size(W, 26).id("tab-bar")
+        // ── 2. Tab bar (2em = ~26px) with scroll arrows ──────────────────────
+        auto tab_bar = HStack(a, 0).size(W, 26).id("tab-bar")
             .bg(th.tab_bar_bg, th.border_heavy, 1);
+        // Left arrow
+        tab_bar.child(Box(a, 20, 24).id("tab-scroll-left")
+            .bg(th.tab_bar_bg, th.border, 1).text("<", th.font_small, th.text_muted));
+        // Tab strip in a scroll container
+        auto tab_strip_inner = HStack(a, 2).size(0, 24);
         for (uint16_t i = 0; i < ws.tabs.count; i++) {
             bool active = ws.tabs.tabs[i].active;
             Color bg = active ? th.tab_active_bg : th.tab_inactive_bg;
             Color txt = active ? th.tab_active_text : th.tab_inactive_text;
             Color bdr = active ? th.border_heavy : th.tab_inactive_border;
 
-            // Show * prefix if this view is dirty
             const char* label = ws.tabs.tabs[i].label;
             char* tab_label = (char*)arena_alloc(a, strlen(label) + 3, 1);
             bool tab_dirty = (active && dirty.is_dirty());
@@ -289,8 +294,20 @@ inline int run_demo() {
                 .bg(bg, bdr, 1);
             tab.child(Box(a, m.width + 16, 24).text(tab_label, th.font_small, txt, active ? TEXT_BOLD : TEXT_NORMAL));
             tab.child(Box(a, 16, 24).id(close_id).text("x", th.font_tiny, th.text_muted));
-            tab_bar.child(std::move(tab));
+            tab_strip_inner.child(std::move(tab));
         }
+        // Wrap tabs in scroll node
+        LayoutNode* tab_strip_node = build(tab_strip_inner);
+        Node* tab_scroll = node_scroll(a, W - 44, 24);
+        tab_scroll->set_id("tab-scroll");
+        tab_scroll->scroll_x = tab_scroll_offset;
+        auto tsk = make_children(a, 1);
+        tsk[0] = tab_strip_node;
+        tab_scroll->set_children(tsk, 1);
+        tab_bar.child(UI{*(LayoutNode*)tab_scroll, a});
+        // Right arrow
+        tab_bar.child(Box(a, 20, 24).id("tab-scroll-right")
+            .bg(th.tab_bar_bg, th.border, 1).text(">", th.font_small, th.text_muted));
 
         // ── 3. Content area (nav | workspace | sidebar) ──────────────────────
         float content_h = H - 31 - 26 - 21;
@@ -659,6 +676,8 @@ inline int run_demo() {
                         if (deep[i].node->type == LAYOUT_SCROLL) {
                             LayoutNode* sn = deep[i].node;
                             if (sn->id && strcmp(sn->id, "diagram-scroll") == 0) break;
+                            if (sn->id && strcmp(sn->id, "tab-scroll") == 0) continue;
+                            if (sn->id && strcmp(sn->id, "header-scroll") == 0) continue;
                             bool shift_held = (ev.mod & 0x0003) != 0;
                             if (shift_held || ev.scroll_x != 0) {
                                 // Horizontal: Shift+wheel or native horizontal
@@ -817,6 +836,19 @@ inline int run_demo() {
                         handled = true;
                         break;
                     }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "tab-scroll-left") == 0) {
+                        tab_scroll_offset -= 80;
+                        if (tab_scroll_offset < 0) tab_scroll_offset = 0;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "tab-scroll-right") == 0) {
+                        tab_scroll_offset += 80;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
                     if (deep[i].node->id && strcmp(deep[i].node->id, "btn-export") == 0) {
                         ViewSlot* v = ws.active_view();
                         if (v && v->type == VIEW_TABLE) {
@@ -964,7 +996,7 @@ inline int run_demo() {
                 bool in_tab_strip = false;
                 if (!handled) {
                     for (int i = 0; i < n; i++) {
-                        if (deep[i].node->id && strcmp(deep[i].node->id, "tab-bar") == 0) {
+                        if (deep[i].node->id && (strcmp(deep[i].node->id, "tab-bar") == 0 || strcmp(deep[i].node->id, "tab-scroll") == 0)) {
                             in_tab_strip = true; break;
                         }
                     }
