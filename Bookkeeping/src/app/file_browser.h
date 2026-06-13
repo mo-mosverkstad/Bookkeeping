@@ -41,15 +41,16 @@ struct FileBrowser {
 
     void scan() {
         entry_count = 0;
-        DIR* dir = opendir(current_path);
-        if (!dir) return;
 
-        // Add parent directory entry
-        if (strlen(current_path) > 1) {
+        // Add parent directory entry (always, unless at root "/")
+        if (strcmp(current_path, "/") != 0) {
             strncpy(entries[entry_count].name, "..", 127);
             entries[entry_count].is_dir = true;
             entry_count++;
         }
+
+        DIR* dir = opendir(current_path);
+        if (!dir) return; // can't read dir, but ".." is still available
 
         struct dirent* ent;
         while ((ent = readdir(dir)) && entry_count < 128) {
@@ -65,11 +66,11 @@ struct FileBrowser {
         }
         closedir(dir);
 
-        // Sort: dirs first, then files
-        for (uint16_t i = 1; i < entry_count; i++) {
+        // Sort: dirs first, then files (but keep ".." always at index 0)
+        for (uint16_t i = 2; i < entry_count; i++) {
             FileBrowserEntry tmp = entries[i];
             uint16_t j = i;
-            while (j > 0 && !entries[j-1].is_dir && tmp.is_dir) {
+            while (j > 1 && !entries[j-1].is_dir && tmp.is_dir) {
                 entries[j] = entries[j-1]; j--;
             }
             entries[j] = tmp;
@@ -78,17 +79,22 @@ struct FileBrowser {
 
     void navigate(const char* name) {
         if (strcmp(name, "..") == 0) {
-            // Go up
             char* last = strrchr(current_path, '/');
             if (last && last != current_path) *last = 0;
-            else if (last) *(last+1) = 0;
+            else { current_path[0] = '/'; current_path[1] = 0; }
         } else {
             char tmp[512];
-            snprintf(tmp, 512, "%s/%s", current_path, name);
+            if (strcmp(current_path, "/") == 0)
+                snprintf(tmp, 512, "/%s", name);
+            else
+                snprintf(tmp, 512, "%s/%s", current_path, name);
             strncpy(current_path, tmp, 511);
+            current_path[511] = 0;
         }
+        printf("FileBrowser: navigated to [%s]\n", current_path);
         scroll_y = 0;
         scan();
+        printf("FileBrowser: %u entries, first=%s\n", entry_count, entry_count > 0 ? entries[0].name : "(none)");
     }
 
     // Returns selected folder path when user clicks "Open Here", or nullptr
@@ -128,7 +134,8 @@ inline LayoutNode* file_browser_build(Arena* a, FileBrowser* fb, float win_w, fl
     for (uint16_t i = 0; i < fb->entry_count; i++) {
         char* entry_id = (char*)arena_alloc(a, 140, 1);
         snprintf(entry_id, 140, "fb-%u", i);
-        const char* icon = fb->entries[i].is_dir ? "\xf0\x9f\x93\x81 " : "  "; // 📁 or space
+        const char* icon = fb->entries[i].is_dir ? 
+            (strcmp(fb->entries[i].name, "..") == 0 ? "<- " : "[D] ") : "    ";
         char* label = (char*)arena_alloc(a, 140, 1);
         snprintf(label, 140, "%s%s", icon, fb->entries[i].name);
         Color txt = fb->entries[i].is_dir ? th.text : th.text_secondary;

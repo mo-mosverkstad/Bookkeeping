@@ -726,6 +726,15 @@ inline int run_demo() {
 
             // Mouse wheel → scroll or diagram zoom
             if (ev.type == InputEvent::MOUSE_WHEEL) {
+                // File browser scroll
+                if (file_browser.visible) {
+                    file_browser.scroll_y -= ev.scroll_y * 12;
+                    if (file_browser.scroll_y < 0) file_browser.scroll_y = 0;
+                    float max_s = file_browser.entry_count * 24.0f - win_h * 0.6f;
+                    if (max_s > 0 && file_browser.scroll_y > max_s) file_browser.scroll_y = max_s;
+                    need_rebuild = true;
+                    continue;
+                }
                 HitResult deep[32];
                 int n = root->hit_deep(ev.x, ev.y, deep, 32);
                 // Check if over diagram — Ctrl+wheel = diagram zoom
@@ -858,9 +867,11 @@ inline int run_demo() {
                 int n;
                 // If file browser is visible, hit-test it instead
                 if (file_browser.visible) {
-                    LayoutNode* fb_node = file_browser_build(&frame, &file_browser, win_w, win_h, th);
+                    Arena fb_arena = arena_create(64 * 1024);
+                    LayoutNode* fb_node = file_browser_build(&fb_arena, &file_browser, win_w, win_h, th);
                     fb_node->compute(win_w, win_h);
                     n = hit_test_deep(fb_node, ev.x, ev.y, deep, 32);
+                    arena_destroy(&fb_arena);
                 } else {
                     n = hit_test_deep(root, ev.x, ev.y, deep, 32);
                 }
