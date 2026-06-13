@@ -113,6 +113,12 @@ inline int run_demo() {
     bool diagram_dragging = false;
     float drag_last_x = 0, drag_last_y = 0;
 
+    // ── Scrollbar drag state ─────────────────────────────────────────────────
+    bool scrollbar_dragging = false;
+    bool scrollbar_h_dragging = false;
+    float scrollbar_drag_start_y = 0, scrollbar_drag_start_scroll = 0;
+    float scrollbar_drag_start_x = 0, scrollbar_drag_start_scroll_x = 0;
+
     // ── Table scroll state (persistent across rebuilds) ──────────────────────
     // Stored per-view in ViewSlot.scroll_x/y
 
@@ -657,7 +663,7 @@ inline int run_demo() {
                             if (shift_held || ev.scroll_x != 0) {
                                 // Horizontal: Shift+wheel or native horizontal
                                 float delta = ev.scroll_x != 0 ? ev.scroll_x : ev.scroll_y;
-                                sn->scroll_x += delta * 20;
+                                sn->scroll_x += delta * 12;
                                 if (sn->scroll_x < 0) sn->scroll_x = 0;
                                 float max_sx = sn->content_width - sn->width;
                                 if (max_sx < 0) max_sx = 0;
@@ -671,7 +677,7 @@ inline int run_demo() {
                                 }
                             } else {
                                 // Vertical
-                                sn->scroll_y -= ev.scroll_y * 20;
+                                sn->scroll_y -= ev.scroll_y * 12;
                                 if (sn->scroll_y < 0) sn->scroll_y = 0;
                                 float max_s = sn->content_height - sn->height;
                                 if (max_s < 0) max_s = 0;
@@ -684,6 +690,46 @@ inline int run_demo() {
                         }
                     }
                 }
+            }
+
+            // Scrollbar drag handling
+            if (ev.type == InputEvent::MOUSE_MOVE && (scrollbar_dragging || scrollbar_h_dragging)) {
+                HitResult ds[32];
+                int dns = root->hit_deep(nav_width + 10, 60, ds, 32);
+                for (int si = 0; si < dns; si++) {
+                    if (ds[si].node->id && strcmp(ds[si].node->id, "table-scroll") == 0) {
+                        LayoutNode* sn = ds[si].node;
+                        if (scrollbar_dragging) {
+                            float ct_h = sn->content_height, vp_h = sn->height;
+                            if (ct_h > vp_h) {
+                                float delta_y = ev.y - scrollbar_drag_start_y;
+                                float ratio = (ct_h - vp_h) / (vp_h - 20);
+                                sn->scroll_y = scrollbar_drag_start_scroll + delta_y * ratio;
+                                if (sn->scroll_y < 0) sn->scroll_y = 0;
+                                if (sn->scroll_y > ct_h - vp_h) sn->scroll_y = ct_h - vp_h;
+                                ViewSlot* av = ws.active_view();
+                                if (av) av->scroll_y = sn->scroll_y;
+                            }
+                        }
+                        if (scrollbar_h_dragging) {
+                            float ct_w = sn->content_width, vp_w = sn->width;
+                            if (ct_w > vp_w) {
+                                float delta_x = ev.x - scrollbar_drag_start_x;
+                                float ratio = (ct_w - vp_w) / (vp_w - 20);
+                                sn->scroll_x = scrollbar_drag_start_scroll_x + delta_x * ratio;
+                                if (sn->scroll_x < 0) sn->scroll_x = 0;
+                                if (sn->scroll_x > ct_w - vp_w) sn->scroll_x = ct_w - vp_w;
+                                ViewSlot* av = ws.active_view();
+                                if (av) av->scroll_x = sn->scroll_x;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            if (ev.type == InputEvent::MOUSE_UP && ev.button == 1) {
+                scrollbar_dragging = false;
+                scrollbar_h_dragging = false;
             }
 
             // Mouse drag for diagram pan
@@ -705,6 +751,28 @@ inline int run_demo() {
                 int n = hit_test_deep(root, ev.x, ev.y, deep, 32);
 
                 bool handled = false;
+
+                // Check if click is on scrollbar area (right 10px or bottom 10px of table-scroll)
+                for (int i = 0; i < n; i++) {
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "table-scroll") == 0) {
+                        LayoutNode* sn = deep[i].node;
+                        float lx = deep[i].local_x, ly = deep[i].local_y;
+                        if (lx > sn->width - 12 && sn->content_height > sn->height) {
+                            // Vertical scrollbar drag
+                            scrollbar_dragging = true;
+                            scrollbar_drag_start_y = ev.y;
+                            scrollbar_drag_start_scroll = sn->scroll_y;
+                            handled = true;
+                        } else if (ly > sn->height - 12 && sn->content_width > sn->width) {
+                            // Horizontal scrollbar drag
+                            scrollbar_h_dragging = true;
+                            scrollbar_drag_start_x = ev.x;
+                            scrollbar_drag_start_scroll_x = sn->scroll_x;
+                            handled = true;
+                        }
+                        break;
+                    }
+                }
 
                 // Check if click is on diagram → start pan drag
                 for (int i = 0; i < n; i++) {
@@ -1064,6 +1132,48 @@ inline int run_demo() {
 
         win->begin_frame();
         render_tree(win->backend(), root);
+
+        // ── Scrollbar overlay (drawn on top, reflects live scroll state) ─────
+        // Find the table-scroll node to get its position and scroll state
+        HitResult scroll_hit = root->hit_surface(win_w / 2, win_h / 2); // approximate center
+        // Walk the tree to find "table-scroll" node
+        HitResult deep_scroll[32];
+        int ns = root->hit_deep(nav_width + 10, 60, deep_scroll, 32);
+        for (int si = 0; si < ns; si++) {
+            if (deep_scroll[si].node->id && strcmp(deep_scroll[si].node->id, "table-scroll") == 0) {
+                LayoutNode* sn = deep_scroll[si].node;
+                float sx = sn->x + nav_width, sy = sn->y + 31 + 26; // approximate absolute pos
+                // Find actual absolute position by summing parent offsets
+                // (simplified: use toolbar+tabbar+header height + nav offset)
+                float abs_x = 0, abs_y = 0;
+                for (int pi = 0; pi < si; pi++) { abs_x = deep_scroll[pi].node->x; abs_y = deep_scroll[pi].node->y; }
+                abs_x += sn->x; abs_y += sn->y;
+
+                float vp_w = sn->width, vp_h = sn->height;
+                float ct_h = sn->content_height, ct_w = sn->content_width;
+
+                // Vertical scrollbar
+                if (ct_h > vp_h) {
+                    float ratio = vp_h / ct_h;
+                    float bar_h = ratio * vp_h;
+                    if (bar_h < 20) bar_h = 20;
+                    float bar_y = (sn->scroll_y / (ct_h - vp_h)) * (vp_h - bar_h);
+                    Rect vbar = {abs_x + vp_w - 8, abs_y + bar_y, 6, bar_h, {120, 125, 135, 180}, COLOR_TRANSPARENT, 0, 3};
+                    win->backend()->render_rect(0, 0, vbar);
+                }
+                // Horizontal scrollbar
+                if (ct_w > vp_w) {
+                    float ratio = vp_w / ct_w;
+                    float bar_w = ratio * vp_w;
+                    if (bar_w < 20) bar_w = 20;
+                    float bar_x = (sn->scroll_x / (ct_w - vp_w)) * (vp_w - bar_w);
+                    Rect hbar = {abs_x + bar_x, abs_y + vp_h - 8, bar_w, 6, {120, 125, 135, 180}, COLOR_TRANSPARENT, 0, 3};
+                    win->backend()->render_rect(0, 0, hbar);
+                }
+                break;
+            }
+        }
+
         win->end_frame();
     }
 
