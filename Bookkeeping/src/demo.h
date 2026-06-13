@@ -195,26 +195,28 @@ inline int run_demo() {
     gvcfg.viewport_width = 520;
     gvcfg.viewport_height = 90;
 
+    // These get updated in rebuild_ui before build_active_view is called
+    float active_view_w = 520, active_view_h = 400;
+
     auto build_active_view = [&](Arena* a) -> LayoutNode* {
         ViewSlot* v = ws.active_view();
         if (!v) {
-            auto lbl = Box(a, 400, 80).id("drop-hint")
+            auto lbl = Box(a, active_view_w, 80).id("drop-hint")
                 .bg(th.surface, th.border, 1)
                 .text("Select an item from the navigation tree", th.font_base, th.text_muted);
             return build(lbl);
         }
         if (v->type == VIEW_TABLE) {
-            tvcfg.viewport_width = 520; tvcfg.viewport_height = (float)(int)(200 * zoom);
+            tvcfg.viewport_width = active_view_w;
+            tvcfg.viewport_height = active_view_h * zoom;
             return table_view_build(a, (Table*)v->data, tvcfg);
         } else if (v->type == VIEW_GRAPH) {
             FlowDiagramConfig fdcfg;
-            fdcfg.viewport_width = (520 / diagram_zoom);
-            fdcfg.viewport_height = (float)(int)(200 / diagram_zoom);
+            fdcfg.viewport_width = active_view_w / diagram_zoom;
+            fdcfg.viewport_height = active_view_h / diagram_zoom;
             LayoutNode* diagram = flow_diagram_build(a, (Graph*)v->data, fdcfg);
-            // Apply pan via scroll offset
             if (diagram->type == LAYOUT_COORDINATE) {
-                // Wrap in scroll for pan
-                Node* scroll = node_scroll(a, 520, (float)(int)(200 * zoom));
+                Node* scroll = node_scroll(a, active_view_w, active_view_h);
                 scroll->set_id("diagram-scroll");
                 scroll->scroll_x = -diagram_pan_x;
                 scroll->scroll_y = -diagram_pan_y;
@@ -302,12 +304,10 @@ inline int run_demo() {
         // ── 3. Content area (nav | workspace | sidebar) ──────────────────────
         float content_h = H - 31 - 26 - 21;
         float workspace_w = W - nav_w - side_w;
-        tvcfg.viewport_width = workspace_w - 4;
-        tvcfg.viewport_height = (float)(int)(content_h * zoom) - 30;
+        active_view_w = workspace_w;
+        active_view_h = content_h;
         tvcfg.active_row = editor.editing ? (int32_t)editor.active_cell.row : -1;
         tvcfg.active_col = editor.editing ? (int16_t)editor.active_cell.col : -1;
-        gvcfg.viewport_width = workspace_w - 4;
-        gvcfg.viewport_height = (float)(int)(content_h * zoom) - 10;
 
         LayoutNode* nav_node = nav_tree_build(a, &ws.nav, nav_w, content_h - 20);
         LayoutNode* view_node = build_active_view(a);
