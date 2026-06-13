@@ -16,10 +16,12 @@
 #include "src/app/tab_strip.h"
 #include "src/app/workspace.h"
 #include "src/app/source_history.h"
+#include "src/app/file_browser.h"
 #include "src/graphics/ui.h"
 #include "src/graphics/layout/layout.h"
 #include "src/graphics/backend/backend.h"
 #include "src/platform/platform.h"
+#include "src/platform/file_dialog.h"
 #include <cstdio>
 #include <cstring>
 
@@ -133,6 +135,10 @@ inline int run_demo() {
 
     // Local undo/redo for source editor (independent of table history)
     SourceHistory source_hist;
+
+    // ── File browser state ───────────────────────────────────────────────────
+    FileBrowser file_browser;
+    file_browser.init("/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources");
 
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
     Arena frame = arena_create(8 * 1024 * 1024);
@@ -849,7 +855,15 @@ inline int run_demo() {
             // Mouse click
             if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
                 HitResult deep[32];
-                int n = hit_test_deep(root, ev.x, ev.y, deep, 32);
+                int n;
+                // If file browser is visible, hit-test it instead
+                if (file_browser.visible) {
+                    LayoutNode* fb_node = file_browser_build(&frame, &file_browser, win_w, win_h, th);
+                    fb_node->compute(win_w, win_h);
+                    n = hit_test_deep(fb_node, ev.x, ev.y, deep, 32);
+                } else {
+                    n = hit_test_deep(root, ev.x, ev.y, deep, 32);
+                }
 
                 bool handled = false;
 
@@ -940,23 +954,7 @@ inline int run_demo() {
                         break;
                     }
                     if (deep[i].node->id && strcmp(deep[i].node->id, "btn-open") == 0) {
-                        const char* folder = "/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources/Mathematics reference sheet";
-                        Arena load_arena = arena_create(4 * 1024 * 1024);
-                        LoadedFolder lf = folder_load(&load_arena, folder);
-                        if (lf.table_count > 0) {
-                            // Mount individual tables + nav folder
-                            NavNode* nav_folder = ws.nav.add_root(&arena, lf.name, "loaded-folder", 32);
-                            for (uint16_t ti = 0; ti < lf.table_count; ti++) {
-                                ws.mount(lf.table_ids[ti], lf.table_ids[ti], VIEW_TABLE, lf.tables[ti]);
-                                NavTree::add_child(&arena, nav_folder, lf.table_ids[ti], lf.table_ids[ti], 0);
-                            }
-                            // Activate first table
-                            ws.tabs.activate(ws.tabs.find(lf.table_ids[0]));
-                            printf("Opened folder: %s (%u tables)\n", lf.name, lf.table_count);
-                        } else {
-                            printf("No tables found in: %s\n", folder);
-                            arena_destroy(&load_arena);
-                        }
+                        file_browser.open();
                         need_rebuild = true;
                         handled = true;
                         break;
@@ -1244,6 +1242,46 @@ inline int run_demo() {
                     }
                 }
 
+                // File browser clicks
+                if (!handled && file_browser.visible) {
+                    for (int i = n - 1; i >= 0; i--) {
+                        if (!deep[i].node->id) continue;
+                        if (strcmp(deep[i].node->id, "fb-close") == 0) {
+                            file_browser.close();
+                            need_rebuild = true; handled = true; break;
+                        }
+                        if (strcmp(deep[i].node->id, "fb-open-here") == 0) {
+                            // Load the current folder
+                            Arena load_arena = arena_create(4 * 1024 * 1024);
+                            LoadedFolder lf = folder_load(&load_arena, file_browser.get_path());
+                            if (lf.table_count > 0) {
+                                NavNode* nav_folder = ws.nav.add_root(&arena, lf.name, "loaded-folder", 32);
+                                for (uint16_t ti = 0; ti < lf.table_count; ti++) {
+                                    ws.mount(lf.table_ids[ti], lf.table_ids[ti], VIEW_TABLE, lf.tables[ti]);
+                                    NavTree::add_child(&arena, nav_folder, lf.table_ids[ti], lf.table_ids[ti], 0);
+                                }
+                                ws.tabs.activate(ws.tabs.find(lf.table_ids[0]));
+                                printf("Opened folder: %s (%u tables)\n", lf.name, lf.table_count);
+                            } else {
+                                printf("No tables in: %s\n", file_browser.get_path());
+                                arena_destroy(&load_arena);
+                            }
+                            file_browser.close();
+                            need_rebuild = true; handled = true; break;
+                        }
+                        if (strncmp(deep[i].node->id, "fb-", 3) == 0) {
+                            uint16_t idx = (uint16_t)atoi(deep[i].node->id + 3);
+                            if (idx < file_browser.entry_count) {
+                                if (file_browser.entries[idx].is_dir) {
+                                    file_browser.navigate(file_browser.entries[idx].name);
+                                }
+                                // If it's a file, do nothing (only folders navigable)
+                            }
+                            need_rebuild = true; handled = true; break;
+                        }
+                    }
+                }
+
                 if (!handled) {
                     HitResult hit = hit_test_surface(root, ev.x, ev.y);
                     printf("Hit: %s\n", hit.node && hit.node->id ? hit.node->id : "?");
@@ -1258,6 +1296,13 @@ inline int run_demo() {
 
         win->begin_frame();
         render_tree(win->backend(), root);
+
+        // ── File browser overlay ─────────────────────────────────────────────
+        if (file_browser.visible) {
+            LayoutNode* fb_overlay = file_browser_build(&frame, &file_browser, win_w, win_h, th);
+            fb_overlay->compute(win_w, win_h);
+            render_tree(win->backend(), fb_overlay);
+        }
 
         // ── Scrollbar overlay (drawn after tree, always reflects live state) ──
         // Find table-scroll node by walking the tree
