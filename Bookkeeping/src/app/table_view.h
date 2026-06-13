@@ -22,6 +22,11 @@ struct TableViewConfig {
     Color cell_bg_odd = {38, 38, 44, 255};
     Color cell_text = {200, 200, 200, 255};
     Color border = {60, 60, 70, 255};
+    // Active cell highlight
+    Color active_cell_bg = {219, 234, 254, 255};  // #dbeafe
+    Color active_cell_border = {71, 85, 105, 255}; // #475569
+    int32_t active_row = -1;  // -1 = no active cell
+    int16_t active_col = -1;
 };
 
 // Build the table view tree. All allocations from the provided arena.
@@ -57,8 +62,12 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
         Color bg = (r % 2 == 0) ? cfg.cell_bg_even : cfg.cell_bg_odd;
         for (uint16_t c = 0; c < cols; c++) {
             Str val = table_get_cell(table, r, c);
+            bool is_active = ((int32_t)r == cfg.active_row && (int16_t)c == cfg.active_col);
+            Color cell_bg = is_active ? cfg.active_cell_bg : bg;
+            Color cell_border = is_active ? cfg.active_cell_border : cfg.border;
+            float sw = is_active ? 2.0f : 1.0f;
             auto cell = Box(a, col_widths[c], cfg.cell_height)
-                .bg(bg, cfg.border, 1)
+                .bg(cell_bg, cell_border, sw)
                 .text(val.data, 12, cfg.cell_text);
             cell_kids[c] = build(cell);
         }

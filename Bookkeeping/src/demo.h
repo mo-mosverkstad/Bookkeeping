@@ -23,21 +23,42 @@
 inline int run_demo() {
     Arena arena = arena_create(512 * 1024);
 
-    // ── Data: two tables + a graph ───────────────────────────────────────────
-    const char* csv1 = "Name,Age,City,Skill\ntext,text,text,text\nAlice,30,London,C++\nBob,25,Paris,Rust\nCharlie,35,Berlin,Go\nDiana,28,Tokyo,Java\nEve,32,NYC,Python";
-    const char* csv2 = "City,Country,Population\ntext,text,text\nLondon,UK,9M\nParis,France,2M\nBerlin,Germany,3.6M\nTokyo,Japan,14M\nNYC,USA,8.3M";
-    Table* people = csv_parse(&arena, arena_str_cstr(&arena, "People"), csv1, strlen(csv1));
-    Table* cities = csv_parse(&arena, arena_str_cstr(&arena, "Cities"), csv2, strlen(csv2));
+    // ── Persistent save paths ────────────────────────────────────────────────
+    const char* save_dir = "/tmp/bookkeeping_data/";
+    const char* people_save = "/tmp/bookkeeping_data/People.csv";
+    const char* cities_save = "/tmp/bookkeeping_data/Cities.csv";
+    const char* graph_save  = "/tmp/bookkeeping_data/Workflow.json";
 
-    Graph demo_graph; demo_graph.init(&arena, "Workflow");
-    demo_graph.add_node("Start", "Start");
-    demo_graph.add_node("Process", "Process");
-    demo_graph.add_node("Decision", "Decision?");
-    demo_graph.add_node("End", "End");
-    demo_graph.add_edge(0, 1);
-    demo_graph.add_edge(1, 2);
-    demo_graph.add_edge(2, 3, "yes");
-    demo_graph.add_edge(2, 1, "no");
+    // Ensure save directory exists
+    { char cmd[256]; snprintf(cmd, 256, "mkdir -p %s", save_dir); if(system(cmd)){} }
+
+    // ── Data: load from saved files or fall back to embedded ─────────────────
+    Table* people = file_load_csv(&arena, people_save);
+    if (!people) {
+        const char* csv1 = "Name,Age,City,Skill\ntext,text,text,text\nAlice,30,London,C++\nBob,25,Paris,Rust\nCharlie,35,Berlin,Go\nDiana,28,Tokyo,Java\nEve,32,NYC,Python";
+        people = csv_parse(&arena, arena_str_cstr(&arena, "People"), csv1, strlen(csv1));
+    }
+    Table* cities = file_load_csv(&arena, cities_save);
+    if (!cities) {
+        const char* csv2 = "City,Country,Population\ntext,text,text\nLondon,UK,9M\nParis,France,2M\nBerlin,Germany,3.6M\nTokyo,Japan,14M\nNYC,USA,8.3M";
+        cities = csv_parse(&arena, arena_str_cstr(&arena, "Cities"), csv2, strlen(csv2));
+    }
+
+    Graph* demo_graph_ptr = file_load_graph(&arena, graph_save);
+    Graph demo_graph;
+    if (demo_graph_ptr) {
+        demo_graph = *demo_graph_ptr;
+    } else {
+        demo_graph.init(&arena, "Workflow");
+        demo_graph.add_node("Start", "Start");
+        demo_graph.add_node("Process", "Process");
+        demo_graph.add_node("Decision", "Decision?");
+        demo_graph.add_node("End", "End");
+        demo_graph.add_edge(0, 1);
+        demo_graph.add_edge(1, 2);
+        demo_graph.add_edge(2, 3, "yes");
+        demo_graph.add_edge(2, 1, "no");
+    }
     demo_graph.layout_grid(10, 5, 140, 45, 4);
 
     // ── Workspace setup ──────────────────────────────────────────────────────
@@ -61,9 +82,6 @@ inline int run_demo() {
 
     // ── Dirty tracking + file paths ──────────────────────────────────────────
     DirtyState dirty = {false, false, 0};
-    const char* people_path = nullptr;  // no file path yet (in-memory demo data)
-    const char* cities_path = nullptr;
-    const char* graph_path = nullptr;
 
     // ── Session: try to load last session ────────────────────────────────────
     const char* session_file = "/tmp/bookkeeping_session.txt";
@@ -83,6 +101,14 @@ inline int run_demo() {
 
     // ── Zoom state ───────────────────────────────────────────────────────────
     float zoom = 1.0f;
+
+    // ── Source editor state ──────────────────────────────────────────────────
+    char source_buf[512] = "";
+    uint16_t source_len = 0;
+    uint16_t source_cursor = 0;
+    const char* source_type = "text";
+    bool source_focused = false;
+    char source_preview[256] = "";  // parsed preview text
 
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
     Arena frame = arena_create(256 * 1024);
@@ -141,10 +167,17 @@ inline int run_demo() {
         return build(vstack);
     };
 
+    // ── Window dimensions (updated on resize) ─────────────────────────────────
+    float win_w = 800, win_h = 600;
+    bool sidebar_visible = true;
+    float nav_width = 180, sidebar_width = 260;
+
     auto rebuild_ui = [&]() -> LayoutNode* {
         arena_reset(&frame);
         Arena* a = &frame;
-        float W = 600, H = 500;
+        float W = win_w, H = win_h;
+        float nav_w = nav_width;
+        float side_w = sidebar_visible ? sidebar_width : 0;
 
         // ── 1. Toolbar (2.4em = ~31px) ───────────────────────────────────────
         auto toolbar = HStack(a, 4).size(W, 31).id("toolbar")
@@ -152,6 +185,9 @@ inline int run_demo() {
         toolbar.child(Box(a, 40, 24).bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         toolbar.child(Box(a, 36, 24).bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 1, 18).bg(th.border));
+        toolbar.child(Box(a, 50, 24).id("btn-toggle-sidebar").bg(th.surface, th.toolbar_btn_border, 1)
+            .text(sidebar_visible ? "\xe2\x97\x80 Editor" : "\xe2\x96\xb6 Editor", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         // Search in toolbar
         char* search_label = (char*)arena_alloc(a, 160, 1);
@@ -172,7 +208,6 @@ inline int run_demo() {
 
             TextMeasure m = measure_text(ws.tabs.tabs[i].label, (uint32_t)strlen(ws.tabs.tabs[i].label), "sans", th.font_small, active ? TEXT_BOLD : TEXT_NORMAL);
 
-            // Close button child
             char* close_id = (char*)arena_alloc(a, strlen(ws.tabs.tabs[i].id) + 7, 1);
             snprintf(close_id, strlen(ws.tabs.tabs[i].id) + 7, "close:%s", ws.tabs.tabs[i].id);
 
@@ -183,26 +218,82 @@ inline int run_demo() {
             tab_bar.child(std::move(tab));
         }
 
-        // ── 3. Content area (flex row: nav | workspace) ──────────────────────
-        float content_h = H - 31 - 26 - 21; // toolbar + tabs + status
-        LayoutNode* nav_node = nav_tree_build(a, &ws.nav, 180, content_h);
+        // ── 3. Content area (nav | workspace | sidebar) ──────────────────────
+        float content_h = H - 31 - 26 - 21;
+        float workspace_w = W - nav_w - side_w;
+        tvcfg.viewport_width = workspace_w - 4;
+        tvcfg.viewport_height = (float)(int)(content_h * zoom) - 30;
+        tvcfg.active_row = editor.editing ? (int32_t)editor.active_cell.row : -1;
+        tvcfg.active_col = editor.editing ? (int16_t)editor.active_cell.col : -1;
+        gvcfg.viewport_width = workspace_w - 4;
+        gvcfg.viewport_height = (float)(int)(content_h * zoom) - 10;
+
+        LayoutNode* nav_node = nav_tree_build(a, &ws.nav, nav_w, content_h - 20);
         LayoutNode* view_node = build_active_view(a);
 
-        // Nav tree panel with themed colors
-        // (nav_tree_build already builds a scroll; wrap it with bg)
-
         auto content = HStack(a, 0).size(W, content_h).id("content");
-        // Nav panel (left, 180px)
-        auto nav_panel = VStack(a, 0).size(180, content_h).id("nav-tree-panel")
+
+        // Nav panel (left)
+        auto nav_panel = VStack(a, 0).size(nav_w, content_h).id("nav-tree-panel")
             .bg(th.nav_bg, th.border, 0);
-        nav_panel.child(Box(a, 180, 20).bg(th.nav_header_bg, th.border, 1).text("Contents", th.font_tiny, th.nav_header_text, TEXT_BOLD));
+        nav_panel.child(Box(a, nav_w, 20).bg(th.nav_header_bg, th.border, 1).text("Contents", th.font_tiny, th.nav_header_text, TEXT_BOLD));
         nav_panel.child(UI{*nav_node, a});
         content.child(std::move(nav_panel));
-        // Workspace (right, flex)
-        auto workspace = VStack(a, 0).size(W - 180, content_h).id("workspace")
+
+        // Workspace (center)
+        auto workspace = VStack(a, 0).size(workspace_w, content_h).id("workspace")
             .bg(th.surface);
         workspace.child(UI{*view_node, a});
         content.child(std::move(workspace));
+
+        // Sidebar / Source editor (right)
+        if (sidebar_visible) {
+            float editor_h = content_h * 0.6f;
+            float preview_h = content_h - 24 - 24 - editor_h; // header + buttons + editor
+
+            auto sidebar = VStack(a, 0).size(side_w, content_h).id("sidebar")
+                .bg(th.sidebar_bg, th.border, 0);
+
+            // Header: "Source Editor" label
+            char* se_hdr = (char*)arena_alloc(a, 64, 1);
+            snprintf(se_hdr, 64, "Source Editor  [%s]", source_type);
+            sidebar.child(Box(a, side_w, 24).bg(th.nav_header_bg, th.border, 1)
+                .text(se_hdr, th.font_tiny, th.text_secondary, TEXT_BOLD));
+
+            // Button row: [Parse] [Apply]
+            auto btn_row = HStack(a, 4).size(side_w, 24).bg(th.accent_light, th.border, 1);
+            btn_row.child(Box(a, 44, 20).id("se-parse")
+                .bg(th.surface, th.toolbar_btn_border, 1)
+                .text("Parse", th.font_tiny, th.toolbar_btn_text));
+            btn_row.child(Box(a, 44, 20).id("se-apply")
+                .bg(th.accent_light, th.cell_active_outline, 1)
+                .text("Apply", th.font_tiny, th.text));
+            sidebar.child(std::move(btn_row));
+
+            // Editor area (editable text display with cursor)
+            char* editor_display = (char*)arena_alloc(a, 520, 1);
+            if (source_len > 0) {
+                if (source_focused)
+                    snprintf(editor_display, 520, "%.*s|%s", source_cursor, source_buf, source_buf + source_cursor);
+                else
+                    snprintf(editor_display, 520, "%s", source_buf);
+            } else {
+                snprintf(editor_display, 520, source_focused ? "|" : "Type source here...");
+            }
+            Color ed_border = source_focused ? th.cell_active_outline : th.border;
+            Color ed_text = source_len > 0 ? th.text : th.text_muted;
+            sidebar.child(Box(a, side_w, editor_h).id("source-editor")
+                .bg(th.surface, ed_border, source_focused ? 2.0f : 1.0f)
+                .text(editor_display, 12, ed_text));
+
+            // Preview area
+            Color prev_text = source_preview[0] ? th.text_secondary : th.text_muted;
+            const char* prev_display = source_preview[0] ? source_preview : "(preview appears here)";
+            sidebar.child(Box(a, side_w, preview_h).bg(th.surface, th.border, 1)
+                .text(prev_display, th.font_small, prev_text));
+
+            content.child(std::move(sidebar));
+        }
 
         // ── 4. Status bar (1.6em = ~21px) ────────────────────────────────────
         char* status_text = (char*)arena_alloc(a, 128, 1);
@@ -215,7 +306,7 @@ inline int run_demo() {
             .bg(th.status_bg, th.border, 1)
             .text(status_text, th.font_tiny, th.status_text);
 
-        // ── Root (vertical stack, no padding — fills window) ─────────────────
+        // ── Root ─────────────────────────────────────────────────────────────
         auto root_ui = VStack(a, 0).size(W, H).id("root")
             .bg(th.bg)
             .child(std::move(toolbar))
@@ -235,7 +326,7 @@ inline int run_demo() {
     LayoutNode* root = rebuild_ui();
 
     // ── Event loop ───────────────────────────────────────────────────────────
-    PlatformWindow* win = create_window("Bookkeeping", 600, 500);
+    PlatformWindow* win = create_window("Bookkeeping", 800, 600);
     bool running = true;
     bool need_rebuild = false;
     InputEvent ev;
@@ -243,6 +334,11 @@ inline int run_demo() {
     while (running) {
         while (win->poll_event(ev)) {
             if (ev.type == InputEvent::QUIT) { running = false; break; }
+            if (ev.type == InputEvent::WINDOW_RESIZE) {
+                win_w = ev.x; win_h = ev.y;
+                need_rebuild = true;
+                continue;
+            }
             if (ev.type == InputEvent::KEY_DOWN && ev.key == 27) { // ESC
                 if (search_active) { search_active = false; need_rebuild = true; }
                 else if (editor.editing) { editor.cancel_edit(); need_rebuild = true; }
@@ -308,31 +404,62 @@ inline int run_demo() {
                 continue; // consume key when search is active
             }
 
+            // Source editor keyboard input
+            if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && !(ev.mod & 0x00C0)) {
+                if (ev.key == 8 && source_cursor > 0) { // Backspace
+                    memmove(source_buf + source_cursor - 1, source_buf + source_cursor, source_len - source_cursor);
+                    source_cursor--; source_len--;
+                    source_buf[source_len] = 0;
+                    need_rebuild = true;
+                } else if (ev.key == 127 && source_cursor < source_len) { // Delete
+                    memmove(source_buf + source_cursor, source_buf + source_cursor + 1, source_len - source_cursor - 1);
+                    source_len--; source_buf[source_len] = 0;
+                    need_rebuild = true;
+                } else if (ev.key == 1073741904 && source_cursor > 0) { source_cursor--; need_rebuild = true; } // Left
+                else if (ev.key == 1073741903 && source_cursor < source_len) { source_cursor++; need_rebuild = true; } // Right
+                else if (ev.key == 13) { // Enter — does nothing (single-line for now)
+                } else if (ev.key >= 32 && ev.key < 127 && source_len < 510) {
+                    memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
+                    source_buf[source_cursor] = (char)ev.key;
+                    source_cursor++; source_len++;
+                    source_buf[source_len] = 0;
+                    need_rebuild = true;
+                }
+                continue;
+            }
+
             // Ctrl+Z / Ctrl+Y for undo/redo, Ctrl+S save, Ctrl+O open, Ctrl+Up/Down reorder, Ctrl+Plus/Minus zoom
             if (ev.type == InputEvent::KEY_DOWN && !search_active && (ev.mod & 0x00C0)) {
                 if (ev.key == 'z') { editor.undo(); need_rebuild = true; dirty.mark_table_dirty(); }
                 else if (ev.key == 'y') { editor.redo(); need_rebuild = true; dirty.mark_table_dirty(); }
                 else if (ev.key == 's') {
-                    // Save active view
+                    // Save active view to its persistent path
                     ViewSlot* v = ws.active_view();
-                    if (v && v->type == VIEW_TABLE && people_path) {
+                    if (v && v->type == VIEW_TABLE) {
                         editor.commit_edit();
-                        file_save_csv(&arena, (Table*)v->data, people_path);
+                        Table* t = (Table*)v->data;
+                        const char* path = (t == people) ? people_save : cities_save;
+                        file_save_csv(&arena, t, path);
                         dirty.mark_clean(editor.history.past_count);
-                        printf("Saved: %s\n", people_path);
-                    } else if (v && v->type == VIEW_TABLE) {
-                        const char* default_path = "/tmp/bookkeeping_table.csv";
-                        editor.commit_edit();
-                        file_save_csv(&arena, (Table*)v->data, default_path);
-                        dirty.mark_clean(editor.history.past_count);
-                        printf("Saved: %s\n", default_path);
-                    } else if (v && v->type == VIEW_GRAPH && graph_path) {
-                        file_save_graph(&arena, (Graph*)v->data, graph_path);
+                        printf("Saved: %s\n", path);
+                    } else if (v && v->type == VIEW_GRAPH) {
+                        file_save_graph(&arena, (Graph*)v->data, graph_save);
                         dirty.graph_dirty = false;
-                        printf("Saved: %s\n", graph_path);
+                        printf("Saved: %s\n", graph_save);
                     }
+                    need_rebuild = true;
                 } else if (ev.key == 'o') {
-                    printf("Open file: provide path via command line args (not implemented in demo)\n");
+                    // Open: load from testresources path
+                    const char* test_path = "/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources/Mathematics reference sheet/Basic algebra.csv";
+                    Table* loaded = file_load_csv(&arena, test_path);
+                    if (loaded) {
+                        ws.mount(loaded->name.data, "loaded", VIEW_TABLE, loaded);
+                        editor.init(&arena, loaded);
+                        printf("Opened: %s (%u rows)\n", test_path, loaded->row_count);
+                    } else {
+                        printf("Failed to open: %s\n", test_path);
+                    }
+                    need_rebuild = true;
                 } else if (ev.key == 1073741906) { // Ctrl+Up arrow — move row up
                     ViewSlot* v = ws.active_view();
                     if (v && v->type == VIEW_TABLE && editor.active_cell.row > 0) {
@@ -389,6 +516,44 @@ inline int run_demo() {
                 for (int i = 0; i < n; i++) {
                     if (deep[i].node->id && strcmp(deep[i].node->id, "search-bar") == 0) {
                         search_active = true;
+                        source_focused = false;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "btn-toggle-sidebar") == 0) {
+                        sidebar_visible = !sidebar_visible;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "source-editor") == 0) {
+                        source_focused = true;
+                        search_active = false;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "se-apply") == 0) {
+                        // Apply: commit source_buf to the active cell
+                        if (editor.editing) {
+                            memcpy(editor.edit_buffer, source_buf, source_len);
+                            editor.edit_len = source_len;
+                            editor.cursor_pos = source_len;
+                            editor.edit_buffer[source_len] = 0;
+                            editor.commit_edit();
+                            dirty.mark_table_dirty();
+                            snprintf(source_preview, 256, "Applied to [%u,%u]", editor.active_cell.row, editor.active_cell.col);
+                        } else {
+                            snprintf(source_preview, 256, "No active cell");
+                        }
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "se-parse") == 0) {
+                        // Parse: just show preview
+                        snprintf(source_preview, 256, "Parsed [%s]: \"%.*s\"", source_type, source_len > 60 ? 60 : (int)source_len, source_buf);
                         need_rebuild = true;
                         handled = true;
                         break;
@@ -398,6 +563,10 @@ inline int run_demo() {
                 // Click outside search bar → deactivate search
                 if (!handled && search_active) {
                     search_active = false;
+                    need_rebuild = true;
+                }
+                if (!handled && source_focused) {
+                    source_focused = false;
                     need_rebuild = true;
                 }
 
@@ -493,6 +662,14 @@ inline int run_demo() {
                                 dirty.mark_table_dirty();
                                 editor.init(&arena, t);
                                 editor.begin_edit(row, col);
+                                // Copy to source editor
+                                source_len = editor.edit_len > 511 ? 511 : editor.edit_len;
+                                memcpy(source_buf, editor.edit_buffer, source_len);
+                                source_buf[source_len] = 0;
+                                source_cursor = source_len;
+                                source_focused = true;
+                                source_preview[0] = 0;
+                                if (col < t->col_count) source_type = t->columns[col].type_id.data;
                                 printf("Edit [%u,%u] = \"%s\"\n", row, col, editor.edit_buffer);
                                 need_rebuild = true;
                             }
@@ -522,10 +699,10 @@ inline int run_demo() {
     // ── On exit: save session ────────────────────────────────────────────────
     const char* open_paths[16];
     uint16_t open_count = 0;
-    if (people_path) open_paths[open_count++] = people_path;
-    if (cities_path) open_paths[open_count++] = cities_path;
-    if (graph_path) open_paths[open_count++] = graph_path;
-    if (open_count > 0) session_save(session_file, open_paths, open_count);
+    open_paths[open_count++] = people_save;
+    open_paths[open_count++] = cities_save;
+    open_paths[open_count++] = graph_save;
+    session_save(session_file, open_paths, open_count);
 
     if (dirty.is_dirty()) printf("Warning: unsaved changes were discarded.\n");
 

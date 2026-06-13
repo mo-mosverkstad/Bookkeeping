@@ -17,6 +17,7 @@ struct InputEvent {
         MOUSE_WHEEL,
         KEY_DOWN,
         KEY_UP,
+        WINDOW_RESIZE,
     };
     Type type;
     float x, y;         // mouse position

@@ -49,6 +49,16 @@ struct SDL2Window : PlatformWindow {
                     out.key = ev.key.keysym.sym;
                     out.mod = ev.key.keysym.mod;
                     return true;
+                case SDL_WINDOWEVENT:
+                    if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+                        w = ev.window.data1;
+                        h = ev.window.data2;
+                        out.type = InputEvent::WINDOW_RESIZE;
+                        out.x = (float)w;
+                        out.y = (float)h;
+                        return true;
+                    }
+                    break;
             }
         }
         return false;
