@@ -296,7 +296,7 @@ inline int run_demo() {
         float content_h = H - 31 - 26 - 21;
         float workspace_w = W - nav_w - side_w;
         active_view_w = workspace_w;
-        active_view_h = content_h;
+        active_view_h = content_h - 32; // subtract header row height
         tvcfg.active_row = editor.editing ? (int32_t)editor.active_cell.row : -1;
         tvcfg.active_col = editor.editing ? (int16_t)editor.active_cell.col : -1;
 
