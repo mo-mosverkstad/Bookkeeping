@@ -71,19 +71,33 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
     for (uint32_t r = 0; r < rows; r++) {
         auto cell_kids = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * cols, 8);
         Color bg = (r % 2 == 0) ? cfg.cell_bg_even : cfg.cell_bg_odd;
+        // First pass: measure row height from tallest cell
+        float row_h = cfg.cell_height;
+        for (uint16_t c = 0; c < cols; c++) {
+            Str val = table_get_cell(table, r, c);
+            if (val.len > 0 && val.data) {
+                // Count lines manually for reliable height
+                uint32_t lines = 1;
+                for (uint32_t i = 0; i < val.len; i++)
+                    if (val.data[i] == '\n') lines++;
+                float needed = lines * 14.0f + 8; // 14px line height + padding
+                if (needed > row_h) row_h = needed;
+            }
+        }
+        // Second pass: build cells with computed row height
         for (uint16_t c = 0; c < cols; c++) {
             Str val = table_get_cell(table, r, c);
             bool is_active = ((int32_t)r == cfg.active_row && (int16_t)c == cfg.active_col);
             Color cell_bg = is_active ? cfg.active_cell_bg : bg;
             Color cell_border = is_active ? cfg.active_cell_border : cfg.border;
             float sw = is_active ? 2.0f : 1.0f;
-            auto cell = Box(a, col_widths[c], cfg.cell_height)
+            auto cell = Box(a, col_widths[c], row_h)
                 .bg(cell_bg, cell_border, sw)
                 .text(val.data, 12, cfg.cell_text);
             cell_kids[c] = build(cell);
         }
         Node* row = node_linear_h(a);
-        row->set_gap(cfg.gap).size(0, cfg.cell_height);
+        row->set_gap(cfg.gap).size(0, row_h);
         row->set_children(cell_kids, cols);
         // Set row id
         char* rid = (char*)arena_alloc(a, 16, 1);
