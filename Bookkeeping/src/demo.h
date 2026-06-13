@@ -126,6 +126,7 @@ inline int run_demo() {
     char source_buf[512] = "";
     uint16_t source_len = 0;
     uint16_t source_cursor = 0;
+    uint16_t source_sel_start = 0; // selection start (== cursor means no selection)
     const char* source_type = "text";
     bool source_focused = false;
     char source_preview[256] = "";  // parsed preview text
@@ -362,21 +363,43 @@ inline int run_demo() {
                 .text("Apply", th.font_tiny, th.text));
             sidebar.child(std::move(btn_row));
 
-            // Editor area (editable text display with cursor)
-            char* editor_display = (char*)arena_alloc(a, 520, 1);
+            // Editor area (editable text display with cursor and selection)
+            char* editor_display = (char*)arena_alloc(a, 540, 1);
             if (source_len > 0) {
-                if (source_focused)
-                    snprintf(editor_display, 520, "%.*s|%s", source_cursor, source_buf, source_buf + source_cursor);
-                else
-                    snprintf(editor_display, 520, "%s", source_buf);
+                if (source_focused) {
+                    uint16_t lo = source_sel_start < source_cursor ? source_sel_start : source_cursor;
+                    uint16_t hi = source_sel_start > source_cursor ? source_sel_start : source_cursor;
+                    if (lo != hi) {
+                        // Show selection: text[sel]text with brackets
+                        snprintf(editor_display, 540, "%.*s[%.*s]%s",
+                            lo, source_buf, hi - lo, source_buf + lo, source_buf + hi);
+                    } else {
+                        snprintf(editor_display, 540, "%.*s|%s", source_cursor, source_buf, source_buf + source_cursor);
+                    }
+                } else {
+                    snprintf(editor_display, 540, "%s", source_buf);
+                }
             } else {
-                snprintf(editor_display, 520, source_focused ? "|" : "Type source here...");
+                snprintf(editor_display, 540, source_focused ? "|" : "Type source here...");
             }
             Color ed_border = source_focused ? th.cell_active_outline : th.border;
             Color ed_text = source_len > 0 ? th.text : th.text_muted;
-            sidebar.child(Box(a, side_w, editor_h).id("source-editor")
-                .bg(th.surface, ed_border, source_focused ? 2.0f : 1.0f)
-                .text(editor_display, 12, ed_text));
+            // Use max_width on text element for line wrapping
+            auto ed_box = Box(a, side_w, editor_h).id("source-editor")
+                .bg(th.surface, ed_border, source_focused ? 2.0f : 1.0f);
+            // Build text element manually with max_width for wrapping
+            Element* ed_elem = (Element*)arena_alloc(a, sizeof(Element), 8);
+            *ed_elem = elem_text({4, 4, editor_display, "sans", 12, ed_text, TEXT_NORMAL, ALIGN_LEFT, side_w - 12});
+            ed_box.node.elements = ed_elem;
+            ed_box.node.element_count = 2; // bg rect + text (bg already added by .bg())
+            // Actually .bg() already added 1 element, .text() would add another. Let's just use .text():
+            ed_box.node.element_count = 1; // keep just the bg
+            Element* elems = (Element*)arena_alloc(a, sizeof(Element) * 2, 8);
+            elems[0] = ed_box.node.elements[0]; // bg rect
+            elems[1] = elem_text({4, 4, editor_display, "sans", 12, ed_text, TEXT_NORMAL, ALIGN_LEFT, side_w - 12});
+            ed_box.node.elements = elems;
+            ed_box.node.element_count = 2;
+            sidebar.child(std::move(ed_box));
 
             // Preview area
             Color prev_text = source_preview[0] ? th.text_secondary : th.text_muted;
@@ -533,32 +556,70 @@ inline int run_demo() {
 
             // Source editor keyboard input
             if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && !(ev.mod & 0x00C0)) {
-                if (ev.key == 8 && source_cursor > 0) { // Backspace
+                bool shift = (ev.mod & 0x0003) != 0;
+                // Helper: delete selection if any
+                auto delete_selection = [&]() -> bool {
+                    if (source_sel_start == source_cursor) return false;
                     source_hist.push(source_buf, source_len, source_cursor);
-                    uint16_t prev = utf8_prev(source_buf, source_cursor);
-                    uint16_t del = source_cursor - prev;
-                    memmove(source_buf + prev, source_buf + source_cursor, source_len - source_cursor);
-                    source_cursor = prev; source_len -= del;
+                    uint16_t lo = source_sel_start < source_cursor ? source_sel_start : source_cursor;
+                    uint16_t hi = source_sel_start > source_cursor ? source_sel_start : source_cursor;
+                    memmove(source_buf + lo, source_buf + hi, source_len - hi);
+                    source_len -= (hi - lo);
                     source_buf[source_len] = 0;
+                    source_cursor = lo;
+                    source_sel_start = lo;
+                    return true;
+                };
+                if (ev.key == 8) { // Backspace
+                    if (!delete_selection() && source_cursor > 0) {
+                        source_hist.push(source_buf, source_len, source_cursor);
+                        uint16_t prev = utf8_prev(source_buf, source_cursor);
+                        uint16_t del = source_cursor - prev;
+                        memmove(source_buf + prev, source_buf + source_cursor, source_len - source_cursor);
+                        source_cursor = prev; source_len -= del;
+                        source_buf[source_len] = 0;
+                    }
+                    source_sel_start = source_cursor;
                     need_rebuild = true;
-                } else if (ev.key == 127 && source_cursor < source_len) { // Delete
-                    source_hist.push(source_buf, source_len, source_cursor);
-                    uint16_t next = utf8_next(source_buf, source_len, source_cursor);
-                    uint16_t del = next - source_cursor;
-                    memmove(source_buf + source_cursor, source_buf + next, source_len - next);
-                    source_len -= del; source_buf[source_len] = 0;
+                } else if (ev.key == 127) { // Delete
+                    if (!delete_selection() && source_cursor < source_len) {
+                        source_hist.push(source_buf, source_len, source_cursor);
+                        uint16_t next = utf8_next(source_buf, source_len, source_cursor);
+                        uint16_t del = next - source_cursor;
+                        memmove(source_buf + source_cursor, source_buf + next, source_len - next);
+                        source_len -= del; source_buf[source_len] = 0;
+                    }
+                    source_sel_start = source_cursor;
                     need_rebuild = true;
-                } else if (ev.key == 13 && source_len < 510) { // Enter → newline in source editor
+                } else if (ev.key == 13 && source_len < 510) { // Enter
+                    delete_selection();
                     source_hist.push(source_buf, source_len, source_cursor);
                     memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
                     source_buf[source_cursor] = '\n';
                     source_cursor++; source_len++;
                     source_buf[source_len] = 0;
+                    source_sel_start = source_cursor;
                     need_rebuild = true;
-                } else if (ev.key == 1073741904 && source_cursor > 0) { source_cursor = utf8_prev(source_buf, source_cursor); need_rebuild = true; }
-                else if (ev.key == 1073741903 && source_cursor < source_len) { source_cursor = utf8_next(source_buf, source_len, source_cursor); need_rebuild = true; }
-                else if (ev.key == 1073741898) { source_cursor = 0; need_rebuild = true; } // Home
-                else if (ev.key == 1073741901) { source_cursor = source_len; need_rebuild = true; } // End
+                } else if (ev.key == 1073741904) { // Left
+                    if (source_cursor > 0) source_cursor = utf8_prev(source_buf, source_cursor);
+                    if (!shift) source_sel_start = source_cursor;
+                    need_rebuild = true;
+                } else if (ev.key == 1073741903) { // Right
+                    if (source_cursor < source_len) source_cursor = utf8_next(source_buf, source_len, source_cursor);
+                    if (!shift) source_sel_start = source_cursor;
+                    need_rebuild = true;
+                } else if (ev.key == 1073741898) { // Home
+                    source_cursor = 0;
+                    if (!shift) source_sel_start = source_cursor;
+                    need_rebuild = true;
+                } else if (ev.key == 1073741901) { // End
+                    source_cursor = source_len;
+                    if (!shift) source_sel_start = source_cursor;
+                    need_rebuild = true;
+                } else if (ev.key == 'a' && (ev.mod & 0x00C0)) { // Ctrl+A select all (special case)
+                    source_sel_start = 0; source_cursor = source_len;
+                    need_rebuild = true;
+                }
                 continue;
             }
 
@@ -586,10 +647,19 @@ inline int run_demo() {
                         need_rebuild = true;
                     } else if (source_focused && source_len + tlen <= 510) {
                         source_hist.push(source_buf, source_len, source_cursor);
+                        // Delete selection first
+                        if (source_sel_start != source_cursor) {
+                            uint16_t lo = source_sel_start < source_cursor ? source_sel_start : source_cursor;
+                            uint16_t hi = source_sel_start > source_cursor ? source_sel_start : source_cursor;
+                            memmove(source_buf + lo, source_buf + hi, source_len - hi);
+                            source_len -= (hi - lo);
+                            source_cursor = lo;
+                        }
                         memmove(source_buf + source_cursor + tlen, source_buf + source_cursor, source_len - source_cursor);
                         memcpy(source_buf + source_cursor, ev.text, tlen);
                         source_cursor += tlen; source_len += tlen;
                         source_buf[source_len] = 0;
+                        source_sel_start = source_cursor;
                         need_rebuild = true;
                     }
                 }
