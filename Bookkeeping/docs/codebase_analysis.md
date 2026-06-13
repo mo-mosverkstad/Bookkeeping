@@ -1626,6 +1626,48 @@ edge_elems[idx] = elem_line({x1, y1, x2, y2, edge_color, 1.5f});
 
 ---
 
+## Phase 15 — Document View (available, not active in demo)
+
+### What it does
+Provides a composite view renderer that displays multiple tables as collapsible
+sections in a single scrollable page. Created in `src/app/doc_view.h` but not
+used in the demo (individual table tabs are the primary UX).
+
+### Data Model
+
+```cpp
+struct DocSection {
+    const char* id;
+    const char* title;
+    Table* table;
+    bool collapsed;
+};
+
+struct DocumentModel {
+    const char* name;
+    DocSection* sections;
+    uint16_t section_count;
+};
+```
+
+### Renderer
+
+`doc_view_build()` produces a scrollable VStack of sections, each with a
+clickable header (▼/▶ toggle) and an inline table body. Collapsed sections
+hide their content. Tables are limited to 50 rows per section for performance.
+
+### Decision: Not used in demo
+
+The document view tab was removed because:
+- Users find individual table tabs more intuitive
+- The nav tree already provides folder-level organization
+- Clicking a nav leaf opens the specific table directly
+
+The file is retained for future use cases (e.g., "overview" mode showing
+summaries of all tables in a folder).
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

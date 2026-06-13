@@ -734,3 +734,12 @@ Custom lightweight test framework in `test/test.h`:
 | Header fixed during h-scroll | Header outside scroll node | Wrapped in synced horizontal-only scroll node |
 | Scroll bars invisible | Positioned at `scroll_w` (off-screen right) | Positioned at `viewport_width - 10` |
 | Viewport too small | Hardcoded 520×200 | Uses actual workspace dimensions from layout |
+
+
+---
+
+## Phase 15 — Document View
+
+### No tests (feature deprioritized)
+- `doc_view.h` available but document view tab removed from demo
+- Individual table tabs remain primary UX

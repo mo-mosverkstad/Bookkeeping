@@ -478,3 +478,18 @@ make clean && make
 - Shift+scroll moves table horizontally
 - Switch tabs and switch back → scroll position preserved
 - Header stays at top but follows horizontal scroll
+
+
+---
+
+## Phase 15 — Document View
+
+### Status
+- `src/app/doc_view.h` created with DocumentModel + collapsible section renderer
+- Document view tab removed from demo (unintuitive UX)
+- Individual table tabs are the primary navigation model
+- doc_view.h retained for potential future composite views
+
+### Verification
+- `make test` → 374 tests pass
+- Open loads folder → individual tables as tabs, first table activated

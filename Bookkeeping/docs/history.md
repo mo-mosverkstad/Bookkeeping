@@ -417,3 +417,17 @@ across phases.
 - Header stuck during horizontal scroll: wrapped in synced horizontal scroll node
 - Scroll bars invisible: were placed at scroll_w offset (off-screen), now at viewport_width
 - Table/diagram viewport too small: hardcoded 520×200 replaced with actual workspace dimensions
+
+---
+
+## Phase 15 — Document View — 2026-06-13
+
+**Added:**
+- `src/app/doc_view.h` — Document view model and renderer (collapsible sections)
+- `VIEW_DOCUMENT` type added to workspace
+
+**Decisions:**
+- Document view tab removed from demo as unintuitive for the user
+- Individual table tabs remain the primary way to view loaded tables
+- `doc_view.h` kept in codebase for future use (composite section rendering)
+- Open button activates the first loaded table instead of a document overview
