@@ -670,11 +670,15 @@ inline int run_demo() {
                                 if (sn->scroll_x > max_sx) sn->scroll_x = max_sx;
                                 ViewSlot* av = ws.active_view();
                                 if (av) av->scroll_x = sn->scroll_x;
-                                // Sync header scroll
-                                for (int j = 0; j < n; j++) {
-                                    if (deep[j].node->id && strcmp(deep[j].node->id, "header-scroll") == 0)
-                                        deep[j].node->scroll_x = sn->scroll_x;
-                                }
+                                // Sync header scroll (find by walking tree)
+                                struct HdrFind { LayoutNode* h; };
+                                HdrFind hf = {nullptr};
+                                struct HW { static void w(LayoutNode* nd, HdrFind& c) {
+                                    if (nd->id && strcmp(nd->id, "header-scroll") == 0) { c.h = nd; return; }
+                                    for (uint16_t i = 0; i < nd->child_count && !c.h; i++) w(nd->children[i], c);
+                                }};
+                                HW::w(root, hf);
+                                if (hf.h) hf.h->scroll_x = sn->scroll_x;
                             } else {
                                 // Vertical
                                 sn->scroll_y -= ev.scroll_y * 12;
@@ -694,13 +698,14 @@ inline int run_demo() {
 
             // Scrollbar drag handling
             if (ev.type == InputEvent::MOUSE_MOVE && (scrollbar_dragging || scrollbar_h_dragging)) {
-                // Find table-scroll node
-                struct FindCtx2 { LayoutNode* found; };
-                FindCtx2 ctx2 = {nullptr};
+                // Find table-scroll and header-scroll nodes
+                struct FindCtx2 { LayoutNode* found; LayoutNode* header; };
+                FindCtx2 ctx2 = {nullptr, nullptr};
                 struct Walker2 {
                     static void walk(LayoutNode* n, FindCtx2& c) {
-                        if (n->id && strcmp(n->id, "table-scroll") == 0) { c.found = n; return; }
-                        for (uint16_t i = 0; i < n->child_count && !c.found; i++) walk(n->children[i], c);
+                        if (n->id && strcmp(n->id, "table-scroll") == 0) c.found = n;
+                        if (n->id && strcmp(n->id, "header-scroll") == 0) c.header = n;
+                        for (uint16_t i = 0; i < n->child_count && (!c.found || !c.header); i++) walk(n->children[i], c);
                     }
                 };
                 Walker2::walk(root, ctx2);
@@ -728,6 +733,8 @@ inline int run_demo() {
                             if (sn->scroll_x > ct_w - vp_w) sn->scroll_x = ct_w - vp_w;
                             ViewSlot* av = ws.active_view();
                             if (av) av->scroll_x = sn->scroll_x;
+                            // Sync header scroll
+                            if (ctx2.header) ctx2.header->scroll_x = sn->scroll_x;
                         }
                     }
                 }
