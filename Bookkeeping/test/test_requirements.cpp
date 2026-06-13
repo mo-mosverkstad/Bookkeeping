@@ -236,8 +236,8 @@ TEST(theme_light_colors) {
     // Text should be dark
     ASSERT_TRUE(th.text.r < 50 && th.text.g < 50);
     // Font sizes
-    ASSERT_NEAR(th.font_base, 13.0f, 0.1f);
-    ASSERT_NEAR(th.font_small, 11.4f, 0.1f);
+    ASSERT_NEAR(th.font_base, 14.0f, 0.1f);
+    ASSERT_NEAR(th.font_small, 12.5f, 0.1f);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
