@@ -20,6 +20,20 @@
 
 // ── Main demo: Phase 9 — File I/O + Workspace ───────────────────────────────
 
+// UTF-8 helpers: find start of previous/next code point
+static inline uint16_t utf8_prev(const char* buf, uint16_t pos) {
+    if (pos == 0) return 0;
+    pos--;
+    while (pos > 0 && (buf[pos] & 0xC0) == 0x80) pos--; // skip continuation bytes
+    return pos;
+}
+static inline uint16_t utf8_next(const char* buf, uint16_t len, uint16_t pos) {
+    if (pos >= len) return len;
+    pos++;
+    while (pos < len && (buf[pos] & 0xC0) == 0x80) pos++;
+    return pos;
+}
+
 inline int run_demo() {
     Arena arena = arena_create(512 * 1024);
 
@@ -357,19 +371,23 @@ inline int run_demo() {
             // Search input
             if (ev.type == InputEvent::KEY_DOWN && search_active) {
                 if (ev.key == 8 && search_cursor > 0) { // Backspace
-                    memmove(search_buf + search_cursor - 1, search_buf + search_cursor, search_len - search_cursor);
-                    search_cursor--; search_len--;
+                    uint16_t prev = utf8_prev(search_buf, search_cursor);
+                    uint16_t del = search_cursor - prev;
+                    memmove(search_buf + prev, search_buf + search_cursor, search_len - search_cursor);
+                    search_cursor = prev; search_len -= del;
                     search_buf[search_len] = 0;
                     goto do_search;
                 } else if (ev.key == 127 && search_cursor < search_len) { // Delete
-                    memmove(search_buf + search_cursor, search_buf + search_cursor + 1, search_len - search_cursor - 1);
-                    search_len--;
+                    uint16_t next = utf8_next(search_buf, search_len, search_cursor);
+                    uint16_t del = next - search_cursor;
+                    memmove(search_buf + search_cursor, search_buf + next, search_len - next);
+                    search_len -= del;
                     search_buf[search_len] = 0;
                     goto do_search;
                 } else if (ev.key == 1073741904) { // Left arrow
-                    if (search_cursor > 0) { search_cursor--; need_rebuild = true; }
+                    if (search_cursor > 0) { search_cursor = utf8_prev(search_buf, search_cursor); need_rebuild = true; }
                 } else if (ev.key == 1073741903) { // Right arrow
-                    if (search_cursor < search_len) { search_cursor++; need_rebuild = true; }
+                    if (search_cursor < search_len) { search_cursor = utf8_next(search_buf, search_len, search_cursor); need_rebuild = true; }
                 } else if (ev.key == 1073741898) { // Home
                     search_cursor = 0; need_rebuild = true;
                 } else if (ev.key == 1073741901) { // End
@@ -401,16 +419,20 @@ inline int run_demo() {
             // Source editor keyboard input
             if (ev.type == InputEvent::KEY_DOWN && source_focused && !search_active && !(ev.mod & 0x00C0)) {
                 if (ev.key == 8 && source_cursor > 0) { // Backspace
-                    memmove(source_buf + source_cursor - 1, source_buf + source_cursor, source_len - source_cursor);
-                    source_cursor--; source_len--;
+                    uint16_t prev = utf8_prev(source_buf, source_cursor);
+                    uint16_t del = source_cursor - prev;
+                    memmove(source_buf + prev, source_buf + source_cursor, source_len - source_cursor);
+                    source_cursor = prev; source_len -= del;
                     source_buf[source_len] = 0;
                     need_rebuild = true;
                 } else if (ev.key == 127 && source_cursor < source_len) { // Delete
-                    memmove(source_buf + source_cursor, source_buf + source_cursor + 1, source_len - source_cursor - 1);
-                    source_len--; source_buf[source_len] = 0;
+                    uint16_t next = utf8_next(source_buf, source_len, source_cursor);
+                    uint16_t del = next - source_cursor;
+                    memmove(source_buf + source_cursor, source_buf + next, source_len - next);
+                    source_len -= del; source_buf[source_len] = 0;
                     need_rebuild = true;
-                } else if (ev.key == 1073741904 && source_cursor > 0) { source_cursor--; need_rebuild = true; } // Left
-                else if (ev.key == 1073741903 && source_cursor < source_len) { source_cursor++; need_rebuild = true; } // Right
+                } else if (ev.key == 1073741904 && source_cursor > 0) { source_cursor = utf8_prev(source_buf, source_cursor); need_rebuild = true; }
+                else if (ev.key == 1073741903 && source_cursor < source_len) { source_cursor = utf8_next(source_buf, source_len, source_cursor); need_rebuild = true; }
                 else if (ev.key == 1073741898) { source_cursor = 0; need_rebuild = true; } // Home
                 else if (ev.key == 1073741901) { source_cursor = source_len; need_rebuild = true; } // End
                 continue;
