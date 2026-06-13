@@ -262,3 +262,29 @@ across phases.
 **Benchmark results:**
 - Save 500-row CSV: ~238μs/iter
 - Load 500-row CSV: ~5.5μs/iter
+
+---
+
+## Phase 10 — Polish + integration — 2026-06-13
+
+**Added:**
+- `src/app/table_sort.h` — Column sorting (stable insertion sort, ascending/descending)
+- `test/test_integration.cpp` — 16 tests (6 sort, 2 row reorder, 6 end-to-end integration, 2 benchmarks)
+- Status bar with dirty indicator and zoom display
+- Zoom control: Ctrl+Plus/Minus/0
+- Row reorder: Ctrl+Up/Down moves selected row
+- Full regression test suite: 367 tests all passing
+
+**Decisions:**
+- Insertion sort for column sorting (stable, simple, O(n²) acceptable for <10k rows)
+- Zoom scales viewport height proportionally (not font size)
+- Status bar shows: modified indicator, zoom %, active view type
+- Row reorder uses existing `table_move_row()` via Ctrl+Up/Down
+- No file dialog (platform-specific; noted for future)
+
+**Bug fixed:**
+- None
+
+**Benchmark results:**
+- Full startup to first frame (parse+layout+render): ~134μs
+- Sort 1000 rows: ~29μs

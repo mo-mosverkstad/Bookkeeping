@@ -13,6 +13,7 @@ TEST_REND = test_rend
 TEST_GRAPH = test_graph
 TEST_WORKSPACE = test_workspace
 TEST_FILE_IO = test_file_io
+TEST_INTEGRATION = test_integration
 
 SRC = main.cpp \
       src/graphics/layout/layout.cpp \
@@ -65,12 +66,18 @@ TEST_FILE_IO_SRC = test/test_file_io.cpp \
                    src/core/model/table.cpp \
                    src/core/parser/csv.cpp
 
+TEST_INTEGRATION_SRC = test/test_integration.cpp \
+                       src/core/model/table.cpp \
+                       src/core/parser/csv.cpp \
+                       src/graphics/layout/layout.cpp \
+                       src/graphics/backend/backend.cpp
+
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET) $(SDL_FLAGS)
 
-test: test-gfx test-table test-ui test-tview test-math test-editor test-rend test-graph test-workspace test-file-io
+test: test-gfx test-table test-ui test-tview test-math test-editor test-rend test-graph test-workspace test-file-io test-integration
 
 test-gfx: $(TEST_GFX_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_GFX_SRC) -o $(TEST_GFX) -lm
@@ -112,9 +119,13 @@ test-file-io: $(TEST_FILE_IO_SRC)
 	$(CXX) $(CXXFLAGS) $(TEST_FILE_IO_SRC) -o $(TEST_FILE_IO) -lm
 	./$(TEST_FILE_IO)
 
+test-integration: $(TEST_INTEGRATION_SRC)
+	$(CXX) $(CXXFLAGS) $(TEST_INTEGRATION_SRC) -o $(TEST_INTEGRATION) -lm
+	./$(TEST_INTEGRATION)
+
 bench: test
 
 clean:
-	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI) $(TEST_TVIEW) $(TEST_MATH) $(TEST_EDITOR) $(TEST_REND) $(TEST_GRAPH) $(TEST_WORKSPACE) $(TEST_FILE_IO)
+	rm -f $(TARGET) $(TEST_GFX) $(TEST_TABLE) $(TEST_UI) $(TEST_TVIEW) $(TEST_MATH) $(TEST_EDITOR) $(TEST_REND) $(TEST_GRAPH) $(TEST_WORKSPACE) $(TEST_FILE_IO) $(TEST_INTEGRATION)
 
 .PHONY: all test test-gfx test-table bench clean

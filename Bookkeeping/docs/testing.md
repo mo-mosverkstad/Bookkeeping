@@ -621,3 +621,40 @@ Custom lightweight test framework in `test/test.h`:
 |---|---|---|---|
 | save 500-row CSV | 500×5 table | 238μs/iter | 50 iterations |
 | load 500-row CSV | Same file | 5.5μs/iter | 50 iterations |
+
+
+---
+
+## Phase 10 — Integration tests (16 tests)
+
+### Column sorting (6 tests)
+| Test | Description | Result |
+|---|---|---|
+| sort_ascending | Sort by Name A→Z | PASS |
+| sort_descending | Sort by Name Z→A | PASS |
+| sort_numeric_as_string | Lexicographic sort of numeric strings | PASS |
+| sort_preserves_other_columns | Sorted rows keep associated data | PASS |
+| sort_single_row | Single row doesn't crash | PASS |
+| sort_empty_values | Empty strings sort first | PASS |
+
+### Row reorder (2 tests)
+| Test | Description | Result |
+|---|---|---|
+| row_reorder_down | Move row 0→2, verify order | PASS |
+| row_reorder_up | Move row 3→1, verify order | PASS |
+
+### End-to-end integration (6 tests)
+| Test | Description | Result |
+|---|---|---|
+| e2e_load_edit_sort_save | Load CSV→edit→sort→save→reload→verify | PASS |
+| e2e_edit_undo_redo | Edit cell, undo, redo, verify | PASS |
+| e2e_search_then_edit | Search→edit result→re-search fewer hits | PASS |
+| e2e_workspace_multi_table | Mount 2 tables, switch, close, verify | PASS |
+| e2e_graph_neighbourhood_search | BFS from different start nodes | PASS |
+| e2e_render_full_ui | Build table view, render to pixels, verify non-empty | PASS |
+
+### Benchmarks
+| Benchmark | Input | Time | Notes |
+|---|---|---|---|
+| full startup | Parse CSV + layout + render 5-row table | 134μs/iter | 100 iterations |
+| sort 1000 rows | 1000 rows, sort by column 0 | 29μs/iter | 50 iterations |

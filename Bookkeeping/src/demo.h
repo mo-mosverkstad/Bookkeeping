@@ -5,6 +5,7 @@
 #include "src/core/file_io.h"
 #include "src/app/table_view.h"
 #include "src/app/table_editor.h"
+#include "src/app/table_sort.h"
 #include "src/app/graph_view.h"
 #include "src/app/nav_tree.h"
 #include "src/app/tab_strip.h"
@@ -79,6 +80,9 @@ inline int run_demo() {
     SearchResult search_results = {};
     bool search_active = false;
 
+    // ── Zoom state ───────────────────────────────────────────────────────────
+    float zoom = 1.0f;
+
     // ── Frame arena (reset every rebuild — only holds UI layout nodes) ───────
     Arena frame = arena_create(256 * 1024);
 
@@ -95,8 +99,10 @@ inline int run_demo() {
         ViewSlot* v = ws.active_view();
         if (!v) { auto lbl = Label(a, "(no view)", 12); return build(lbl); }
         if (v->type == VIEW_TABLE) {
+            tvcfg.viewport_width = 520; tvcfg.viewport_height = (float)(int)(200 * zoom);
             return table_view_build(a, (Table*)v->data, tvcfg);
         } else if (v->type == VIEW_GRAPH) {
+            gvcfg.viewport_width = 520; gvcfg.viewport_height = (float)(int)(90 * zoom);
             return graph_view_build(a, (Graph*)v->data, gvcfg);
         }
         auto lbl = Label(a, "(unknown view)", 12);
@@ -150,6 +156,16 @@ inline int run_demo() {
         // Search results (shown below content when active)
         LayoutNode* results_node = build_search_results_view(a);
 
+        // Status bar
+        char* status_text = (char*)arena_alloc(a, 128, 1);
+        snprintf(status_text, 128, "%s | Zoom: %d%% | %s",
+            dirty.is_dirty() ? "[*] Modified" : "Saved",
+            (int)(zoom * 100),
+            ws.active_view() ? (ws.active_view()->type == VIEW_TABLE ? "Table" : "Graph") : "—");
+        auto status_bar = HStack(a, 0).size(560, 18).id("status-bar")
+            .bg({25, 25, 30, 255}, {50, 50, 60, 255}, 1)
+            .text(status_text, 9, {140, 160, 180, 255});
+
         // Content area: nav (left) + view (right)
         auto content = HStack(a, 4).size(560, 0).id("content")
             .child(UI{*nav_node, a})
@@ -157,7 +173,7 @@ inline int run_demo() {
 
         // Root
         auto root_ui = VStack(a, 4).padding(8).size(580, 0).id("root")
-            .child(Label(a, "Ctrl+F=search | Ctrl+S=save | Ctrl+Z/Y=undo/redo | click=nav/tabs", 9))
+            .child(Label(a, "Ctrl+F=search | Ctrl+S=save | Ctrl+Z/Y=undo/redo | Ctrl+Up/Down=reorder", 9))
             .child(std::move(search_bar))
             .child(UI{*tabs_node, a})
             .child(std::move(content));
@@ -165,6 +181,8 @@ inline int run_demo() {
         if (search_active && search_results.count > 0) {
             root_ui.child(UI{*results_node, a});
         }
+
+        root_ui.child(std::move(status_bar));
 
         LayoutNode* root = build(root_ui);
         root->compute(600, 500);
@@ -247,7 +265,7 @@ inline int run_demo() {
                 continue; // consume key when search is active
             }
 
-            // Ctrl+Z / Ctrl+Y for undo/redo, Ctrl+S save, Ctrl+O open
+            // Ctrl+Z / Ctrl+Y for undo/redo, Ctrl+S save, Ctrl+O open, Ctrl+Up/Down reorder, Ctrl+Plus/Minus zoom
             if (ev.type == InputEvent::KEY_DOWN && !search_active && (ev.mod & 0x00C0)) {
                 if (ev.key == 'z') { editor.undo(); need_rebuild = true; dirty.mark_table_dirty(); }
                 else if (ev.key == 'y') { editor.redo(); need_rebuild = true; dirty.mark_table_dirty(); }
@@ -260,7 +278,6 @@ inline int run_demo() {
                         dirty.mark_clean(editor.history.past_count);
                         printf("Saved: %s\n", people_path);
                     } else if (v && v->type == VIEW_TABLE) {
-                        // Default save path
                         const char* default_path = "/tmp/bookkeeping_table.csv";
                         editor.commit_edit();
                         file_save_csv(&arena, (Table*)v->data, default_path);
@@ -272,8 +289,32 @@ inline int run_demo() {
                         printf("Saved: %s\n", graph_path);
                     }
                 } else if (ev.key == 'o') {
-                    // Load a CSV file (hardcoded path for demo — real app would use file dialog)
                     printf("Open file: provide path via command line args (not implemented in demo)\n");
+                } else if (ev.key == 1073741906) { // Ctrl+Up arrow — move row up
+                    ViewSlot* v = ws.active_view();
+                    if (v && v->type == VIEW_TABLE && editor.active_cell.row > 0) {
+                        table_move_row((Table*)v->data, editor.active_cell.row, editor.active_cell.row - 1);
+                        editor.active_cell.row--;
+                        dirty.mark_table_dirty();
+                        need_rebuild = true;
+                    }
+                } else if (ev.key == 1073741905) { // Ctrl+Down arrow — move row down
+                    ViewSlot* v = ws.active_view();
+                    if (v && v->type == VIEW_TABLE) {
+                        Table* t = (Table*)v->data;
+                        if (editor.active_cell.row < t->row_count - 1) {
+                            table_move_row(t, editor.active_cell.row, editor.active_cell.row + 1);
+                            editor.active_cell.row++;
+                            dirty.mark_table_dirty();
+                            need_rebuild = true;
+                        }
+                    }
+                } else if (ev.key == '=' || ev.key == '+' || ev.key == 1073741911) { // Ctrl+Plus — zoom in
+                    if (zoom < 2.0f) { zoom += 0.1f; need_rebuild = true; }
+                } else if (ev.key == '-' || ev.key == 1073741910) { // Ctrl+Minus — zoom out
+                    if (zoom > 0.5f) { zoom -= 0.1f; need_rebuild = true; }
+                } else if (ev.key == '0') { // Ctrl+0 — reset zoom
+                    zoom = 1.0f; need_rebuild = true;
                 }
             }
 

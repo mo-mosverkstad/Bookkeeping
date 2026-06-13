@@ -975,6 +975,67 @@ so the user continues where they left off.
 
 ---
 
+## Phase 10 — Polish + Integration
+
+### What it does
+Final UX polish layer: column sorting, row reordering, zoom control, status bar
+with dirty indicator, and full integration testing across all subsystems.
+
+### Column Sorting (`src/app/table_sort.h`)
+
+Stable insertion sort on table rows by a given column:
+
+```cpp
+inline void table_sort(Table* t, uint16_t col, uint8_t direction) {
+    // direction: 0=ascending, 1=descending
+    // Insertion sort: O(n²) but stable and in-place
+    for (uint32_t i = 1; i < t->row_count; i++) {
+        Row tmp = t->rows[i];
+        Str val_i = tmp.cells[col].value;
+        uint32_t j = i;
+        while (j > 0) {
+            int cmp = memcmp(val_i.data, t->rows[j-1].cells[col].value.data, ...);
+            if (direction == 0 ? cmp >= 0 : cmp <= 0) break;
+            t->rows[j] = t->rows[j-1]; j--;
+        }
+        t->rows[j] = tmp;
+    }
+}
+```
+
+### Status Bar
+
+Displays at the bottom of the window:
+```
+[*] Modified | Zoom: 120% | Table
+```
+- `[*] Modified` / `Saved` — dirty indicator
+- `Zoom: N%` — current zoom level
+- `Table` / `Graph` — active view type
+
+### Zoom Control
+
+Ctrl+Plus/Minus scales the viewport height proportionally. The zoom factor
+is applied to the table and graph view configs before rebuilding:
+
+```cpp
+tvcfg.viewport_height = (float)(int)(200 * zoom);
+gvcfg.viewport_height = (float)(int)(90 * zoom);
+```
+
+### Row Reorder
+
+Ctrl+Up/Down moves the currently selected row using `table_move_row()`:
+
+```cpp
+if (ev.key == 1073741906 /* Up */ && editor.active_cell.row > 0) {
+    table_move_row((Table*)v->data, editor.active_cell.row, editor.active_cell.row - 1);
+    editor.active_cell.row--;
+}
+```
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

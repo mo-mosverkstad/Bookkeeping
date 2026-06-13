@@ -307,3 +307,43 @@ make clean && make
 - `make test-file-io` → 16 tests pass
 - Edit a cell, Ctrl+S, check `/tmp/bookkeeping_table.csv` contains the edit
 - Restart app, verify session restore message
+
+
+---
+
+## Phase 10 — Polish + Integration (final)
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- All previous features working (tabs, nav, search, editing, save)
+- Status bar at bottom shows: `[*] Modified | Zoom: 100% | Table` (or `Saved`)
+- Ctrl+Plus zooms in (viewport grows), Ctrl+Minus zooms out, Ctrl+0 resets
+- Ctrl+Up/Down moves the selected row up/down in the table
+- All keyboard shortcuts functional
+
+### Full keyboard shortcuts
+| Shortcut | Action |
+|---|---|
+| Ctrl+F | Toggle search bar |
+| Ctrl+S | Save active view |
+| Ctrl+Z | Undo |
+| Ctrl+Y | Redo |
+| Ctrl+Up | Move row up |
+| Ctrl+Down | Move row down |
+| Ctrl+Plus | Zoom in |
+| Ctrl+Minus | Zoom out |
+| Ctrl+0 | Reset zoom |
+| ESC | Dismiss search / cancel edit / quit |
+
+### Verification
+- `make test` → 367 tests pass (102+23+27+18+50+23+34+27+31+16+16)
+- `make test-integration` → 16 tests pass
+- Status bar updates when edits are made (shows `[*] Modified`)
+- Ctrl+S clears dirty indicator
+- Zoom changes viewport size visually
+- Ctrl+Up/Down reorders rows in the table
