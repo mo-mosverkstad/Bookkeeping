@@ -10,6 +10,7 @@
 #include "src/app/table_sort.h"
 #include "src/app/graph_view.h"
 #include "src/app/flow_diagram.h"
+#include "src/app/doc_view.h"
 #include "src/app/nav_tree.h"
 #include "src/app/tab_strip.h"
 #include "src/app/workspace.h"
@@ -231,6 +232,11 @@ inline int run_demo() {
                 return scroll;
             }
             return diagram;
+        } else if (v->type == VIEW_DOCUMENT) {
+            DocViewConfig dvcfg;
+            dvcfg.width = active_view_w;
+            dvcfg.height = active_view_h;
+            return doc_view_build(a, (DocumentModel*)v->data, dvcfg);
         }
         auto lbl = Label(a, "(unknown view)", th.font_small, th.text_muted);
         return build(lbl);
@@ -718,16 +724,15 @@ inline int run_demo() {
                         Arena load_arena = arena_create(4 * 1024 * 1024);
                         LoadedFolder lf = folder_load(&load_arena, folder);
                         if (lf.table_count > 0) {
-                            // Add a nav folder
+                            // Mount individual tables + nav folder
                             NavNode* nav_folder = ws.nav.add_root(&arena, lf.name, "loaded-folder", 32);
                             for (uint16_t ti = 0; ti < lf.table_count; ti++) {
-                                // Copy table into main arena (load_arena will be destroyed)
-                                // Actually keep load_arena alive — store pointer
                                 ws.mount(lf.table_ids[ti], lf.table_ids[ti], VIEW_TABLE, lf.tables[ti]);
                                 NavTree::add_child(&arena, nav_folder, lf.table_ids[ti], lf.table_ids[ti], 0);
                             }
+                            // Activate first table
+                            ws.tabs.activate(ws.tabs.find(lf.table_ids[0]));
                             printf("Opened folder: %s (%u tables)\n", lf.name, lf.table_count);
-                            // Don't destroy load_arena — tables live there
                         } else {
                             printf("No tables found in: %s\n", folder);
                             arena_destroy(&load_arena);
@@ -875,6 +880,26 @@ inline int run_demo() {
                             need_rebuild = true;
                             handled = true;
                             break;
+                        }
+                    }
+                }
+
+                // Check document section header clicks (toggle collapse)
+                if (!handled) {
+                    ViewSlot* v = ws.active_view();
+                    if (v && v->type == VIEW_DOCUMENT) {
+                        DocumentModel* doc = (DocumentModel*)v->data;
+                        for (int i = n - 1; i >= 0; i--) {
+                            if (!deep[i].node->id) continue;
+                            for (uint16_t s = 0; s < doc->section_count; s++) {
+                                if (strcmp(deep[i].node->id, doc->sections[s].id) == 0) {
+                                    doc->sections[s].collapsed = !doc->sections[s].collapsed;
+                                    need_rebuild = true;
+                                    handled = true;
+                                    break;
+                                }
+                            }
+                            if (handled) break;
                         }
                     }
                 }

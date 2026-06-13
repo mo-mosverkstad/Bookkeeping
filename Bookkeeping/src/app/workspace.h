@@ -12,6 +12,7 @@ enum ViewType : uint8_t {
     VIEW_TABLE,
     VIEW_GRAPH,
     VIEW_SEARCH_RESULTS,
+    VIEW_DOCUMENT,
 };
 
 struct ViewSlot {
