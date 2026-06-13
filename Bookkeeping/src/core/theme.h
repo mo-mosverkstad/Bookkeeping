@@ -149,10 +149,10 @@ inline Theme theme_light() {
     t.sidebar_bg = {248, 250, 252, 255};
 
     // Font sizes
-    t.font_base = 13.0f;
-    t.font_small = 11.4f;   // 0.88em
-    t.font_tiny = 10.1f;    // 0.78em
-    t.font_heading = 14.3f; // 1.1em
+    t.font_base = 14.0f;
+    t.font_small = 12.5f;   // UI buttons/labels
+    t.font_tiny = 11.0f;    // status/annotations
+    t.font_heading = 16.0f; // titles
 
     return t;
 }

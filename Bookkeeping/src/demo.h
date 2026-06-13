@@ -241,22 +241,22 @@ inline int run_demo() {
         float side_w = sidebar_visible ? sidebar_width : 0;
 
         // ── 1. Toolbar (2.4em = ~31px) ───────────────────────────────────────
-        auto toolbar = HStack(a, 4).size(W, 36).id("toolbar")
+        auto toolbar = HStack(a, 4).size(W, 40).id("toolbar")
             .bg(th.toolbar_bg, th.border, 1);
-        toolbar.child(Box(a, 48, 28).id("btn-open").bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 52, 32).id("btn-open").bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
-        toolbar.child(Box(a, 44, 28).id("btn-save").bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
-        toolbar.child(Box(a, 52, 28).id("btn-export").bg(th.surface, th.toolbar_btn_border, 1).text("Export", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 48, 32).id("btn-save").bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 56, 32).id("btn-export").bg(th.surface, th.toolbar_btn_border, 1).text("Export", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         // Dynamic: + Row button (only for table views)
         ViewSlot* toolbar_view = ws.active_view();
         if (toolbar_view && toolbar_view->type == VIEW_TABLE) {
-            toolbar.child(Box(a, 52, 28).id("btn-addrow").bg(th.surface, th.toolbar_btn_border, 1).text("+ Row", th.font_small, th.toolbar_btn_text));
+            toolbar.child(Box(a, 56, 32).id("btn-addrow").bg(th.surface, th.toolbar_btn_border, 1).text("+ Row", th.font_small, th.toolbar_btn_text));
             toolbar.child(Box(a, 1, 18).bg(th.border));
         }
-        toolbar.child(Box(a, 60, 28).id("btn-toggle-sidebar").bg(th.surface, th.toolbar_btn_border, 1)
+        toolbar.child(Box(a, 68, 32).id("btn-toggle-sidebar").bg(th.surface, th.toolbar_btn_border, 1)
             .text(sidebar_visible ? "\xe2\x97\x80 Editor" : "\xe2\x96\xb6 Editor", th.font_small, th.toolbar_btn_text));
-        toolbar.child(Box(a, 48, 28).id("btn-toggle-nav").bg(th.surface, th.toolbar_btn_border, 1)
+        toolbar.child(Box(a, 52, 32).id("btn-toggle-nav").bg(th.surface, th.toolbar_btn_border, 1)
             .text(nav_w > 0 ? "\xe2\x98\xb0 Nav" : "\xe2\x98\xb0", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         // Search in toolbar
@@ -268,13 +268,13 @@ inline int run_demo() {
         toolbar.child(std::move(search_input));
 
         // ── 2. Tab bar (2em = ~26px) with scroll arrows ──────────────────────
-        auto tab_bar = HStack(a, 0).size(W, 26).id("tab-bar")
+        auto tab_bar = HStack(a, 0).size(W, 30).id("tab-bar")
             .bg(th.tab_bar_bg, th.border_heavy, 1);
         // Left arrow
-        tab_bar.child(Box(a, 24, 24).id("tab-scroll-left")
+        tab_bar.child(Box(a, 26, 28).id("tab-scroll-left")
             .bg(th.tab_bar_bg, th.border, 1).text("<", th.font_small, th.text_muted));
         // Tab strip in a scroll container
-        auto tab_strip_inner = HStack(a, 2).size(0, 24);
+        auto tab_strip_inner = HStack(a, 2).size(0, 28);
         for (uint16_t i = 0; i < ws.tabs.count; i++) {
             bool active = ws.tabs.tabs[i].active;
             Color bg = active ? th.tab_active_bg : th.tab_inactive_bg;
@@ -291,15 +291,15 @@ inline int run_demo() {
             char* close_id = (char*)arena_alloc(a, strlen(ws.tabs.tabs[i].id) + 7, 1);
             snprintf(close_id, strlen(ws.tabs.tabs[i].id) + 7, "close:%s", ws.tabs.tabs[i].id);
 
-            auto tab = HStack(a, 0).size(m.width + 36, 24).id(ws.tabs.tabs[i].id)
+            auto tab = HStack(a, 0).size(m.width + 40, 28).id(ws.tabs.tabs[i].id)
                 .bg(bg, bdr, 1);
-            tab.child(Box(a, m.width + 16, 24).text(tab_label, th.font_small, txt, active ? TEXT_BOLD : TEXT_NORMAL));
-            tab.child(Box(a, 16, 24).id(close_id).text("x", th.font_tiny, th.text_muted));
+            tab.child(Box(a, m.width + 18, 28).text(tab_label, th.font_small, txt, active ? TEXT_BOLD : TEXT_NORMAL));
+            tab.child(Box(a, 18, 28).id(close_id).text("x", th.font_tiny, th.text_muted));
             tab_strip_inner.child(std::move(tab));
         }
         // Wrap tabs in scroll node
         LayoutNode* tab_strip_node = build(tab_strip_inner);
-        Node* tab_scroll = node_scroll(a, W - 52, 24);
+        Node* tab_scroll = node_scroll(a, W - 56, 28);
         tab_scroll->set_id("tab-scroll");
         tab_scroll->scroll_x = tab_scroll_offset;
         auto tsk = make_children(a, 1);
@@ -307,11 +307,11 @@ inline int run_demo() {
         tab_scroll->set_children(tsk, 1);
         tab_bar.child(UI{*(LayoutNode*)tab_scroll, a});
         // Right arrow
-        tab_bar.child(Box(a, 24, 24).id("tab-scroll-right")
+        tab_bar.child(Box(a, 26, 28).id("tab-scroll-right")
             .bg(th.tab_bar_bg, th.border, 1).text(">", th.font_small, th.text_muted));
 
         // ── 3. Content area (nav | workspace | sidebar) ──────────────────────
-        float content_h = H - 36 - 26 - 21;
+        float content_h = H - 40 - 30 - 24;
         float workspace_w = W - nav_w - side_w;
         active_view_w = workspace_w;
         active_view_h = content_h - 32; // subtract header row height
@@ -417,7 +417,7 @@ inline int run_demo() {
             at ? at->label : "",
             dirty.is_dirty() ? " [modified]" : "",
             (int)(zoom * 100));
-        auto status_bar = HStack(a, 0).size(W, 21).id("status-bar")
+        auto status_bar = HStack(a, 0).size(W, 24).id("status-bar")
             .bg(th.status_bg, th.border, 1)
             .text(status_text, th.font_tiny, th.status_text);
 

@@ -11,8 +11,8 @@
 // Returns a root node ready for compute() + render().
 
 struct TableViewConfig {
-    float cell_height = 28;
-    float header_height = 30;
+    float cell_height = 32;
+    float header_height = 34;
     float col_min_width = 80;
     float gap = 1;
     float viewport_width = 600;
@@ -53,7 +53,7 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
         for (uint32_t r = 0; r < scan; r++) {
             Str val = table_get_cell(table, r, c);
             if (val.len > 0) {
-                TextMeasure cm = measure_text(val.data, val.len, "sans", 12, TEXT_NORMAL);
+                TextMeasure cm = measure_text(val.data, val.len, "sans", 13, TEXT_NORMAL);
                 float w = cm.width + 16;
                 if (w > col_widths[c]) col_widths[c] = w;
             }
@@ -145,7 +145,7 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
             } else {
                 auto cell = Box(a, col_widths[c], row_h)
                     .bg(cell_bg, cell_border, sw)
-                    .text(val.data ? val.data : "", 12, cfg.cell_text);
+                    .text(val.data ? val.data : "", 13, cfg.cell_text);
                 cell_kids[c] = build(cell);
             }
         }
@@ -154,9 +154,9 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
         char* del_id = (char*)arena_alloc(a, 16, 1);
         snprintf(ins_id, 16, "ins-%u", r);
         snprintf(del_id, 16, "del-%u", r);
-        auto actions = HStack(a, 2).size(40, row_h);
-        actions.child(Box(a, 18, 18).id(ins_id).bg({220,252,231,255}, {22,163,74,200}, 1).text("+", 11, {22,163,74,255}));
-        actions.child(Box(a, 18, 18).id(del_id).bg({254,226,226,255}, {220,38,38,200}, 1).text("x", 11, {220,38,38,255}));
+        auto actions = HStack(a, 2).size(48, row_h);
+        actions.child(Box(a, 22, 22).id(ins_id).bg({220,252,231,255}, {22,163,74,200}, 1).text("+", 11, {22,163,74,255}));
+        actions.child(Box(a, 22, 22).id(del_id).bg({254,226,226,255}, {220,38,38,200}, 1).text("x", 11, {220,38,38,255}));
         cell_kids[cols] = build(actions);
 
         Node* row = node_linear_h(a);
