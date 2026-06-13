@@ -431,6 +431,12 @@ inline int run_demo() {
                     memmove(source_buf + source_cursor, source_buf + next, source_len - next);
                     source_len -= del; source_buf[source_len] = 0;
                     need_rebuild = true;
+                } else if (ev.key == 13 && source_len < 510) { // Enter → newline in source editor
+                    memmove(source_buf + source_cursor + 1, source_buf + source_cursor, source_len - source_cursor);
+                    source_buf[source_cursor] = '\n';
+                    source_cursor++; source_len++;
+                    source_buf[source_len] = 0;
+                    need_rebuild = true;
                 } else if (ev.key == 1073741904 && source_cursor > 0) { source_cursor = utf8_prev(source_buf, source_cursor); need_rebuild = true; }
                 else if (ev.key == 1073741903 && source_cursor < source_len) { source_cursor = utf8_next(source_buf, source_len, source_cursor); need_rebuild = true; }
                 else if (ev.key == 1073741898) { source_cursor = 0; need_rebuild = true; } // Home
