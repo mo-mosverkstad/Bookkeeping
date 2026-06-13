@@ -1879,6 +1879,62 @@ if (pos == start) pos++; // ensure progress
 
 ---
 
+## Phase 20 — Final Integration + Toolbar
+
+### What it does
+Completes the toolbar with all buttons matching the Webapp's layout, adds
+context-sensitive dynamic actions, and provides the dirty indicator on tabs.
+
+### Toolbar Layout
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ [Open] [Save] [Export] │ [+ Row] │ [◀ Editor] [☰ Nav] │ [Search...] │
+│ ←── static ──────────→ │← dyn →│ ←── toggles ──────→ │ ←── input → │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+- **Static buttons**: Always visible (Open, Save, Export)
+- **Dynamic buttons**: Context-sensitive — `+ Row` only appears when active view is a table
+- **Toggle buttons**: Show/hide panels (sidebar, nav tree)
+- **Search input**: Click to activate, type to filter
+
+### Dynamic Toolbar
+
+```cpp
+ViewSlot* toolbar_view = ws.active_view();
+if (toolbar_view && toolbar_view->type == VIEW_TABLE) {
+    toolbar.child(Box(a, 44, 24).id("btn-addrow")...);  // only for tables
+}
+```
+
+### Dirty Indicator
+
+Active tab shows `* label` when modified:
+
+```cpp
+bool tab_dirty = (active && dirty.is_dirty());
+snprintf(tab_label, ..., "%s%s", tab_dirty ? "* " : "", label);
+```
+
+### Nav Toggle
+
+```cpp
+if (strcmp(deep[i].node->id, "btn-toggle-nav") == 0) {
+    nav_width = (nav_width > 0) ? 0 : 180;  // toggle between visible and hidden
+}
+```
+
+### Export
+
+```cpp
+if (strcmp(deep[i].node->id, "btn-export") == 0) {
+    file_save_csv(&arena, (Table*)v->data, "/tmp/bookkeeping_export.csv");
+}
+```
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

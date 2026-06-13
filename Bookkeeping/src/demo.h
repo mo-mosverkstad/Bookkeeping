@@ -291,9 +291,18 @@ inline int run_demo() {
         toolbar.child(Box(a, 40, 24).id("btn-open").bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         toolbar.child(Box(a, 36, 24).id("btn-save").bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 44, 24).id("btn-export").bg(th.surface, th.toolbar_btn_border, 1).text("Export", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
+        // Dynamic: + Row button (only for table views)
+        ViewSlot* toolbar_view = ws.active_view();
+        if (toolbar_view && toolbar_view->type == VIEW_TABLE) {
+            toolbar.child(Box(a, 44, 24).id("btn-addrow").bg(th.surface, th.toolbar_btn_border, 1).text("+ Row", th.font_small, th.toolbar_btn_text));
+            toolbar.child(Box(a, 1, 18).bg(th.border));
+        }
         toolbar.child(Box(a, 50, 24).id("btn-toggle-sidebar").bg(th.surface, th.toolbar_btn_border, 1)
             .text(sidebar_visible ? "\xe2\x97\x80 Editor" : "\xe2\x96\xb6 Editor", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 38, 24).id("btn-toggle-nav").bg(th.surface, th.toolbar_btn_border, 1)
+            .text(nav_w > 0 ? "\xe2\x98\xb0 Nav" : "\xe2\x98\xb0", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         // Search in toolbar
         char* search_label = (char*)arena_alloc(a, 160, 1);
@@ -312,14 +321,20 @@ inline int run_demo() {
             Color txt = active ? th.tab_active_text : th.tab_inactive_text;
             Color bdr = active ? th.border_heavy : th.tab_inactive_border;
 
-            TextMeasure m = measure_text(ws.tabs.tabs[i].label, (uint32_t)strlen(ws.tabs.tabs[i].label), "sans", th.font_small, active ? TEXT_BOLD : TEXT_NORMAL);
+            // Show * prefix if this view is dirty
+            const char* label = ws.tabs.tabs[i].label;
+            char* tab_label = (char*)arena_alloc(a, strlen(label) + 3, 1);
+            bool tab_dirty = (active && dirty.is_dirty());
+            snprintf(tab_label, strlen(label) + 3, "%s%s", tab_dirty ? "* " : "", label);
+
+            TextMeasure m = measure_text(tab_label, (uint32_t)strlen(tab_label), "sans", th.font_small, active ? TEXT_BOLD : TEXT_NORMAL);
 
             char* close_id = (char*)arena_alloc(a, strlen(ws.tabs.tabs[i].id) + 7, 1);
             snprintf(close_id, strlen(ws.tabs.tabs[i].id) + 7, "close:%s", ws.tabs.tabs[i].id);
 
             auto tab = HStack(a, 0).size(m.width + 36, 24).id(ws.tabs.tabs[i].id)
                 .bg(bg, bdr, 1);
-            tab.child(Box(a, m.width + 16, 24).text(ws.tabs.tabs[i].label, th.font_small, txt, active ? TEXT_BOLD : TEXT_NORMAL));
+            tab.child(Box(a, m.width + 16, 24).text(tab_label, th.font_small, txt, active ? TEXT_BOLD : TEXT_NORMAL));
             tab.child(Box(a, 16, 24).id(close_id).text("x", th.font_tiny, th.text_muted));
             tab_bar.child(std::move(tab));
         }
@@ -761,6 +776,32 @@ inline int run_demo() {
                     if (deep[i].node->id && strcmp(deep[i].node->id, "btn-toggle-sidebar") == 0) {
                         sidebar_visible = !sidebar_visible;
                         need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "btn-toggle-nav") == 0) {
+                        nav_width = (nav_width > 0) ? 0 : 180;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "btn-export") == 0) {
+                        ViewSlot* v = ws.active_view();
+                        if (v && v->type == VIEW_TABLE) {
+                            const char* path = "/tmp/bookkeeping_export.csv";
+                            file_save_csv(&arena, (Table*)v->data, path);
+                            printf("Exported to: %s\n", path);
+                        }
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "btn-addrow") == 0) {
+                        ViewSlot* v = ws.active_view();
+                        if (v && v->type == VIEW_TABLE) {
+                            table_append_row(&arena, (Table*)v->data);
+                            dirty.mark_table_dirty();
+                            need_rebuild = true;
+                        }
                         handled = true;
                         break;
                     }

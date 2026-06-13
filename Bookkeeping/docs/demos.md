@@ -550,3 +550,49 @@ make clean && make
 - Cells with `$math{...}` embeds render inline math
 - Row heights expand to fit rendered content (fractions, multi-line)
 - Cells > 1000 chars fall back to raw text (performance guard)
+
+
+---
+
+## Phase 20 — Final Integration + Toolbar
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Full Toolbar Layout
+```
+[Open] [Save] [Export] | [+ Row] | [◀ Editor] [☰ Nav] | [Search...]
+```
+
+### All Keyboard Shortcuts
+| Shortcut | Action |
+|---|---|
+| Ctrl+F | Toggle search |
+| Ctrl+S | Save active view |
+| Ctrl+Z | Undo (table or source editor) |
+| Ctrl+Y | Redo |
+| Ctrl+Up | Move row up |
+| Ctrl+Down | Move row down |
+| Ctrl+Plus | Zoom in |
+| Ctrl+Minus | Zoom out |
+| Ctrl+0 | Reset zoom |
+| Arrow keys | Navigate between cells |
+| Tab | Next cell |
+| Enter (source editor) | New line |
+| ESC | Dismiss search / cancel edit / quit |
+
+### Interaction
+- [Export] → writes active table CSV to `/tmp/bookkeeping_export.csv`
+- [+ Row] → appends empty row to active table (only shown for tables)
+- [☰ Nav] → toggles navigation panel visibility
+- [◀ Editor] → toggles source editor sidebar
+- Tab shows `* label` when modified (dirty indicator)
+
+### Verification
+- `make test` → 380 tests pass (13 suites)
+- All toolbar buttons respond to clicks
+- Dirty indicator appears after editing, clears after save
+- Nav panel hides/shows on toggle

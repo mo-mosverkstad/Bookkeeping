@@ -502,3 +502,21 @@ across phases.
 - Cell size mismatch: rendered math content overflowed fixed cell dimensions. Fixed with two-pass approach: render first to measure actual size, then set row height to fit tallest cell.
 - Length guard: cells up to 1000 characters are rendered (previously 200, which skipped many valid expressions)
 - Row cap: max 200 rows rendered per table to prevent frame arena exhaustion on large tables
+
+---
+
+## Phase 20 — Final Integration + Toolbar — 2026-06-13
+
+**Added:**
+- Export button: serializes active table to `/tmp/bookkeeping_export.csv`
+- "+ Row" dynamic toolbar button: appears only when a table is active, appends row
+- Nav toggle button (☰ Nav): hides/shows the navigation panel
+- Dirty indicator: active tab shows `* ` prefix when modified
+- Complete toolbar layout: Open | Save | Export | (+ Row) | ◀Editor | ☰Nav | Search
+
+**Decisions:**
+- Dynamic toolbar buttons are conditionally added based on active view type
+- Nav toggle sets `nav_width` to 0 (hidden) or 180 (visible)
+- Export writes to fixed path `/tmp/bookkeeping_export.csv` (no file dialog)
+- Dirty indicator shows only on the active tab (simplification)
+- All 20 phases of Webapp parity plan complete

@@ -807,3 +807,16 @@ Custom lightweight test framework in `test/test.h`:
 | App freezes on "Sets and logic" table | Rich parser infinite loop on `$t_a={...}` (unrecognized tag) | Treat unmatched `$` as plain text, advance parser |
 | Rendered math overflows cell | Fixed row_h ignoring rendered content size | Two-pass: render → compute size → set row_h to max |
 | Some cells not rendered | 200-char length guard too restrictive | Raised to 1000 chars |
+
+
+---
+
+## Phase 20 — Final Integration + Toolbar
+
+### No new test file (UI integration verified interactively)
+- Export button: writes CSV to disk, verified by reading back
+- +Row button: appends row, verified by row count change
+- Nav toggle: hides/shows panel, verified visually
+- Dirty indicator: shows * on tab after edit, clears after save
+
+### Final test count: 380 tests across 13 suites, all passing
