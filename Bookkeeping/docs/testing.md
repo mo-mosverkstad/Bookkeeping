@@ -743,3 +743,31 @@ Custom lightweight test framework in `test/test.h`:
 ### No tests (feature deprioritized)
 - `doc_view.h` available but document view tab removed from demo
 - Individual table tabs remain primary UX
+
+
+---
+
+## Phase 16 — Graph Filter tests (6 tests)
+
+| Test | Description | Result |
+|---|---|---|
+| filter_by_graph_membership | Rows where col value is a graph node | PASS |
+| filter_by_relation | Rows where entity has edge of given type | PASS |
+| filter_no_matches | No cell values match any graph node | PASS |
+| get_relations | Unique edge labels, deduplicated | PASS |
+| get_associations | Outgoing + incoming edges for entity | PASS |
+| get_associations_empty | Node with no edges → empty | PASS |
+
+
+---
+
+## Phase 16 — Graph Filter tests (6 tests)
+
+| Test | Description | Result |
+|---|---|---|
+| filter_by_graph_membership | Rows where col value is a graph node | PASS |
+| filter_by_relation | Rows where entity has edge of given type | PASS |
+| filter_no_matches | No cell values match any graph node | PASS |
+| get_relations | Unique edge labels, deduplicated | PASS |
+| get_associations | Outgoing + incoming edges for entity | PASS |
+| get_associations_empty | Node with no edges → empty | PASS |

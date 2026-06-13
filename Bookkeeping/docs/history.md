@@ -431,3 +431,17 @@ across phases.
 - Individual table tabs remain the primary way to view loaded tables
 - `doc_view.h` kept in codebase for future use (composite section rendering)
 - Open button activates the first loaded table instead of a document overview
+
+---
+
+## Phase 16 — Graph Filter + Associations — 2026-06-13
+
+**Added:**
+- `src/app/graph_filter.h` — Graph filtering (by membership, by relation) + association queries
+- `test/test_graph_filter.cpp` — 6 tests
+
+**Decisions:**
+- Filter functions are pure (take table + graph, return row indices) — no UI coupling
+- Associations return both outgoing and incoming edges with direction flag
+- Relation list deduplicates edge labels
+- UI integration deferred (functions available for toolbar filter controls in Phase 20)

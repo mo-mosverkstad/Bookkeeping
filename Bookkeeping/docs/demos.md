@@ -493,3 +493,12 @@ make clean && make
 ### Verification
 - `make test` → 374 tests pass
 - Open loads folder → individual tables as tabs, first table activated
+
+
+---
+
+## Phase 16 — Graph Filter + Associations
+
+### Verification
+- `make test` → 380 tests pass (13 suites)
+- `make test-gfilter` → 6 tests pass

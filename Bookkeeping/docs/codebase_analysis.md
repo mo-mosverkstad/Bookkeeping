@@ -1626,6 +1626,66 @@ edge_elems[idx] = elem_line({x1, y1, x2, y2, edge_color, 1.5f});
 
 ---
 
+## Phase 16 — Graph Filter + Association Panel
+
+### What it does
+Provides functions to filter table rows based on graph relationships and
+query entity associations (outgoing/incoming edges).
+
+### Filter Functions (`src/app/graph_filter.h`)
+
+**Filter by membership** — find rows where a column value is a graph node:
+
+```cpp
+FilterResult graph_filter_table(Arena* a, const Table* t, uint16_t col, const Graph* g);
+// Returns row indices where table_get_cell(t, row, col) matches a node ID in g
+```
+
+**Filter by relation** — find rows where the entity has edges of a specific type:
+
+```cpp
+FilterResult graph_filter_by_relation(Arena* a, const Table* t, uint16_t col,
+                                       const Graph* g, const char* relation);
+// Returns rows where the entity has at least one edge labeled `relation`
+```
+
+**Get unique relations**:
+
+```cpp
+RelationList graph_get_relations(Arena* a, const Graph* g);
+// Returns deduplicated list of edge labels: ["knows", "likes", "parent", ...]
+```
+
+**Get associations for an entity**:
+
+```cpp
+AssociationResult graph_get_associations(Arena* a, const Graph* g, const char* entity_id);
+// Returns: [{relation:"parent", target:"B", outgoing:true}, 
+//           {relation:"child", target:"C", outgoing:false}]
+```
+
+### Design
+
+All filter functions are **pure** — they take data in, return results out, with
+no side effects or UI coupling. This makes them testable and composable:
+
+```cpp
+struct FilterResult {
+    uint32_t* rows;   // indices into the table
+    uint32_t count;
+};
+
+struct Association {
+    const char* relation;
+    const char* target;
+    bool outgoing;    // true = from this entity, false = to this entity
+};
+```
+
+The UI layer (Phase 20) will wire these into toolbar dropdown controls.
+
+---
+
 ## Phase 15 — Document View (available, not active in demo)
 
 ### What it does
