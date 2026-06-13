@@ -919,10 +919,12 @@ inline int run_demo() {
                         if (strcmp(qhit[qi].node->id, "quit-save") == 0) {
                             editor.commit_edit();
                             ViewSlot* v = ws.active_view();
-                            if (v && v->type == VIEW_TABLE) {
-                                Table* t = (Table*)v->data;
-                                const char* path = (t == people) ? people_save : (t == cities) ? cities_save : "/tmp/bookkeeping_data/other.csv";
-                                file_save_csv(&arena, t, path);
+                            if (v && v->save_path) {
+                                if (v->type == VIEW_TABLE)
+                                    file_save_csv(&arena, (Table*)v->data, v->save_path);
+                                else if (v->type == VIEW_GRAPH)
+                                    file_save_graph(&arena, (Graph*)v->data, v->save_path);
+                                printf("Saved: %s\n", v->save_path);
                             }
                             running = false; handled = true; break;
                         }
