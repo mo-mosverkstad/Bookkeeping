@@ -36,7 +36,7 @@ TEST(tableview_header_has_columns) {
     TableViewConfig cfg;
     LayoutNode* view = table_view_build(&a, t, cfg);
 
-    LayoutNode* header = view->children[0];
+    LayoutNode* header = view->children[0]->children[0]; // header inside header_scroll
     ASSERT_TRUE(strcmp(header->id, "table-header") == 0);
     ASSERT_EQ(header->child_count, (uint16_t)3); // Name, Age, City
     arena_destroy(&a);

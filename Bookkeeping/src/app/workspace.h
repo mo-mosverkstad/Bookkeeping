@@ -19,6 +19,7 @@ struct ViewSlot {
     ViewType type;
     void* data;            // pointer to Table*, Graph*, SearchResult*, etc.
     LayoutNode* cached_tree; // last rendered layout (nullptr = needs rebuild)
+    float scroll_x, scroll_y; // per-view scroll state
 };
 
 struct Workspace {

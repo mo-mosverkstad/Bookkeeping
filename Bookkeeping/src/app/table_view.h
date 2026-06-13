@@ -70,6 +70,15 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
     header->set_gap(cfg.gap).size(0, cfg.header_height).set_id("table-header");
     header->set_children(header_kids, cols);
 
+    // Wrap header in a horizontal-scroll clip (synced with data scroll_x)
+    Node* header_scroll = node_scroll(a, cfg.viewport_width, cfg.header_height);
+    header_scroll->set_id("header-scroll");
+    header_scroll->scroll_x = cfg.scroll_x;
+    header_scroll->scroll_y = 0;
+    auto hdr_kids = make_children(a, 1);
+    hdr_kids[0] = header;
+    header_scroll->set_children(hdr_kids, 1);
+
     // ── Data rows ────────────────────────────────────────────────────────────
     auto row_nodes = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * rows, 8);
     for (uint32_t r = 0; r < rows; r++) {
@@ -165,7 +174,7 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
 
     // ── Root: header + wrapper ───────────────────────────────────────────────
     auto root_kids = (LayoutNode**)arena_alloc(a, sizeof(LayoutNode*) * 2, 8);
-    root_kids[0] = header;
+    root_kids[0] = header_scroll;
     root_kids[1] = wrapper;
 
     Node* root = node_linear_v(a);
