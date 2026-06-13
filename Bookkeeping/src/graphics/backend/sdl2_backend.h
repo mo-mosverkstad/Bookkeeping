@@ -104,6 +104,20 @@ struct SDL2Backend : RenderBackend {
         if (t.style & TEXT_ITALIC) TTF_SetFontStyle(f, TTF_STYLE_ITALIC);
         else TTF_SetFontStyle(f, TTF_STYLE_NORMAL);
         SDL_Color col = {t.color.r, t.color.g, t.color.b, t.color.a};
+
+        // If max_width set, use wrapped rendering
+        if (t.max_width > 0) {
+            SDL_Surface* surf = TTF_RenderUTF8_Blended_Wrapped(f, t.content, col, (uint32_t)t.max_width);
+            if (surf) {
+                SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surf);
+                SDL_Rect dst = {(int)(abs_x + t.x), (int)(abs_y + t.y), surf->w, surf->h};
+                SDL_RenderCopy(renderer, tex, nullptr, &dst);
+                SDL_DestroyTexture(tex);
+                SDL_FreeSurface(surf);
+            }
+            return;
+        }
+
         // Render line by line (TTF_RenderUTF8 doesn't handle \n)
         const char* str = t.content;
         int py = (int)(abs_y + t.y);
