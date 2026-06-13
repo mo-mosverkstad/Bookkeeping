@@ -479,3 +479,20 @@ across phases.
 - Max 10 results shown (with "+N more" indicator)
 - Clicking a result sets `v->scroll_y` to approximate row position
 - Search dismissed after navigation (less clutter)
+
+---
+
+## Phase 19 — Cell Renderers — 2026-06-13
+
+**Added:**
+- `src/app/cell_render.h` — Cell renderer dispatcher (routes to math/chem/rich based on type_id)
+- Table view now renders cells through parsers when type_id != "text"
+- Math cells show superscripts, fractions, Greek letters
+- Chemistry cells show formatted formulas
+- Rich cells show embedded $math{} $chem{} blocks
+
+**Decisions:**
+- Renderer returns LayoutNode* or nullptr (fallback to plain text)
+- Rendered content wrapped in COORDINATE node with cell background
+- Only non-"text" columns trigger rendering (performance: avoids parsing plain text)
+- Rendering uses existing Phase 4/6 parsers — no new grammar code needed

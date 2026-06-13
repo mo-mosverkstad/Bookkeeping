@@ -536,3 +536,14 @@ make clean && make
 - `make test` → 380 tests pass
 - Search "Alice" → result panel shows matches
 - Click a result → cell highlighted, source editor loaded
+
+
+---
+
+## Phase 19 — Cell Renderers
+
+### Verification
+- `make test` → 380 tests pass
+- Load Mathematics reference sheet → math cells show formatted expressions
+- Load Chemistry reference sheet → chem cells show formatted formulas
+- "text" type cells still render as plain text

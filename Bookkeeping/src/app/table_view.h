@@ -3,6 +3,7 @@
 #include "src/core/model/table.h"
 #include "src/graphics/ui.h"
 #include "src/graphics/node_builder.h"
+#include "src/app/cell_render.h"
 #include <cstdio>
 
 // Table renderer: builds a LayoutNode tree from a Table model.
@@ -36,6 +37,8 @@ struct TableViewConfig {
 inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableViewConfig& cfg) {
     uint16_t cols = table->col_count;
     uint32_t rows = table->row_count;
+    // Cap rendered rows to prevent frame arena exhaustion on large tables
+    if (rows > 200) rows = 200;
 
     // Compute column widths (based on header text measurement, min cfg.col_min_width)
     float* col_widths = (float*)arena_alloc(a, sizeof(float) * cols, 4);
@@ -104,10 +107,28 @@ inline LayoutNode* table_view_build(Arena* a, const Table* table, const TableVie
             Color cell_bg = is_active ? cfg.active_cell_bg : bg;
             Color cell_border = is_active ? cfg.active_cell_border : cfg.border;
             float sw = is_active ? 2.0f : 1.0f;
-            auto cell = Box(a, col_widths[c], row_h)
-                .bg(cell_bg, cell_border, sw)
-                .text(val.data, 12, cfg.cell_text);
-            cell_kids[c] = build(cell);
+
+            // Try rich rendering for non-text types (DISABLED — causes freezes on complex expressions)
+            // TODO: re-enable after parser performance optimization
+            LayoutNode* rendered = nullptr;
+
+            if (rendered) {
+                // Wrap rendered content in a box with background
+                Node* cell_node = node_coord(a);
+                cell_node->size(col_widths[c], row_h);
+                cell_node->attach(make_elements(a, 1), 1);
+                cell_node->elements[0] = elem_rect({0, 0, col_widths[c], row_h, cell_bg, cell_border, sw, 0});
+                rendered->x = 4; rendered->y = 4;
+                auto kids = make_children(a, 1);
+                kids[0] = rendered;
+                cell_node->set_children(kids, 1);
+                cell_kids[c] = cell_node;
+            } else {
+                auto cell = Box(a, col_widths[c], row_h)
+                    .bg(cell_bg, cell_border, sw)
+                    .text(val.data, 12, cfg.cell_text);
+                cell_kids[c] = build(cell);
+            }
         }
         // Action buttons: [+] [x]
         char* ins_id = (char*)arena_alloc(a, 16, 1);

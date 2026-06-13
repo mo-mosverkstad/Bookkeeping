@@ -791,3 +791,12 @@ Custom lightweight test framework in `test/test.h`:
 - Search results panel: renders when search is active + results found
 - Click result: navigates to cell, verified interactively
 - Existing search tests (Phase 8) cover the search engine logic
+
+
+---
+
+## Phase 19 — Cell Renderers
+
+### No new test file
+- Existing math/chem/rich renderer tests (Phases 4, 6) validate parsing correctness
+- Integration verified visually: math columns render superscripts/fractions, chem columns render formulas
