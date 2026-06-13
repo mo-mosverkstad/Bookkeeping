@@ -369,3 +369,22 @@ across phases.
 - Each snapshot stores full buffer (512 bytes) — simple and fast for small edits
 - Ctrl+Z/Y intercepted before global handler when source_focused is true
 - Parse preview is informational (not rendered layout — rendering happens in workspace)
+
+---
+
+## Phase 14 — Flow Diagram View — 2026-06-13
+
+**Added:**
+- `src/app/flow_diagram.h` — Flow diagram renderer with layered DAG layout
+- Layered layout algorithm: topological rank assignment → center-aligned positioning
+- Node width auto-sized from label text measurement (min 64px)
+- Edge lines shortened to node borders (same as before but with computed positions)
+- Demo graph (Workflow) now renders with proper layered layout instead of grid
+- Light theme colors for nodes (white fill, #475569 stroke, #1e293b text)
+
+**Decisions:**
+- Rank assignment uses longest-path BFS from sources (handles DAGs and tolerates cycles)
+- Nodes centered within their rank horizontally
+- Viewport auto-expands to fit content
+- Uses Coordinate layout (absolute positioning) — same as old graph_view
+- Old graph_view.h kept for backward compat with tests; demo uses flow_diagram

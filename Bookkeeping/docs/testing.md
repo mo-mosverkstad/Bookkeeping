@@ -709,3 +709,13 @@ Custom lightweight test framework in `test/test.h`:
 - 32-snapshot stack, does not interfere with table EditHistory
 - Parse button shows type-aware preview (math/chem/text)
 - No new test file (functionality verified interactively)
+
+
+---
+
+## Phase 14 — Flow Diagram View
+
+### No new test file (uses existing graph tests + visual verification)
+- Old graph_view.h tests (27 tests) still pass — backward compat maintained
+- Flow diagram verified visually (layered layout vs old grid layout)
+- Layout algorithm: longest-path BFS rank assignment → centered positioning

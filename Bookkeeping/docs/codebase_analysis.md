@@ -1462,6 +1462,120 @@ Phase 19 cell renderer fidelity).
 
 ---
 
+## Phase 14 — Flow Diagram View
+
+### What it does
+Replaces the grid-based graph layout with a proper layered DAG layout algorithm,
+producing flow diagrams where nodes are positioned in horizontal ranks based on
+their topological depth.
+
+### Layout Algorithm (`src/app/flow_diagram.h`)
+
+The layout follows a classic **Sugiyama-style** layered approach (simplified):
+
+```
+Step 1: Rank Assignment (longest path from sources)
+  ┌───┐       rank 0: Start
+  │ S │──→    rank 1: Process
+  └───┘       rank 2: Decision
+    │         rank 3: End
+    ▼
+┌─────────┐
+│ Process  │
+└─────────┘
+    │
+    ▼
+┌──────────┐
+│ Decision? │
+└──────────┘
+  │       │
+  ▼       ▼
+┌─────┐   (back to Process)
+│ End │
+└─────┘
+```
+
+**Rank assignment** via BFS from source nodes (nodes with no incoming edges):
+
+```cpp
+static inline void flow_assign_ranks(const Graph* g, int16_t* ranks) {
+    // Find sources (no incoming edges)
+    bool* has_incoming = (bool*)alloca(g->node_count);
+    memset(has_incoming, 0, g->node_count);
+    for (uint16_t e = 0; e < g->edge_count; e++)
+        has_incoming[g->edges[e].to] = true;
+
+    // BFS: assign rank = longest path from any source
+    for (uint16_t i = 0; i < g->node_count; i++)
+        if (!has_incoming[i]) { ranks[i] = 0; queue[qt++] = i; }
+
+    while (qh < qt) {
+        uint16_t cur = queue[qh++];
+        for (each outgoing edge from cur) {
+            int16_t new_rank = ranks[cur] + 1;
+            if (new_rank > ranks[to]) {
+                ranks[to] = new_rank;
+                queue[qt++] = to;  // revisit for longest path
+            }
+        }
+    }
+}
+```
+
+**Positioning** — nodes within each rank are centered horizontally:
+
+```cpp
+// Compute total width of all nodes at this rank
+float rank_width = 0;
+for (all nodes j at same rank as i)
+    rank_width += node_w[j] + h_gap;
+
+// Center the rank within viewport
+float start_x = padding + (viewport_width - rank_width) / 2;
+
+// Position each node sequentially within the rank
+pos_x[i] = start_x + (sum of preceding node widths at this rank);
+pos_y[i] = padding + rank * (node_h + v_gap);
+```
+
+### Node Sizing
+
+Nodes auto-size to their label text:
+
+```cpp
+TextMeasure m = measure_text(graph->nodes[i].label, len, "sans", font_size, TEXT_NORMAL);
+node_w[i] = m.width + 28;  // padding
+if (node_w[i] < 64) node_w[i] = 64;  // minimum width
+```
+
+### Visual Style
+
+Matches the Webapp's flow diagram appearance:
+- White node fill with #475569 stroke (rounded rect, 4px radius)
+- Dark text (#1e293b)
+- Edge lines in #64748b, 1.5px width
+- Lines shortened to stop at node borders (normalized direction vector)
+
+### Edge Rendering
+
+Edges are drawn as line elements on the root Coordinate node (drawn behind child nodes):
+
+```cpp
+// Shorten line from center-to-center to border-to-border
+float dx = x2 - x1, dy = y2 - y1;
+float len = sqrtf(dx*dx + dy*dy);
+if (len > 0) {
+    float nx = dx / len, ny = dy / len;
+    x1 += nx * (node_w[fi] / 2);
+    y1 += ny * (node_h / 2);
+    x2 -= nx * (node_w[ti] / 2);
+    y2 -= ny * (node_h / 2);
+}
+edge_elems[idx] = elem_line({x1, y1, x2, y2, edge_color, 1.5f});
+```
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

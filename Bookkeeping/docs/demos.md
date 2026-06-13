@@ -434,3 +434,26 @@ make clean && make
 - `make test` → 374 tests pass
 - Edit in source editor, Ctrl+Z reverts change, Ctrl+Y restores it
 - Local undo doesn't affect table undo (they're independent stacks)
+
+
+---
+
+## Phase 14 — Flow Diagram View
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Click "Workflow" tab → flow diagram with layered layout
+- Start at top (rank 0), Process below (rank 1), Decision below (rank 2), End at bottom (rank 3)
+- Nodes centered horizontally within their rank
+- Node widths proportional to label text length
+- White nodes with dark border on light background
+
+### Verification
+- `make test` → 374 tests pass
+- Existing graph tests still pass (old graph_view.h preserved)
+- Workflow graph renders with proper vertical layering

@@ -38,6 +38,8 @@ struct SDL2Window : PlatformWindow {
                     out.type = InputEvent::MOUSE_WHEEL;
                     out.scroll_x = (float)ev.wheel.x;
                     out.scroll_y = (float)ev.wheel.y;
+                    out.mod = SDL_GetModState();
+                    { int mx, my; SDL_GetMouseState(&mx, &my); out.x = (float)mx; out.y = (float)my; }
                     return true;
                 case SDL_KEYDOWN:
                     out.type = InputEvent::KEY_DOWN;

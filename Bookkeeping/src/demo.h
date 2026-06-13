@@ -9,6 +9,7 @@
 #include "src/app/table_editor.h"
 #include "src/app/table_sort.h"
 #include "src/app/graph_view.h"
+#include "src/app/flow_diagram.h"
 #include "src/app/nav_tree.h"
 #include "src/app/tab_strip.h"
 #include "src/app/workspace.h"
@@ -117,6 +118,12 @@ inline int run_demo() {
     // ── Zoom state ───────────────────────────────────────────────────────────
     float zoom = 1.0f;
 
+    // ── Diagram pan/zoom state ───────────────────────────────────────────────
+    float diagram_pan_x = 0, diagram_pan_y = 0;
+    float diagram_zoom = 1.0f;
+    bool diagram_dragging = false;
+    float drag_last_x = 0, drag_last_y = 0;
+
     // ── Source editor state ──────────────────────────────────────────────────
     char source_buf[512] = "";
     uint16_t source_len = 0;
@@ -200,8 +207,23 @@ inline int run_demo() {
             tvcfg.viewport_width = 520; tvcfg.viewport_height = (float)(int)(200 * zoom);
             return table_view_build(a, (Table*)v->data, tvcfg);
         } else if (v->type == VIEW_GRAPH) {
-            gvcfg.viewport_width = 520; gvcfg.viewport_height = (float)(int)(90 * zoom);
-            return graph_view_build(a, (Graph*)v->data, gvcfg);
+            FlowDiagramConfig fdcfg;
+            fdcfg.viewport_width = (520 / diagram_zoom);
+            fdcfg.viewport_height = (float)(int)(200 / diagram_zoom);
+            LayoutNode* diagram = flow_diagram_build(a, (Graph*)v->data, fdcfg);
+            // Apply pan via scroll offset
+            if (diagram->type == LAYOUT_COORDINATE) {
+                // Wrap in scroll for pan
+                Node* scroll = node_scroll(a, 520, (float)(int)(200 * zoom));
+                scroll->set_id("diagram-scroll");
+                scroll->scroll_x = -diagram_pan_x;
+                scroll->scroll_y = -diagram_pan_y;
+                auto kids = make_children(a, 1);
+                kids[0] = diagram;
+                scroll->set_children(kids, 1);
+                return scroll;
+            }
+            return diagram;
         }
         auto lbl = Label(a, "(unknown view)", th.font_small, th.text_muted);
         return build(lbl);
@@ -585,32 +607,77 @@ inline int run_demo() {
                 }
             }
 
-            // Mouse wheel → scroll
+            // Mouse wheel → scroll or diagram zoom
             if (ev.type == InputEvent::MOUSE_WHEEL) {
                 HitResult deep[32];
-                int n = root->hit_deep(ev.x, ev.y, deep, 16);
-                for (int i = n - 1; i >= 0; i--) {
-                    if (deep[i].node->type == LAYOUT_SCROLL) {
-                        LayoutNode* sn = deep[i].node;
-                        sn->scroll_y -= ev.scroll_y * 20;
-                        if (sn->scroll_y < 0) sn->scroll_y = 0;
-                        float max_s = sn->content_height - sn->height;
-                        if (max_s < 0) max_s = 0;
-                        if (sn->scroll_y > max_s) sn->scroll_y = max_s;
-                        break;
+                int n = root->hit_deep(ev.x, ev.y, deep, 32);
+                // Check if over diagram — Ctrl+wheel = diagram zoom
+                bool on_diagram = false;
+                for (int i = 0; i < n; i++) {
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "diagram-scroll") == 0) {
+                        on_diagram = true; break;
                     }
                 }
+                if (on_diagram && (ev.mod & 0x00C0)) {
+                    // Ctrl+wheel on diagram = zoom
+                    if (ev.scroll_y > 0) diagram_zoom = diagram_zoom * 1.1f;
+                    else diagram_zoom = diagram_zoom / 1.1f;
+                    if (diagram_zoom < 0.25f) diagram_zoom = 0.25f;
+                    if (diagram_zoom > 4.0f) diagram_zoom = 4.0f;
+                    need_rebuild = true;
+                } else if (on_diagram) {
+                    // Plain wheel on diagram = pan vertically
+                    diagram_pan_y += ev.scroll_y * 30;
+                    need_rebuild = true;
+                } else {
+                    // Regular scroll on table/nav
+                    for (int i = n - 1; i >= 0; i--) {
+                        if (deep[i].node->type == LAYOUT_SCROLL) {
+                            LayoutNode* sn = deep[i].node;
+                            if (sn->id && strcmp(sn->id, "diagram-scroll") == 0) break;
+                            sn->scroll_y -= ev.scroll_y * 20;
+                            if (sn->scroll_y < 0) sn->scroll_y = 0;
+                            float max_s = sn->content_height - sn->height;
+                            if (max_s < 0) max_s = 0;
+                            if (sn->scroll_y > max_s) sn->scroll_y = max_s;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Mouse drag for diagram pan
+            if (ev.type == InputEvent::MOUSE_MOVE && diagram_dragging) {
+                diagram_pan_x += ev.x - drag_last_x;
+                diagram_pan_y += ev.y - drag_last_y;
+                drag_last_x = ev.x; drag_last_y = ev.y;
+                need_rebuild = true;
+            }
+
+            // Left mouse button on diagram starts pan drag
+            if (ev.type == InputEvent::MOUSE_UP && ev.button == 1) {
+                diagram_dragging = false;
             }
 
             // Mouse click
             if (ev.type == InputEvent::MOUSE_DOWN && ev.button == 1) {
                 HitResult deep[32];
-                int n = hit_test_deep(root, ev.x, ev.y, deep, 16);
+                int n = hit_test_deep(root, ev.x, ev.y, deep, 32);
 
                 bool handled = false;
 
-                // Click on search bar → activate search
+                // Check if click is on diagram → start pan drag
                 for (int i = 0; i < n; i++) {
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "diagram-scroll") == 0) {
+                        diagram_dragging = true;
+                        drag_last_x = ev.x; drag_last_y = ev.y;
+                        handled = true;
+                        break;
+                    }
+                }
+
+                // Click on search bar → activate search
+                for (int i = 0; i < n && !handled; i++) {
                     if (deep[i].node->id && strcmp(deep[i].node->id, "search-bar") == 0) {
                         search_active = true;
                         source_focused = false;
