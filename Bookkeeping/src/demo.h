@@ -182,9 +182,9 @@ inline int run_demo() {
         // ── 1. Toolbar (2.4em = ~31px) ───────────────────────────────────────
         auto toolbar = HStack(a, 4).size(W, 31).id("toolbar")
             .bg(th.toolbar_bg, th.border, 1);
-        toolbar.child(Box(a, 40, 24).bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 40, 24).id("btn-open").bg(th.surface, th.toolbar_btn_border, 1).text("Open", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
-        toolbar.child(Box(a, 36, 24).bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
+        toolbar.child(Box(a, 36, 24).id("btn-save").bg(th.surface, th.toolbar_btn_border, 1).text("Save", th.font_small, th.toolbar_btn_text));
         toolbar.child(Box(a, 1, 18).bg(th.border));
         toolbar.child(Box(a, 50, 24).id("btn-toggle-sidebar").bg(th.surface, th.toolbar_btn_border, 1)
             .text(sidebar_visible ? "\xe2\x97\x80 Editor" : "\xe2\x96\xb6 Editor", th.font_small, th.toolbar_btn_text));
@@ -544,6 +544,38 @@ inline int run_demo() {
                     }
                     if (deep[i].node->id && strcmp(deep[i].node->id, "btn-toggle-sidebar") == 0) {
                         sidebar_visible = !sidebar_visible;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "btn-open") == 0) {
+                        const char* test_path = "/mnt/c/Users/EWANBIN/OneDrive - Ericsson/misc/backup2/Sanders.Wang/github/Bookkeeping/Webapp/testresources/Mathematics reference sheet/Basic algebra.csv";
+                        Table* loaded = file_load_csv(&arena, test_path);
+                        if (loaded) {
+                            ws.mount(loaded->name.data, "loaded", VIEW_TABLE, loaded);
+                            editor.init(&arena, loaded);
+                            printf("Opened: %s (%u rows)\n", test_path, loaded->row_count);
+                        } else {
+                            printf("Failed to open: %s\n", test_path);
+                        }
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "btn-save") == 0) {
+                        ViewSlot* v = ws.active_view();
+                        if (v && v->type == VIEW_TABLE) {
+                            editor.commit_edit();
+                            Table* t = (Table*)v->data;
+                            const char* path = (t == people) ? people_save : (t == cities) ? cities_save : "/tmp/bookkeeping_data/other.csv";
+                            file_save_csv(&arena, t, path);
+                            dirty.mark_clean(editor.history.past_count);
+                            printf("Saved: %s\n", path);
+                        } else if (v && v->type == VIEW_GRAPH) {
+                            file_save_graph(&arena, (Graph*)v->data, graph_save);
+                            dirty.graph_dirty = false;
+                            printf("Saved: %s\n", graph_save);
+                        }
                         need_rebuild = true;
                         handled = true;
                         break;
