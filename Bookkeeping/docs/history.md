@@ -496,3 +496,9 @@ across phases.
 - Rendered content wrapped in COORDINATE node with cell background
 - Only non-"text" columns trigger rendering (performance: avoids parsing plain text)
 - Rendering uses existing Phase 4/6 parsers — no new grammar code needed
+
+**Bugs fixed:**
+- Rich text parser infinite loop: `$` not followed by valid tag (`$math{`, `$chem{`, etc.) caused parser to spin forever. Fixed by treating unrecognized `$` as plain text character.
+- Cell size mismatch: rendered math content overflowed fixed cell dimensions. Fixed with two-pass approach: render first to measure actual size, then set row height to fit tallest cell.
+- Length guard: cells up to 1000 characters are rendered (previously 200, which skipped many valid expressions)
+- Row cap: max 200 rows rendered per table to prevent frame arena exhaustion on large tables

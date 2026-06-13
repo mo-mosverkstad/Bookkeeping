@@ -1826,6 +1826,59 @@ This provides the same "jump to result" behavior as the Webapp's search panel.
 
 ---
 
+## Phase 19 — Cell Renderers
+
+### What it does
+Routes cell rendering through the math/chem/rich parsers based on the column's
+`type_id`, producing formatted LayoutNodes with superscripts, fractions, and
+chemical formula formatting.
+
+### Dispatcher (`src/app/cell_render.h`)
+
+```cpp
+inline LayoutNode* cell_render(Arena* a, const char* value, uint32_t len,
+                                const char* type_id, float font_size, Color color) {
+    if (strcmp(type_id, "math") == 0) return math_render(a, value, len, ...);
+    if (strcmp(type_id, "chem") == 0) return chem_render(a, value, len, ...);
+    if (strcmp(type_id, "rich") == 0) return rich_render(a, value, len, ...);
+    // "text" or unknown → return nullptr (plain text fallback)
+    return nullptr;
+}
+```
+
+### Two-Pass Cell Sizing
+
+To ensure cells fit their rendered content:
+
+```
+Pass 1: For each cell in the row:
+  - Render the content (cell_render → LayoutNode*)
+  - Compute its size (rendered->compute(col_width, 9999))
+  - Track max height: row_h = max(row_h, rendered->height + 8)
+
+Pass 2: Wrap each rendered node in a COORDINATE box with:
+  - Background rect at (0,0, col_width, row_h)
+  - Rendered content positioned at (4, 4)
+```
+
+### Rich Text Parser Fix
+
+The `$` character in rich text caused infinite loops when not followed by a
+valid tag. Fixed by treating unrecognized `$` as a plain text character:
+
+```cpp
+// Before fix: parser stops at $, fails tag match, loops forever
+// After fix: unrecognized $ included in plain text segment
+uint32_t start = pos;
+while (pos < len && text[pos] != '\n') {
+    if (text[pos] == '$' && pos > start) break; // stop before next $
+    pos++;
+}
+if (pos == start) pos++; // ensure progress
+```
+
+---
+
 ## Cross-cutting: UI Builder (React-like API)
 
 ```cpp

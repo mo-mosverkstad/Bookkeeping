@@ -800,3 +800,10 @@ Custom lightweight test framework in `test/test.h`:
 ### No new test file
 - Existing math/chem/rich renderer tests (Phases 4, 6) validate parsing correctness
 - Integration verified visually: math columns render superscripts/fractions, chem columns render formulas
+
+### Bugs found and fixed
+| Bug | Cause | Fix |
+|---|---|---|
+| App freezes on "Sets and logic" table | Rich parser infinite loop on `$t_a={...}` (unrecognized tag) | Treat unmatched `$` as plain text, advance parser |
+| Rendered math overflows cell | Fixed row_h ignoring rendered content size | Two-pass: render → compute size → set row_h to max |
+| Some cells not rendered | 200-char length guard too restrictive | Raised to 1000 chars |

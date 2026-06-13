@@ -547,3 +547,6 @@ make clean && make
 - Load Mathematics reference sheet → math cells show formatted expressions
 - Load Chemistry reference sheet → chem cells show formatted formulas
 - "text" type cells still render as plain text
+- Cells with `$math{...}` embeds render inline math
+- Row heights expand to fit rendered content (fractions, multi-line)
+- Cells > 1000 chars fall back to raw text (performance guard)
