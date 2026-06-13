@@ -901,6 +901,16 @@ Controls:
 - Click outside search bar or ESC to deactivate search
 - All previous editing (click cell, type, Ctrl+Z/Y) still works
 - Scroll clamps at content boundary (no infinite scroll)
+- Click "◀ Editor" button to toggle source editor sidebar
+- Click a cell → source editor loads cell value, type shown in header
+- Edit in source editor (supports multiline via Enter, full Unicode)
+- Click [Apply] to commit source editor text back to the cell
+- Click [Parse] to see parsed preview
+- Click [Open] to load a CSV file, Click [Save] to persist to disk
+- Active cell highlighted with blue background + dark border
+- Table columns auto-size to content width
+- Table rows expand vertically for multiline content
+- Window resizable — layout adapts dynamically
 
 ---
 

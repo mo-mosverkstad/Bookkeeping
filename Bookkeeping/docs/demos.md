@@ -347,3 +347,38 @@ make clean && make
 - Ctrl+S clears dirty indicator
 - Zoom changes viewport size visually
 - Ctrl+Up/Down reorders rows in the table
+
+
+---
+
+## Phase 11 — Visual Theme + Layout + UI Fixes
+
+### Build & Run
+```bash
+make clean && make
+./main
+```
+
+### Expected output
+- Light theme: white surfaces, #f8fafc background, proper text colors
+- Layout: Toolbar (31px) → Tab bar (26px) → Content [Nav 180px | Workspace | Sidebar 260px] → Status bar (21px)
+- Window starts at 800×600, fully resizable
+- Source editor sidebar on right with header, Parse/Apply buttons, editable text area
+
+### Interaction
+1. **Cell editing**: Click a cell → highlighted (blue bg, dark border) → source editor loads value
+2. **Source editor**: Type/edit (supports Enter for newlines, full Unicode, Shift+chars for uppercase)
+3. **Apply**: Click [Apply] → commits editor text back to table cell
+4. **Save**: Click Save button or Ctrl+S → persists to `/tmp/bookkeeping_data/`
+5. **Open**: Click Open → loads `Basic algebra.csv` from testresources
+6. **Restart persistence**: Changes saved via Save survive app restart
+7. **Resize**: Drag window edges → layout adapts
+8. **Toggle sidebar**: Click "◀ Editor" button
+
+### Verification
+- `make test` → 367 tests pass
+- Edit a cell with multiline text → row expands vertically
+- Type Unicode characters (é, ñ, 中) → renders correctly
+- Backspace on Unicode → deletes whole character, not single byte
+- Save → restart → data persists
+- Click correct cell despite variable-width columns

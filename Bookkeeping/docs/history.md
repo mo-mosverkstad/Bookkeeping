@@ -309,3 +309,22 @@ across phases.
 
 **Bug fixed:**
 - Nav tree used COLOR_WHITE text which was invisible on light background → now uses theme colors
+
+---
+
+## Phase 11 (continued) — UI Fixes — 2026-06-13
+
+**Fixes applied:**
+- Window resize: layout adapts to actual window size via `WINDOW_RESIZE` event
+- Right sidebar (source editor): added with header, Parse/Apply buttons, editable text area, preview pane
+- Source editor keyboard: Enter inserts newline (multiline editing), arrow keys navigate by UTF-8 code points
+- Unicode support: TEXT_INPUT event inserts full UTF-8 strings (uppercase, special chars, accented, Latin extensions)
+- UTF-8 backspace/delete: walks continuation bytes to delete whole code points
+- Save persistence: data saves to `/tmp/bookkeeping_data/` and loads from there on restart
+- Open button: loads CSV from testresources via click (not just Ctrl+O)
+- Cell highlight: active cell rendered with blue background (#dbeafe) + 2px dark border (#475569)
+- Table column width: auto-sized to widest cell content (samples first 50 rows)
+- Table row height: expands vertically based on newline count in cell content
+- Table scroll width: expands to fit total column width (no horizontal clipping)
+- Click column detection: uses actual computed column widths instead of fixed `col_min_width`
+- Toolbar buttons (Open/Save): given proper ids and click handlers

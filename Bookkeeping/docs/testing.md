@@ -658,3 +658,23 @@ Custom lightweight test framework in `test/test.h`:
 |---|---|---|---|
 | full startup | Parse CSV + layout + render 5-row table | 134μs/iter | 100 iterations |
 | sort 1000 rows | 1000 rows, sort by column 0 | 29μs/iter | 50 iterations |
+
+
+---
+
+## Phase 11 — UI Fixes
+
+### Bugs found and fixed
+| Bug | Cause | Fix |
+|---|---|---|
+| Can't type uppercase/special chars | KEY_DOWN gives lowercase keycodes | Use SDL_TEXTINPUT event for character insertion |
+| Unicode chars partially deleted | Backspace removes 1 byte, not 1 code point | UTF-8-aware `utf8_prev()`/`utf8_next()` helpers |
+| Table text cut off horizontally | Fixed col_min_width=80 | Auto-size columns from widest cell (sample 50 rows) |
+| Row doesn't expand for multiline | Fixed cell_height=28 | Count `\n` in cell, set row_h = lines × 14 + 8 |
+| Click hits wrong column | Used fixed col_min_width for hit detection | Recompute actual column widths in click handler |
+| Source editor no newline support | Enter key not handled | Enter inserts `\n` in source editor (multiline) |
+| Save doesn't persist on restart | Saved to temp, loaded from embedded strings | Save to `/tmp/bookkeeping_data/`, load from there on startup |
+| Open/Save buttons unresponsive | No id on button nodes | Added `btn-open`/`btn-save` ids + click handlers |
+| Window resize breaks layout | Hardcoded W=600, H=500 | Track `win_w`/`win_h` from WINDOW_RESIZE events |
+| No cell highlight on selection | No visual indicator | Active cell gets blue bg + 2px outline |
+| Source editor empty on cell click | Not wired to cell data | Copy cell value to source_buf on begin_edit |
