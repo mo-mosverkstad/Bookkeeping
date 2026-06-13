@@ -1046,10 +1046,192 @@ if (ev.key == 1073741906 /* Up */ && editor.active_cell.row > 0) {
 
 ---
 
+## Phase 11 — Visual Theme + Layout Parity
+
+### What it does
+Brings the C++ port's visual appearance to match the Webapp's light theme,
+structural layout, and interactive sidebar.
+
+### Theme System (`src/core/theme.h`)
+
+A centralized struct holding all design tokens extracted from the Webapp's CSS `:root`:
+
+```cpp
+struct Theme {
+    Color bg;            // #f8fafc — page background
+    Color surface;       // #ffffff — panel/card background
+    Color accent_light;  // #f1f5f9 — hover highlight
+    Color border;        // #e2e8f0 — standard border
+    Color text;          // #1e293b — primary text
+    Color text_secondary;// #334155
+    Color text_muted;    // #64748b — annotations
+    // ... 50+ color fields for tabs, tables, status bar, etc.
+    float font_base;     // 13.0px
+    float font_small;    // 11.4px (0.88em)
+    float font_tiny;     // 10.1px (0.78em)
+};
+
+inline Theme theme_light() { /* returns populated struct */ }
+```
+
+This is the **Design Token Pattern** — all visual constants centralized in one place.
+Changing the theme requires modifying only this struct, not searching through render code.
+
+### Application Layout Structure
+
+The layout matches the Webapp's HTML structure exactly:
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ [Open] | [Save] | [◀ Editor] |  Search...       ← Toolbar │  31px
+├────────────────────────────────────────────────────────────┤
+│ [People] [Cities] [Workflow] [integrals] ...   ← Tab bar  │  26px
+├───────────┬─────────────────────────┬──────────────────────┤
+│ Contents  │                         │ Source Editor [type]  │
+│ ▼ Tables  │  (active table/graph)   │ [Parse] [Apply]      │
+│   People  │                         │ ┌──────────────────┐ │
+│   Cities  │                         │ │ editable text... │ │
+│ ▼ Graphs  │                         │ └──────────────────┘ │
+│   Workfl  │                         │ (preview area)       │
+│ ← 180px → │ ← flex (fills rest) →  │ ← 260px →           │
+├───────────┴─────────────────────────┴──────────────────────┤
+│ People [modified]  Zoom: 100%                  ← Status    │  21px
+└────────────────────────────────────────────────────────────┘
+```
+
+Built in `rebuild_ui()` as a VStack of: toolbar HStack → tab_bar HStack → content HStack
+(nav_panel + workspace + sidebar) → status_bar HStack.
+
+### Window Resize
+
+SDL2's `SDL_WINDOWEVENT_RESIZED` is translated to `InputEvent::WINDOW_RESIZE`:
+
+```cpp
+// Platform layer translates resize
+case SDL_WINDOWEVENT:
+    if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+        out.type = InputEvent::WINDOW_RESIZE;
+        out.x = (float)ev.window.data1;
+        out.y = (float)ev.window.data2;
+    }
+
+// Demo updates dimensions and triggers rebuild
+if (ev.type == InputEvent::WINDOW_RESIZE) {
+    win_w = ev.x; win_h = ev.y;
+    need_rebuild = true;
+}
+```
+
+All layout dimensions derive from `win_w`/`win_h`, so resizing adapts naturally.
+
+### Source Editor Panel
+
+The sidebar implements a basic source-code editor matching the Webapp's `SourceEditorView`:
+
+```
+┌─────────────────────────┐
+│ Source Editor [math]     │ ← header (type indicator)
+├─────────────────────────┤
+│ [Parse]  [Apply]        │ ← button row
+├─────────────────────────┤
+│ a^2 + b^2 = c^2|        │ ← editable text (cursor shown as |)
+│                          │    focused: 2px blue border
+│                          │    unfocused: 1px gray border
+├─────────────────────────┤
+│ Parsed [math]: "a^2..." │ ← preview area
+└─────────────────────────┘
+```
+
+**Interaction flow:**
+1. Click a table cell → value loaded into source editor, becomes focused
+2. Type/edit text (supports Enter=newline, full UTF-8, arrow key navigation)
+3. Click [Parse] → preview shows parsed representation
+4. Click [Apply] → commits text back to the table cell
+
+### UTF-8 Text Handling
+
+Two helpers ensure correct multi-byte character handling:
+
+```cpp
+// Find start of previous UTF-8 code point
+static inline uint16_t utf8_prev(const char* buf, uint16_t pos) {
+    if (pos == 0) return 0;
+    pos--;
+    while (pos > 0 && (buf[pos] & 0xC0) == 0x80) pos--; // skip continuation bytes
+    return pos;
+}
+
+// Find start of next UTF-8 code point
+static inline uint16_t utf8_next(const char* buf, uint16_t len, uint16_t pos) {
+    if (pos >= len) return len;
+    pos++;
+    while (pos < len && (buf[pos] & 0xC0) == 0x80) pos++;
+    return pos;
+}
+```
+
+Used by Backspace (delete prev code point), Delete (delete next code point), and
+arrow keys (move by whole code points). This handles accented chars (2 bytes),
+CJK (3 bytes), and emoji (4 bytes) correctly.
+
+### SDL2 TEXT_INPUT Event
+
+Character insertion uses `SDL_TEXTINPUT` instead of `SDL_KEYDOWN` to get proper
+shift/caps/dead-key handling from the OS:
+
+```cpp
+case SDL_TEXTINPUT:
+    out.type = InputEvent::TEXT_INPUT;
+    memcpy(out.text, ev.text.text, 7);  // up to 7 bytes UTF-8
+    out.text[7] = 0;
+    return true;
+```
+
+This provides uppercase letters, special characters (`!@#$%`), accented characters
+(`éñü`), and any other OS keyboard output without manual shift-key mapping.
+
+### Cell Highlight
+
+The active cell gets a visual indicator matching the Webapp's `.cell-active`:
+
+```cpp
+// In table_view_build:
+bool is_active = ((int32_t)r == cfg.active_row && (int16_t)c == cfg.active_col);
+Color cell_bg = is_active ? cfg.active_cell_bg : bg;       // #dbeafe
+Color cell_border = is_active ? cfg.active_cell_border : cfg.border; // #475569
+float sw = is_active ? 2.0f : 1.0f;
+```
+
+### Auto-sizing Columns and Rows
+
+Columns auto-size to the widest content (sampling first 50 rows):
+
+```cpp
+for (uint32_t r = 0; r < scan; r++) {
+    Str val = table_get_cell(table, r, c);
+    TextMeasure cm = measure_text(val.data, val.len, "sans", 12, TEXT_NORMAL);
+    if (cm.width + 16 > col_widths[c]) col_widths[c] = cm.width + 16;
+}
+```
+
+Rows expand vertically for multiline content:
+
+```cpp
+uint32_t lines = 1;
+for (uint32_t i = 0; i < val.len; i++)
+    if (val.data[i] == '\n') lines++;
+float needed = lines * 14.0f + 8;
+if (needed > row_h) row_h = needed;
+```
+
+---
+
 ## Phase 12 — control.json + Folder Loading
 
 ### What it does
 Loads multi-CSV folder workspaces using a `control.json` manifest file.
+Enables opening entire reference sheets (Mathematics, Chemistry, Software)
+with 20+ tables in one action.
 
 ### control.json Format
 
@@ -1062,29 +1244,107 @@ Loads multi-CSV folder workspaces using a `control.json` manifest file.
 }
 ```
 
-### Folder Loading (`src/core/control.h`)
+Each entry declares a content item: its type (`"table"`), a unique id, and the
+filename relative to the folder.
+
+### Parser Architecture (`src/core/control.h`)
+
+The parser uses a hand-rolled **streaming scanner** — no JSON library dependency:
 
 ```cpp
-// Parse control.json
-ControlFile cf = control_parse(arena, json_text, len);
-// → cf.entries[i].type, .id, .file
+inline ControlFile control_parse(Arena* a, const char* json, uint32_t len) {
+    // 1. Find "entries" key via strstr
+    const char* p = strstr(json, "\"entries\"");
+    p = strchr(p, '[');  // find array start
+    p++;
 
-// Load a folder
-LoadedFolder lf = folder_load(arena, "/path/to/folder");
-// → lf.name = "Mathematics reference sheet"
-// → lf.tables[0..20], lf.table_ids[0..20], lf.table_count = 21
+    // 2. For each object in the array:
+    while (p < end && *p != ']') {
+        while (p < end && *p != '{') p++;  // find '{'
+        p++;
+        // 3. Extract key-value pairs until '}'
+        while (p < end && *p != '}') {
+            // scan for key quotes → extract key
+            // scan for value quotes → extract value
+            // match key to "type", "id", or "file"
+        }
+        // 4. If all three fields found, store entry
+        if (type && id && file)
+            cf.entries[cf.count++] = {type, id, file};
+    }
+}
 ```
 
-The loader reads `control.json` from the directory, parses all entries, and loads
-each referenced CSV file. Results are arena-allocated for zero-cost bulk cleanup.
+This avoids the complexity of a full JSON parser — the control.json format is
+simple enough that string scanning with quote-delimited extraction suffices.
 
-### Integration with Workspace
+### Folder Loader
 
-When Open is clicked, the folder loader:
-1. Parses control.json
-2. Loads all CSV files into Table structs
-3. Mounts each table into the workspace (creates tab + view slot)
-4. Adds a nav folder with children for each table
+```cpp
+inline LoadedFolder folder_load(Arena* a, const char* dir_path) {
+    // 1. Read control.json from directory
+    char ctrl_path[512];
+    snprintf(ctrl_path, 512, "%s/control.json", dir_path);
+    Str ctrl_content = file_read(a, ctrl_path);
+
+    // 2. Parse entries
+    ControlFile cf = control_parse(a, ctrl_content.data, ctrl_content.len);
+
+    // 3. Load each CSV file
+    for (uint16_t i = 0; i < cf.count; i++) {
+        char file_path[512];
+        snprintf(file_path, 512, "%s/%s", dir_path, cf.entries[i].file);
+        Table* t = file_load_csv(a, file_path);
+        if (t) result.tables[result.table_count++] = t;
+    }
+    return result;
+}
+```
+
+### Memory Strategy
+
+Large reference sheets (Chemistry's Isomer table = 249KB, Software's Python ref = 67KB)
+require substantial arena space. The folder loader uses a **dedicated load arena**
+(4MB) separate from the main arena. This arena is kept alive for the app's lifetime
+since the loaded tables reference strings within it.
+
+```cpp
+// In Open button handler:
+Arena load_arena = arena_create(4 * 1024 * 1024);
+LoadedFolder lf = folder_load(&load_arena, folder_path);
+// load_arena is NOT destroyed — tables live there
+```
+
+### Integration with Workspace + Nav Tree
+
+After loading, each table is mounted as a view and added to the nav tree:
+
+```cpp
+NavNode* nav_folder = ws.nav.add_root(&arena, lf.name, "loaded-folder", 32);
+for (uint16_t ti = 0; ti < lf.table_count; ti++) {
+    ws.mount(lf.table_ids[ti], lf.table_ids[ti], VIEW_TABLE, lf.tables[ti]);
+    NavTree::add_child(&arena, nav_folder, lf.table_ids[ti], lf.table_ids[ti], 0);
+}
+```
+
+This creates:
+```
+📁 Mathematics reference sheet     ← nav folder (expandable)
+    ▤ arithmetics                  ← nav leaf (click → activate tab)
+    ▤ basic-algebra
+    ▤ derivatives
+    ▤ integrals
+    ... (21 total)
+```
+
+### Capacity Management
+
+Loading 21+ tables requires increased capacities:
+- Workspace views/tabs: 16 → 64
+- Nav tree child capacity: 16 → 32 per folder
+- Frame arena: 256KB → 8MB (rendering 400+ row tables)
+- Main arena: 512KB → 4MB (workspace structures + editor state)
+- Hit result buffer: 16 → 32 (deeper layout nesting)
 
 ---
 
