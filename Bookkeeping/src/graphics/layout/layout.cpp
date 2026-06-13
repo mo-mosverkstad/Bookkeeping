@@ -114,8 +114,16 @@ void LayoutNode::render(RenderBackend* backend, float offset_x, float offset_y) 
 
     if (type == LAYOUT_SCROLL) {
         backend->set_clip({abs_x, abs_y, width, height});
-        for (uint16_t i = 0; i < child_count; i++)
-            children[i]->render(backend, abs_x - scroll_x, abs_y - scroll_y);
+        float ox = abs_x - scroll_x, oy = abs_y - scroll_y;
+        for (uint16_t i = 0; i < child_count; i++) {
+            LayoutNode* c = children[i];
+            // Frustum cull: skip children entirely outside the viewport
+            float cy = oy + c->y;
+            float cx = ox + c->x;
+            if (cy + c->height < abs_y || cy > abs_y + height) continue;
+            if (cx + c->width < abs_x || cx > abs_x + width) continue;
+            c->render(backend, ox, oy);
+        }
         backend->reset_clip();
     } else {
         for (uint16_t i = 0; i < child_count; i++)
