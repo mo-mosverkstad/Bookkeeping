@@ -664,6 +664,11 @@ inline int run_demo() {
                                 if (sn->scroll_x > max_sx) sn->scroll_x = max_sx;
                                 ViewSlot* av = ws.active_view();
                                 if (av) av->scroll_x = sn->scroll_x;
+                                // Sync header scroll
+                                for (int j = 0; j < n; j++) {
+                                    if (deep[j].node->id && strcmp(deep[j].node->id, "header-scroll") == 0)
+                                        deep[j].node->scroll_x = sn->scroll_x;
+                                }
                             } else {
                                 // Vertical
                                 sn->scroll_y -= ev.scroll_y * 20;
@@ -674,7 +679,7 @@ inline int run_demo() {
                                 ViewSlot* av = ws.active_view();
                                 if (av) av->scroll_y = sn->scroll_y;
                             }
-                            need_rebuild = true;
+                            // Don't rebuild — scroll offset is applied to live tree directly
                             break;
                         }
                     }
