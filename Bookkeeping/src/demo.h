@@ -59,6 +59,7 @@ inline int run_demo() {
     // ── Search state ─────────────────────────────────────────────────────────
     char search_buf[128] = "";
     uint16_t search_len = 0;
+    uint16_t search_cursor = 0;
     SearchResult search_results = {};
     bool search_active = false;
 
@@ -125,7 +126,7 @@ inline int run_demo() {
 
         // Search bar
         char* search_label = (char*)arena_alloc(a, 160, 1);
-        snprintf(search_label, 160, "Search: %s%s", search_buf, search_active ? "_" : "");
+        snprintf(search_label, 160, "Search: %.*s|%s", search_cursor, search_buf, search_active ? search_buf + search_cursor : "");
         auto search_bar = HStack(a, 4).size(560, 22).id("search-bar")
             .bg({45, 45, 55, 255}, {80, 80, 100, 255}, 1)
             .text(search_label, 11, {200, 220, 255, 255});
@@ -175,42 +176,47 @@ inline int run_demo() {
             // Ctrl+F → toggle search
             if (ev.type == InputEvent::KEY_DOWN && ev.key == 'f' && (ev.mod & 0x00C0)) { // KMOD_CTRL
                 search_active = !search_active;
-                if (!search_active) { search_len = 0; search_buf[0] = 0; search_results.count = 0; }
+                if (!search_active) { search_len = 0; search_cursor = 0; search_buf[0] = 0; search_results.count = 0; }
                 need_rebuild = true;
                 continue;
             }
 
             // Search input
             if (ev.type == InputEvent::KEY_DOWN && search_active) {
-                if (ev.key == 8 && search_len > 0) { // Backspace
-                    search_buf[--search_len] = 0;
-                    // Re-search
-                    Arena sa = arena_create(16384);
-                    ViewSlot* v = ws.active_view();
-                    if (v && v->type == VIEW_TABLE && search_len > 0)
-                        search_results = search_table(&sa, (Table*)v->data, search_buf, search_len);
-                    else
-                        search_results.count = 0;
-                    // Copy results to main arena
-                    if (search_results.count > 0) {
-                        SearchHit* copy = (SearchHit*)arena_alloc(&arena, sizeof(SearchHit) * search_results.count, 4);
-                        memcpy(copy, search_results.hits, sizeof(SearchHit) * search_results.count);
-                        search_results.hits = copy;
-                    }
-                    arena_destroy(&sa);
-                    need_rebuild = true;
+                if (ev.key == 8 && search_cursor > 0) { // Backspace
+                    memmove(search_buf + search_cursor - 1, search_buf + search_cursor, search_len - search_cursor);
+                    search_cursor--; search_len--;
+                    search_buf[search_len] = 0;
+                    goto do_search;
+                } else if (ev.key == 127 && search_cursor < search_len) { // Delete
+                    memmove(search_buf + search_cursor, search_buf + search_cursor + 1, search_len - search_cursor - 1);
+                    search_len--;
+                    search_buf[search_len] = 0;
+                    goto do_search;
+                } else if (ev.key == 1073741904) { // Left arrow
+                    if (search_cursor > 0) { search_cursor--; need_rebuild = true; }
+                } else if (ev.key == 1073741903) { // Right arrow
+                    if (search_cursor < search_len) { search_cursor++; need_rebuild = true; }
+                } else if (ev.key == 1073741898) { // Home
+                    search_cursor = 0; need_rebuild = true;
+                } else if (ev.key == 1073741901) { // End
+                    search_cursor = search_len; need_rebuild = true;
                 } else if (ev.key == 13) { // Enter → jump to first result
                     if (search_results.count > 0) {
                         SearchHit& h = search_results.hits[0];
                         printf("Jump to [%u, %u]\n", h.row, h.col);
                     }
                 } else if (ev.key >= 32 && ev.key < 127 && search_len < 126 && !(ev.mod & 0x00C0)) {
-                    search_buf[search_len++] = (char)ev.key;
+                    memmove(search_buf + search_cursor + 1, search_buf + search_cursor, search_len - search_cursor);
+                    search_buf[search_cursor] = (char)ev.key;
+                    search_cursor++; search_len++;
                     search_buf[search_len] = 0;
-                    // Search
+                    goto do_search;
+                }
+                if (false) { do_search:
                     Arena sa = arena_create(16384);
                     ViewSlot* v = ws.active_view();
-                    if (v && v->type == VIEW_TABLE)
+                    if (v && v->type == VIEW_TABLE && search_len > 0)
                         search_results = search_table(&sa, (Table*)v->data, search_buf, search_len);
                     else
                         search_results.count = 0;
@@ -255,11 +261,23 @@ inline int run_demo() {
 
                 bool handled = false;
 
+                // Click on search bar → activate search
+                for (int i = 0; i < n; i++) {
+                    if (deep[i].node->id && strcmp(deep[i].node->id, "search-bar") == 0) {
+                        search_active = true;
+                        need_rebuild = true;
+                        handled = true;
+                        break;
+                    }
+                }
+
                 // Check tab clicks (only if click is inside tab-strip)
                 bool in_tab_strip = false;
-                for (int i = 0; i < n; i++) {
-                    if (deep[i].node->id && strcmp(deep[i].node->id, "tab-strip") == 0) {
-                        in_tab_strip = true; break;
+                if (!handled) {
+                    for (int i = 0; i < n; i++) {
+                        if (deep[i].node->id && strcmp(deep[i].node->id, "tab-strip") == 0) {
+                            in_tab_strip = true; break;
+                        }
                     }
                 }
                 if (in_tab_strip) {
