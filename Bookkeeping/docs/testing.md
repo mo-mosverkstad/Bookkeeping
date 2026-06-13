@@ -565,3 +565,13 @@ Custom lightweight test framework in `test/test.h`:
 |---|---|---|---|
 | search 10k cells (exact match) | 1000×10 table, "val_500_5" | 242μs/iter | 100 iterations |
 | search 10k cells (many matches) | 1000×10 table, "val_5" | 468μs/iter | 100 iterations |
+
+### Bugs found and fixed during Phase 8
+| Bug | Cause | Fix |
+|---|---|---|
+| Segfault after many tab switches | Frame arena exhaustion — UI nodes accumulated in main arena | Separate 256KB frame arena, reset each rebuild |
+| Tab close button not responding | Single node for tab; click always activated | Split into label + close child node with id `close:<tabid>` |
+| Nav sidebar clicks not working | Tab handler matched nav leaf ids (same strings) | Scoped tab click to `tab-strip` ancestry |
+| Nav leaf can't reopen closed view | `unmount()` removed view; `find()` returned -1 | Re-mount view on nav leaf click if missing |
+| Ctrl+F / Ctrl+Z not working | Checked ASCII control codes (6, 26); SDL sends keysym + mod | Added `mod` field to InputEvent, check `key == 'f'` with ctrl mod |
+| Infinite table scroll | Clamp only applied when `max_s > 0`; content < viewport → no clamp | Always clamp: `if (max_s < 0) max_s = 0` |

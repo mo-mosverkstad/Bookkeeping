@@ -229,7 +229,12 @@ across phases.
 - Tab switching re-initializes editor to point at the active table
 
 **Bug fixed:**
-- None (clean implementation)
+- Segfault on repeated tab switches → frame arena exhaustion; added separate frame arena that resets each rebuild
+- Tab close button not working → split tab into label + close child node with distinct id (`close:<tabid>`)
+- Nav tree clicks intercepted by tab handler → scoped tab handling to only fire inside `tab-strip` ancestry
+- Nav leaf click after tab closed did nothing → re-mounts the view if previously unmounted
+- Search not activating (Ctrl+F) → SDL2 sends keysym + modifier, not combined ASCII codes; added `mod` field to InputEvent
+- Scroll past end of table → clamp `max_s` to 0 when content smaller than viewport
 
 **Benchmark results:**
 - Search 10k cells (exact match): ~242μs/iter

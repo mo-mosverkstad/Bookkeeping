@@ -264,14 +264,17 @@ make clean && make
 
 ### Interaction
 1. **Tab switching**: Click any tab → right panel updates
-2. **Nav tree**: Click category (▼ Tables) to collapse/expand; click leaf (People) to activate that tab
-3. **Search**: Press Ctrl+F, type a query → results appear below. ESC dismisses search.
-4. **Cell editing**: Click a table cell → begin editing (terminal shows edit state). Type, Enter to commit, Ctrl+Z/Y for undo/redo.
-5. **Scroll**: Mouse wheel scrolls the deepest scroll container under cursor
+2. **Tab close**: Click the "x" on the right side of a tab to close it
+3. **Nav tree**: Click category (▼ Tables) to collapse/expand; click leaf (People) to open/activate that view (re-opens if previously closed)
+4. **Search**: Click the search bar or press Ctrl+F to activate. Type to filter live. Arrow keys move cursor. Home/End jump to start/end. Click outside or ESC to deactivate.
+5. **Cell editing**: Click a table cell → begin editing (terminal shows edit state). Type, Enter to commit, Ctrl+Z/Y for undo/redo.
+6. **Scroll**: Mouse wheel scrolls the deepest scroll container under cursor. Stops at content boundary.
 
 ### Verification
 - `make test` → 335 tests pass (102+23+27+18+50+23+34+27+31)
 - `make test-workspace` → 31 tests pass
 - Tab clicks switch the visible content
+- Tab close removes the tab and view
+- Nav tree re-opens closed views
 - Search "London" in People tab → shows matching cells
-- Nav tree expand/collapse toggles children visibility
+- Scroll stops at last row (no infinite scroll)

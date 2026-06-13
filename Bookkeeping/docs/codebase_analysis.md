@@ -444,7 +444,11 @@ Operations:
   find(id) → int     → lookup by id
 ```
 
-Rendering produces an HStack of sized boxes with active/inactive styling.
+Rendering produces an HStack of tab nodes. Each tab is itself an HStack containing:
+- A label box (click to activate)
+- A close button box with id `"close:<tabid>"` (click to close)
+
+Active/inactive tabs have distinct background and text colors.
 
 ### Workspace (`src/app/workspace.h`)
 
@@ -483,11 +487,13 @@ ViewType enum: `VIEW_NONE`, `VIEW_TABLE`, `VIEW_GRAPH`, `VIEW_SEARCH_RESULTS`.
 
 Controls:
 - Click tabs to switch views
-- Click nav items to expand/collapse or activate
-- Ctrl+F toggles search mode
-- Type to filter (live results shown below)
-- ESC dismisses search
+- Click "x" on a tab to close it
+- Click nav items to expand/collapse or activate (re-opens closed views)
+- Click search bar or Ctrl+F to activate search
+- Type to filter (live results shown below), arrow keys move cursor
+- Click outside search bar or ESC to deactivate search
 - All previous editing (click cell, type, Ctrl+Z/Y) still works
+- Scroll clamps at content boundary (no infinite scroll)
 
 ---
 
