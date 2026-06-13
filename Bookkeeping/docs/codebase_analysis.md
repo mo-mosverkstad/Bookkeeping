@@ -5,6 +5,251 @@ Written for developers new to the codebase.
 
 ---
 
+## Software Architecture Overview — For Beginners
+
+This section explains **how the entire application is structured**, what design
+patterns it uses, and **why** each decision was made. If you're new to desktop
+application development in C/C++, this will give you the full picture.
+
+### What This Application Is
+
+Bookkeeping is a **native desktop application** that displays spreadsheet-like
+tables with special cell rendering (math formulas, chemistry, etc.), graph
+diagrams, search, and file management. It's the C/C++ equivalent of a web
+application — but instead of HTML/CSS/JavaScript, it uses SDL2 for windowing
+and a custom layout engine for UI.
+
+### The 4-Layer Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Layer 4: APPLICATION (src/demo.h)                                   │
+│  ─────────────────────────────────                                   │
+│  The "main loop" — orchestrates everything:                          │
+│  • Event handling (mouse, keyboard, window)                          │
+│  • UI tree construction (toolbar, tabs, workspace, sidebar)          │
+│  • State management (editor, workspace, search, file browser)        │
+│  • Rendering loop (build tree → compute layout → render pixels)      │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 3: APP COMPONENTS (src/app/)                                   │
+│  ─────────────────────────────────                                   │
+│  Reusable "widgets" — each file does ONE thing:                      │
+│  • table_view.h     — converts Table data → visual layout tree       │
+│  • table_editor.h   — handles cell editing + undo/redo               │
+│  • flow_diagram.h   — converts Graph data → diagram layout           │
+│  • nav_tree.h       — hierarchical navigation tree widget            │
+│  • tab_strip.h      — tabbed view switching                          │
+│  • workspace.h      — manages open views + their state               │
+│  • file_browser.h   — in-app directory browser overlay               │
+│  • cell_render.h    — dispatches cell rendering by type               │
+│  • graph_filter.h   — filters table rows by graph relationships      │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 2: GRAPHICS ENGINE (src/graphics/)                             │
+│  ─────────────────────────────────────────                            │
+│  Platform-independent rendering system:                               │
+│  • layout/layout.h  — LayoutNode tree (compute, render, hit-test)    │
+│  • elements/        — shapes: Rect, Ellipse, Line, Text, etc.        │
+│  • ui.h             — fluent builder API (VStack, HStack, Box, etc.) │
+│  • backend/         — RenderBackend interface + implementations       │
+│     ├── sdl2_backend.h    — draws to SDL2 window                     │
+│     └── software_backend.h — draws to pixel buffer (for tests)       │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 1: CORE (src/core/)                                            │
+│  ─────────────────────────────────                                    │
+│  Zero-dependency foundation:                                          │
+│  • arena.h    — memory allocator (bump allocation, bulk free)         │
+│  • str.h      — string type (pointer + length, arena-backed)          │
+│  • color.h    — RGBA color type                                       │
+│  • theme.h    — all visual design tokens (colors, font sizes)         │
+│  • utf8.h     — UTF-8 byte navigation helpers                         │
+│  • model/     — data structures (Table, Graph)                        │
+│  • parser/    — CSV parser, math/chem/rich parsers                    │
+│  • search.h   — full-text search across tables                        │
+│  • file_io.h  — file read/write, session persistence                  │
+│  • control.h  — control.json parser + folder loader                   │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 0: PLATFORM (src/platform/)                                    │
+│  ─────────────────────────────────                                    │
+│  Hides OS/library details behind abstract interfaces:                 │
+│  • platform.h      — PlatformWindow + InputEvent (abstract)          │
+│  • sdl2_platform.cpp — SDL2 implementation                           │
+│  • file_dialog.h   — terminal-based folder picker                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Rule: Dependencies ONLY flow downward.**
+- Layer 4 can use Layers 3, 2, 1, 0
+- Layer 3 can use Layers 2, 1
+- Layer 2 can use Layer 1
+- Layer 1 uses nothing (pure computation)
+- Layer 0 is called by Layer 4, implements interfaces from Layer 2
+
+### Design Patterns Used
+
+| Pattern | Where | Why |
+|---|---|---|
+| **Layered Architecture** | Entire codebase | Separation of concerns; each layer testable independently |
+| **Arena Allocator** | `src/core/arena.h` | O(1) allocation, zero fragmentation, bulk-free entire frames |
+| **Builder Pattern** | `src/graphics/ui.h` | Fluent API for constructing UI trees declaratively |
+| **Composite Pattern** | `LayoutNode` tree | Uniform treatment of leaves and containers |
+| **Strategy Pattern** | `RenderBackend` | Swap rendering target without changing layout code |
+| **Tagged Union** | `Element` (shapes) | Type-safe variant without virtual dispatch overhead |
+| **Command Pattern** | `EditHistory` | Undo/redo as reified action objects |
+| **Observer-like** | Immediate-mode rebuild | UI reflects state on every frame (no explicit binding) |
+| **Dependency Inversion** | `PlatformWindow` | App depends on abstract interface, not SDL2 directly |
+| **Mediator** | `Workspace` | Coordinates tabs, views, and navigation |
+| **Value Object** | `Theme`, configs | Immutable parameter bundles passed into builders |
+
+### How a Frame Works (The Render Loop)
+
+This is the heartbeat of the application — what happens 60 times per second:
+
+```
+┌─── Frame Start ──────────────────────────────────────────────────┐
+│                                                                    │
+│  1. POLL EVENTS                                                    │
+│     while (win->poll_event(ev)) {                                 │
+│       • Mouse click → hit-test → update state                     │
+│       • Keyboard → modify editor/search buffer                    │
+│       • Scroll → update scroll offset on live tree                │
+│       • Resize → update win_w/win_h                               │
+│     }                                                              │
+│                                                                    │
+│  2. REBUILD UI (only if state changed: need_rebuild = true)       │
+│     arena_reset(&frame);        ← free all previous frame nodes   │
+│     root = rebuild_ui();        ← construct new layout tree       │
+│       ├── build toolbar (HStack with buttons)                     │
+│       ├── build tab bar (HStack with tab buttons)                 │
+│       ├── build content area (nav + workspace + sidebar)          │
+│       │     ├── nav tree (VStack of expandable items)             │
+│       │     ├── workspace (table_view_build or flow_diagram)      │
+│       │     └── sidebar (source editor)                           │
+│       └── build status bar                                        │
+│     root->compute(W, H);       ← fill x,y,width,height fields    │
+│                                                                    │
+│  3. RENDER                                                         │
+│     win->begin_frame();                                            │
+│     render_tree(backend, root); ← draw all elements recursively   │
+│       • For each node: draw its elements (rects, text, lines)     │
+│       • For SCROLL nodes: set clip, cull off-screen children      │
+│       • Recurse into children                                      │
+│     // Draw overlays (file browser, quit dialog, scrollbars)       │
+│     win->end_frame();           ← present to screen               │
+│                                                                    │
+└─── Frame End ────────────────────────────────────────────────────┘
+```
+
+### Memory Model: Two Arenas
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  PERSISTENT ARENA (4 MB)                                         │
+│  ────────────────────────                                        │
+│  Lives for the entire app session. Holds:                        │
+│  • Table data (rows, cells, strings)                             │
+│  • Workspace state (view slots, tabs, nav tree)                  │
+│  • Editor history actions                                        │
+│  • Never reset — grows monotonically                             │
+├─────────────────────────────────────────────────────────────────┤
+│  FRAME ARENA (8 MB)                                              │
+│  ────────────────────                                            │
+│  Reset every frame rebuild. Holds:                               │
+│  • LayoutNode tree (toolbar, tabs, content, status bar)          │
+│  • Element arrays (rects, text elements)                         │
+│  • Children pointer arrays                                       │
+│  • Temporary strings for labels                                  │
+│  • Freed in O(1) by arena_reset() at start of each rebuild      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This **double-arena** strategy means:
+- Persistent data survives across frames (your edits aren't lost)
+- UI nodes are cheap to create and destroy (no malloc/free per node)
+- Memory usage is bounded (frame arena reuses the same 8 MB every time)
+
+### How Input Flows Through the System
+
+```
+SDL2 Event → PlatformWindow::poll_event() → InputEvent struct
+                                                   │
+                          ┌────────────────────────┘
+                          ▼
+              Event Handler Chain (priority order):
+              1. Quit dialog (if visible) → consume
+              2. File browser (if visible) → consume
+              3. Search input (if active) → consume
+              4. Source editor keys (if focused) → consume
+              5. Arrow key navigation (if cell active) → consume
+              6. TEXT_INPUT → route to search/source/skip
+              7. Ctrl+key shortcuts (save, undo, zoom, etc.)
+              8. Mouse wheel → scroll appropriate node
+              9. Mouse click → hit-test → route to handler
+                    ├── Scrollbar drag?
+                    ├── Diagram pan?
+                    ├── Toolbar button?
+                    ├── Tab click/close?
+                    ├── Nav tree item?
+                    ├── Row insert/delete?
+                    ├── Table cell?
+                    └── Search result?
+```
+
+### How Hit Testing Works
+
+When you click somewhere, the app needs to know WHAT you clicked:
+
+```
+click at (x=350, y=200)
+         │
+         ▼
+root->hit_deep(x, y, results[], capacity)
+         │
+         ▼
+Walks the tree top-down, checking each node's bounding box:
+  root (0,0 → 800,600) ✓ contains click
+    toolbar (0,0 → 800,40) ✗ y=200 > 40
+    tab-bar (0,40 → 800,70) ✗ y=200 > 70
+    content (0,70 → 800,576) ✓
+      nav-panel (0,70 → 180,576) ✗ x=350 > 180
+      workspace (180,70 → 540,576) ✓
+        table-scroll (180,100 → 540,576) ✓
+          row-3 (180,190 → 540,222) ✓ contains click!
+            cell[0] (180,190 → 280,222) ✗
+            cell[1] (281,190 → 380,222) ✓ ← FOUND!
+
+Results: [root, content, workspace, table-scroll, row-3, cell[1]]
+```
+
+The deepest match tells us which cell was clicked.
+
+### File I/O and Persistence
+
+```
+On Startup:
+  /tmp/bookkeeping_data/People.csv → file_load_csv() → Table*
+  (if file doesn't exist, use embedded fallback data)
+
+During Use:
+  Ctrl+S or Save button → file_save_csv(table, view->save_path)
+  Each ViewSlot stores its save_path (original file location)
+
+On Quit (with unsaved changes):
+  Dialog: [Save] [Don't Save] [Cancel]
+  Save → file_save_csv() → quit
+  Don't Save → quit immediately
+  Cancel → dismiss dialog, continue working
+
+Folder Loading:
+  Open → File Browser → navigate → "Open Here"
+  → folder_load(arena, path)
+    → read control.json
+    → parse entries [{id, file}, ...]
+    → file_load_csv() for each entry
+    → mount into workspace as tabs
+```
+
+---
+
 ## Overall Architecture
 
 ```
