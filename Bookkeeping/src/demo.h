@@ -694,36 +694,41 @@ inline int run_demo() {
 
             // Scrollbar drag handling
             if (ev.type == InputEvent::MOUSE_MOVE && (scrollbar_dragging || scrollbar_h_dragging)) {
-                HitResult ds[32];
-                int dns = root->hit_deep(nav_width + 10, 60, ds, 32);
-                for (int si = 0; si < dns; si++) {
-                    if (ds[si].node->id && strcmp(ds[si].node->id, "table-scroll") == 0) {
-                        LayoutNode* sn = ds[si].node;
-                        if (scrollbar_dragging) {
-                            float ct_h = sn->content_height, vp_h = sn->height;
-                            if (ct_h > vp_h) {
-                                float delta_y = ev.y - scrollbar_drag_start_y;
-                                float ratio = (ct_h - vp_h) / (vp_h - 20);
-                                sn->scroll_y = scrollbar_drag_start_scroll + delta_y * ratio;
-                                if (sn->scroll_y < 0) sn->scroll_y = 0;
-                                if (sn->scroll_y > ct_h - vp_h) sn->scroll_y = ct_h - vp_h;
-                                ViewSlot* av = ws.active_view();
-                                if (av) av->scroll_y = sn->scroll_y;
-                            }
+                // Find table-scroll node
+                struct FindCtx2 { LayoutNode* found; };
+                FindCtx2 ctx2 = {nullptr};
+                struct Walker2 {
+                    static void walk(LayoutNode* n, FindCtx2& c) {
+                        if (n->id && strcmp(n->id, "table-scroll") == 0) { c.found = n; return; }
+                        for (uint16_t i = 0; i < n->child_count && !c.found; i++) walk(n->children[i], c);
+                    }
+                };
+                Walker2::walk(root, ctx2);
+                if (ctx2.found) {
+                    LayoutNode* sn = ctx2.found;
+                    if (scrollbar_dragging) {
+                        float ct_h = sn->content_height, vp_h = sn->height;
+                        if (ct_h > vp_h) {
+                            float delta_y = ev.y - scrollbar_drag_start_y;
+                            float ratio = (ct_h - vp_h) / (vp_h - 20);
+                            sn->scroll_y = scrollbar_drag_start_scroll + delta_y * ratio;
+                            if (sn->scroll_y < 0) sn->scroll_y = 0;
+                            if (sn->scroll_y > ct_h - vp_h) sn->scroll_y = ct_h - vp_h;
+                            ViewSlot* av = ws.active_view();
+                            if (av) av->scroll_y = sn->scroll_y;
                         }
-                        if (scrollbar_h_dragging) {
-                            float ct_w = sn->content_width, vp_w = sn->width;
-                            if (ct_w > vp_w) {
-                                float delta_x = ev.x - scrollbar_drag_start_x;
-                                float ratio = (ct_w - vp_w) / (vp_w - 20);
-                                sn->scroll_x = scrollbar_drag_start_scroll_x + delta_x * ratio;
-                                if (sn->scroll_x < 0) sn->scroll_x = 0;
-                                if (sn->scroll_x > ct_w - vp_w) sn->scroll_x = ct_w - vp_w;
-                                ViewSlot* av = ws.active_view();
-                                if (av) av->scroll_x = sn->scroll_x;
-                            }
+                    }
+                    if (scrollbar_h_dragging) {
+                        float ct_w = sn->content_width, vp_w = sn->width;
+                        if (ct_w > vp_w) {
+                            float delta_x = ev.x - scrollbar_drag_start_x;
+                            float ratio = (ct_w - vp_w) / (vp_w - 20);
+                            sn->scroll_x = scrollbar_drag_start_scroll_x + delta_x * ratio;
+                            if (sn->scroll_x < 0) sn->scroll_x = 0;
+                            if (sn->scroll_x > ct_w - vp_w) sn->scroll_x = ct_w - vp_w;
+                            ViewSlot* av = ws.active_view();
+                            if (av) av->scroll_x = sn->scroll_x;
                         }
-                        break;
                     }
                 }
             }
@@ -1133,44 +1138,47 @@ inline int run_demo() {
         win->begin_frame();
         render_tree(win->backend(), root);
 
-        // ── Scrollbar overlay (drawn on top, reflects live scroll state) ─────
-        // Find the table-scroll node to get its position and scroll state
-        HitResult scroll_hit = root->hit_surface(win_w / 2, win_h / 2); // approximate center
-        // Walk the tree to find "table-scroll" node
-        HitResult deep_scroll[32];
-        int ns = root->hit_deep(nav_width + 10, 60, deep_scroll, 32);
-        for (int si = 0; si < ns; si++) {
-            if (deep_scroll[si].node->id && strcmp(deep_scroll[si].node->id, "table-scroll") == 0) {
-                LayoutNode* sn = deep_scroll[si].node;
-                float sx = sn->x + nav_width, sy = sn->y + 31 + 26; // approximate absolute pos
-                // Find actual absolute position by summing parent offsets
-                // (simplified: use toolbar+tabbar+header height + nav offset)
-                float abs_x = 0, abs_y = 0;
-                for (int pi = 0; pi < si; pi++) { abs_x = deep_scroll[pi].node->x; abs_y = deep_scroll[pi].node->y; }
-                abs_x += sn->x; abs_y += sn->y;
-
-                float vp_w = sn->width, vp_h = sn->height;
-                float ct_h = sn->content_height, ct_w = sn->content_width;
-
-                // Vertical scrollbar
-                if (ct_h > vp_h) {
-                    float ratio = vp_h / ct_h;
-                    float bar_h = ratio * vp_h;
-                    if (bar_h < 20) bar_h = 20;
-                    float bar_y = (sn->scroll_y / (ct_h - vp_h)) * (vp_h - bar_h);
-                    Rect vbar = {abs_x + vp_w - 8, abs_y + bar_y, 6, bar_h, {120, 125, 135, 180}, COLOR_TRANSPARENT, 0, 3};
-                    win->backend()->render_rect(0, 0, vbar);
+        // ── Scrollbar overlay (drawn after tree, always reflects live state) ──
+        // Find table-scroll node by walking the tree
+        struct { LayoutNode* node; float abs_x, abs_y; } scroll_info = {nullptr, 0, 0};
+        {
+            // Simple recursive search for "table-scroll"
+            struct FindCtx { LayoutNode* found; float fx, fy; };
+            FindCtx ctx = {nullptr, 0, 0};
+            struct Walker {
+                static void walk(LayoutNode* n, float ox, float oy, FindCtx& c) {
+                    float ax = ox + n->x, ay = oy + n->y;
+                    if (n->id && strcmp(n->id, "table-scroll") == 0) { c.found = n; c.fx = ax; c.fy = ay; return; }
+                    for (uint16_t i = 0; i < n->child_count && !c.found; i++)
+                        walk(n->children[i], ax, ay, c);
                 }
-                // Horizontal scrollbar
-                if (ct_w > vp_w) {
-                    float ratio = vp_w / ct_w;
-                    float bar_w = ratio * vp_w;
-                    if (bar_w < 20) bar_w = 20;
-                    float bar_x = (sn->scroll_x / (ct_w - vp_w)) * (vp_w - bar_w);
-                    Rect hbar = {abs_x + bar_x, abs_y + vp_h - 8, bar_w, 6, {120, 125, 135, 180}, COLOR_TRANSPARENT, 0, 3};
-                    win->backend()->render_rect(0, 0, hbar);
-                }
-                break;
+            };
+            Walker::walk(root, 0, 0, ctx);
+            scroll_info = {ctx.found, ctx.fx, ctx.fy};
+        }
+        if (scroll_info.node) {
+            LayoutNode* sn = scroll_info.node;
+            float abs_x = scroll_info.abs_x, abs_y = scroll_info.abs_y;
+            float vp_w = sn->width, vp_h = sn->height;
+            float ct_h = sn->content_height, ct_w = sn->content_width;
+
+            if (ct_h > vp_h) {
+                float ratio = vp_h / ct_h;
+                float bar_h = ratio * vp_h;
+                if (bar_h < 20) bar_h = 20;
+                float max_scroll = ct_h - vp_h;
+                float bar_y = max_scroll > 0 ? (sn->scroll_y / max_scroll) * (vp_h - bar_h) : 0;
+                Rect vbar = {abs_x + vp_w - 8, abs_y + bar_y, 6, bar_h, {100, 105, 120, 200}, COLOR_TRANSPARENT, 0, 3};
+                win->backend()->render_rect(0, 0, vbar);
+            }
+            if (ct_w > vp_w) {
+                float ratio = vp_w / ct_w;
+                float bar_w = ratio * vp_w;
+                if (bar_w < 20) bar_w = 20;
+                float max_scroll = ct_w - vp_w;
+                float bar_x = max_scroll > 0 ? (sn->scroll_x / max_scroll) * (vp_w - bar_w) : 0;
+                Rect hbar = {abs_x + bar_x, abs_y + vp_h - 8, bar_w, 6, {100, 105, 120, 200}, COLOR_TRANSPARENT, 0, 3};
+                win->backend()->render_rect(0, 0, hbar);
             }
         }
 
