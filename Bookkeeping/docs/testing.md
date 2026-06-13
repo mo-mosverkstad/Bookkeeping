@@ -719,3 +719,18 @@ Custom lightweight test framework in `test/test.h`:
 - Old graph_view.h tests (27 tests) still pass — backward compat maintained
 - Flow diagram verified visually (layered layout vs old grid layout)
 - Layout algorithm: longest-path BFS rank assignment → centered positioning
+
+
+---
+
+## Phase 14 (continued) — Pan/Zoom + Scroll Fixes
+
+### Bugs found and fixed
+| Bug | Cause | Fix |
+|---|---|---|
+| No horizontal scroll | Scroll node width = content width → max_sx=0 | Scroll width = viewport_width (content scrolls within) |
+| Horizontal scroll inverted | `scroll_x -= delta` | Changed to `+= delta` |
+| Scroll state shared across tabs | Global `table_scroll_x/y` | Moved to per-ViewSlot `scroll_x/scroll_y` |
+| Header fixed during h-scroll | Header outside scroll node | Wrapped in synced horizontal-only scroll node |
+| Scroll bars invisible | Positioned at `scroll_w` (off-screen right) | Positioned at `viewport_width - 10` |
+| Viewport too small | Hardcoded 520×200 | Uses actual workspace dimensions from layout |

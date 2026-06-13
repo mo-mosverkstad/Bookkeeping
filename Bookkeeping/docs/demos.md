@@ -457,3 +457,24 @@ make clean && make
 - `make test` → 374 tests pass
 - Existing graph tests still pass (old graph_view.h preserved)
 - Workflow graph renders with proper vertical layering
+
+
+---
+
+## Phase 14 (continued) — Pan/Zoom + Scroll Improvements
+
+### Interaction
+- **Table horizontal scroll**: Two-finger horizontal swipe on trackpad, or Shift+vertical scroll
+- **Table vertical scroll**: Normal scroll wheel
+- **Scroll bars**: Gray bars visible on right/bottom edges, update position as you scroll
+- **Diagram pan**: Left-click + drag on diagram
+- **Diagram zoom**: Ctrl + scroll wheel on diagram (0.25x–4x)
+- **Per-tab scroll**: Each table remembers its own scroll position when switching tabs
+- **Header sticky**: Column headers scroll horizontally with data but stay at top during vertical scroll
+
+### Verification
+- `make test` → 374 tests pass
+- Open a wide table (e.g., from Mathematics reference) → horizontal scroll bar visible
+- Shift+scroll moves table horizontally
+- Switch tabs and switch back → scroll position preserved
+- Header stays at top but follows horizontal scroll

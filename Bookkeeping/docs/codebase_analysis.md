@@ -912,6 +912,56 @@ Controls:
 - Table rows expand vertically for multiline content
 - Window resizable — layout adapts dynamically
 
+### Scroll System Architecture
+
+The table scroll system has three key components:
+
+```
+┌─────────────────────────────────────────────────────┐
+│ header_scroll (SCROLL, width=viewport, scroll_x=X)  │ ← synced H-scroll
+│   └── header (LinearH)                              │
+│         └── col cells                                │
+├─────────────────────────────────────────────────────┤
+│ wrapper (COORDINATE, width=viewport, height=viewport)│
+│   ├── scroll (SCROLL, width=viewport, scroll_x=X,   │
+│   │          scroll_y=Y)                             │ ← content scrolls
+│   │     └── rows (LinearH each)                     │
+│   ├── vbar (Leaf, pos=right edge)                   │ ← drawn on top
+│   └── hbar (Leaf, pos=bottom edge)                  │ ← drawn on top
+└─────────────────────────────────────────────────────┘
+```
+
+**Key insight**: Scroll bars are siblings of the scroll node in a COORDINATE
+layout, so they render AFTER (on top of) the scrolled content. The header
+is in a separate scroll node with the same `scroll_x` but `scroll_y=0`,
+achieving "sticky top + scrolls horizontally".
+
+### Per-View Scroll State
+
+Each `ViewSlot` stores its own scroll position:
+
+```cpp
+struct ViewSlot {
+    const char* id;
+    ViewType type;
+    void* data;
+    LayoutNode* cached_tree;
+    float scroll_x, scroll_y;  // per-view scroll state
+};
+```
+
+When scrolling, the active view's offsets are updated:
+```cpp
+ViewSlot* av = ws.active_view();
+if (av) av->scroll_x = sn->scroll_x;
+```
+
+When rebuilding, the view's saved offsets are passed to the builder:
+```cpp
+tvcfg.scroll_x = v->scroll_x;
+tvcfg.scroll_y = v->scroll_y;
+```
+
 ---
 
 ## Phase 9 — File I/O

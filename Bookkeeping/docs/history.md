@@ -388,3 +388,32 @@ across phases.
 - Viewport auto-expands to fit content
 - Uses Coordinate layout (absolute positioning) — same as old graph_view
 - Old graph_view.h kept for backward compat with tests; demo uses flow_diagram
+
+---
+
+## Phase 14 (continued) — Pan/Zoom + Scroll Fixes — 2026-06-13
+
+**Added:**
+- Diagram pan: left-click drag on diagram pans the view
+- Diagram zoom: Ctrl+wheel on diagram zooms in/out (0.25x–4x)
+- Table/diagram viewport fills all remaining space between sidebars
+- Horizontal scrolling: trackpad horizontal swipe + Shift+wheel
+- Per-view scroll state: each table tab has independent scroll_x/scroll_y
+- Table header scrolls horizontally with data (sticky vertically only)
+- Scroll bars: visible gray bars on right edge (vertical) and bottom edge (horizontal)
+- Scroll bar position updates live as you scroll (rebuild on every scroll event)
+
+**Decisions:**
+- Diagram wrapped in SCROLL node with pan offsets for viewport clipping
+- Horizontal scroll uses SDL2's `wheel.x` (trackpad) or Shift+`wheel.y` fallback
+- Scroll node width = viewport width (not content width) to enable horizontal scrolling
+- Header in its own SCROLL node with synced scroll_x for horizontal-only scrolling
+- Scroll bars as sibling nodes in COORDINATE wrapper (rendered on top of scroll content)
+
+**Bugs fixed:**
+- Horizontal scroll impossible: scroll node width = content width → max_sx always 0
+- Horizontal scroll inverted: `scroll_x -= delta` flipped to `+= delta`
+- Scroll state shared across tabs: moved to per-ViewSlot storage
+- Header stuck during horizontal scroll: wrapped in synced horizontal scroll node
+- Scroll bars invisible: were placed at scroll_w offset (off-screen), now at viewport_width
+- Table/diagram viewport too small: hardcoded 520×200 replaced with actual workspace dimensions
