@@ -520,3 +520,32 @@ across phases.
 - Export writes to fixed path `/tmp/bookkeeping_export.csv` (no file dialog)
 - Dirty indicator shows only on the active tab (simplification)
 - All 20 phases of Webapp parity plan complete
+
+---
+
+## Phase 21 — Webapp: Inline Cell Editor + Diagram Split Pane — 2026-06-16
+
+**Removed:**
+- Source editor sidebar (`#sidebar`, `SourceEditorView` class, toggle button)
+- All `SourceEditorView` imports/references from table-view, diagram-view, flow-diagram-view, workspace-view, document-view, app-shell, main.ts
+
+**Added (Table cells):**
+- `InlineCellEditor` class in `table-view.ts` — lightweight textarea overlay
+- Appears as `position: fixed` popup above the active cell (on `document.body`)
+- Escape = cancel edit, Alt+Enter = commit edit
+- Ctrl+Z / Ctrl+Y = local undo/redo (independent 200-entry stack)
+- Live re-render: cell content updates on each keystroke
+- `handleKeyDown` guard: `if (this.activeCell) return` prevents table navigation while editing
+- Click guard: clicks inside `.inline-cell-editor` don't dismiss the editor
+
+**Added (Diagrams):**
+- `DiagramView` now renders as a split pane (flex row, left=editor 40%, right=rendered output 60%)
+- Textarea editor lives inside the workspace, adjacent to the rendered diagram
+- Typing in the editor immediately re-renders the diagram
+- Full height: `height: 100%` on container and child panes
+
+**Decisions:**
+- Sidebar removed because it was too far from the active cell, making editing counter-intuitive
+- Inline editor uses `position: fixed` on `document.body` to avoid scroll interference from DOM mutations inside the table
+- No live re-render was initially attempted inside the td, but it caused the browser to auto-scroll; fixed by keeping the overlay outside the scroll container
+- `FlowDiagramView` had its `syncSourceEditor`/`applySourceEdit` methods removed (no split-pane yet for flow diagrams)

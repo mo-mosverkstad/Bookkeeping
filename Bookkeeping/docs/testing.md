@@ -820,3 +820,19 @@ Custom lightweight test framework in `test/test.h`:
 - Dirty indicator: shows * on tab after edit, clears after save
 
 ### Final test count: 380 tests across 13 suites, all passing
+
+---
+
+## Phase 21 — Inline Cell Editor + Diagram Split Pane (Webapp)
+
+### Key issues encountered and fixed
+
+| Problem | Root cause | Fix |
+|---------|-----------|-----|
+| Typing in editor scrolls spreadsheet away | `showRendered` did `td.innerHTML=""` destroying overlay inside td | Moved overlay to `document.body` with `position: fixed` |
+| Editor dismissed on click inside it | Document click handler called `cancelActive()` for any click outside workspace | Added `target.closest(".inline-cell-editor")` guard |
+| Table keyboard nav fires while editing | `handleKeyDown` still processed keys | Guard: `if (this.activeCell) return` |
+| Drag-to-select cancels editor | `onMove` handler called `cancelActive()` on any mouse movement | Added `if (this.inlineEditor.focused) return` guard |
+| Diagram pane too short | Container missing explicit height | Added `height: 100%` to container and CSS for split panes |
+
+### Test count: 383 tests across 13 suites, all passing

@@ -361,23 +361,24 @@ make clean && make
 
 ### Expected output
 - Light theme: white surfaces, #f8fafc background, proper text colors
-- Layout: Toolbar (31px) → Tab bar (26px) → Content [Nav 180px | Workspace | Sidebar 260px] → Status bar (21px)
+- Layout: Toolbar (31px) → Tab bar (26px) → Content [Nav 180px | Workspace] → Status bar (21px)
 - Window starts at 800×600, fully resizable
-- Source editor sidebar on right with header, Parse/Apply buttons, editable text area
+- No sidebar — editing happens inline
 
-### Interaction
-1. **Cell editing**: Click a cell → highlighted (blue bg, dark border) → source editor loads value
-2. **Source editor**: Type/edit (supports Enter for newlines, full Unicode, Shift+chars for uppercase)
-3. **Apply**: Click [Apply] → commits editor text back to table cell
-4. **Save**: Click Save button or Ctrl+S → persists to `/tmp/bookkeeping_data/`
-5. **Open**: Click Open → loads `Basic algebra.csv` from testresources
-6. **Restart persistence**: Changes saved via Save survive app restart
-7. **Resize**: Drag window edges → layout adapts
-8. **Toggle sidebar**: Click "◀ Editor" button
+### Interaction (Webapp)
+1. **Cell editing**: Click a cell → highlighted (blue bg, dark border) → inline editor popup appears above the cell
+2. **Inline editor**: Type/edit (supports Enter for newlines, full Unicode). Cell below re-renders live on each keystroke.
+3. **Commit**: Press Alt+Enter → commits editor text back to table cell
+4. **Cancel**: Press Escape → discards changes
+5. **Local undo/redo**: Ctrl+Z / Ctrl+Y within the inline editor (independent of table undo)
+6. **Save**: Click Save button or Ctrl+S → persists to filesystem
+7. **Diagram editing**: Open a diagram tab → split pane: left=text editor, right=rendered output. Typing re-renders immediately.
+8. **Toggle nav**: Click "☰ Nav" button
 
 ### Verification
-- `make test` → 367 tests pass
-- Edit a cell with multiline text → row expands vertically
+- `npx tsc --noEmit` → no errors (except pre-existing search/index.ts)
+- `npx vitest run` → 383+ tests pass
+- Edit a cell → inline editor appears above it, typing doesn't scroll the table
 - Type Unicode characters (é, ñ, 中) → renders correctly
 - Backspace on Unicode → deletes whole character, not single byte
 - Save → restart → data persists

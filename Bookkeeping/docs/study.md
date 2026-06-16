@@ -601,3 +601,27 @@ TypeScript/HTML/CSS Webapp.
 
 **Tests**: Full end-to-end workflow: open folder → navigate → edit → save → verify.
 **Benchmark**: Full application with 20-table reference sheet loaded, measure startup + first-frame time.
+
+---
+
+### Phase 21 — Inline Cell Editor + Diagram Split Pane (Webapp)
+
+**Goal**: Replace the source editor sidebar with context-local editing: inline popup for table cells, split-pane for diagrams.
+
+**Rationale**: The sidebar was too far from the edited cell, making the editing workflow counter-intuitive. Editors (like Excel, Google Sheets) place the edit field directly at or near the cell.
+
+**Tasks**:
+- Remove `SourceEditorView` sidebar from HTML, CSS, and all TypeScript modules
+- Implement `InlineCellEditor` class: fixed-position textarea popup above active cell
+- Wire Escape (cancel), Alt+Enter (commit), Ctrl+Z/Y (local undo/redo)
+- Live re-render cell content on each keystroke
+- Prevent table keyboard navigation while editor is open
+- Prevent clicks on editor from dismissing it
+- `DiagramView`: split workspace into left editor (40%) + right rendered output (60%)
+- Editor textarea input triggers immediate diagram re-render
+
+**Architecture notes**:
+- Inline editor uses `position: fixed` on `document.body` to avoid scroll side-effects
+- `showRendered(td, ...)` does `td.innerHTML = ""` safely because overlay is not inside the td
+- `handleKeyDown` returns early when `this.activeCell` is set
+- Document-level click handler skips `cancelActive()` when target is inside `.inline-cell-editor`
