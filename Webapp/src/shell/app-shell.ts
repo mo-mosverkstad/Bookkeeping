@@ -6,7 +6,6 @@ import { AppController } from "../controller/index.ts";
 import { WorkspaceController } from "../knowledge-pane/workspace-controller.ts";
 import { viewFactory } from "../knowledge-pane/workspace-view.ts";
 import { DiagramView } from "../knowledge-pane/diagram-view.ts";
-import { SourceEditorView } from "../source-editor/source-editor-view.ts";
 import { NavigationTreeView } from "./navigation-tree-view.ts";
 import { saveSession, loadSession } from "./session.ts";
 import { parseCSV } from "../data/csv.ts";
@@ -16,7 +15,6 @@ import type { ControlFile } from "../data/control.ts";
 export class AppShell {
     private readonly controller: AppController;
     private readonly workspace: WorkspaceController;
-    private readonly sourceEditor: SourceEditorView;
     private readonly navTree: NavigationTreeView;
     private diagramSources = new Map<string, string>();
     private readonly elements: {
@@ -26,17 +24,14 @@ export class AppShell {
         sessionBanner: HTMLElement;
         dynamicToolbar: HTMLElement;
         btnExport: HTMLElement;
-        btnToggleSidebar: HTMLElement;
         btnToggleNav: HTMLElement;
         navTreePanel: HTMLElement;
-        sidebarEl: HTMLElement;
         statusText: HTMLElement;
     };
 
     constructor(
         controller: AppController,
         workspace: WorkspaceController,
-        sourceEditor: SourceEditorView,
         navTree: NavigationTreeView,
         elements: {
             fileInput: HTMLInputElement;
@@ -45,16 +40,13 @@ export class AppShell {
             sessionBanner: HTMLElement;
             dynamicToolbar: HTMLElement;
             btnExport: HTMLElement;
-            btnToggleSidebar: HTMLElement;
-            btnToggleNav: HTMLElement;
+                btnToggleNav: HTMLElement;
             navTreePanel: HTMLElement;
-            sidebarEl: HTMLElement;
-            statusText: HTMLElement;
+                statusText: HTMLElement;
         },
     ) {
         this.controller = controller;
         this.workspace = workspace;
-        this.sourceEditor = sourceEditor;
         this.navTree = navTree;
         this.elements = elements;
     }
@@ -63,7 +55,6 @@ export class AppShell {
         this.wireKeyboard();
         this.wireStaticToolbar();
         this.wireDynamicToolbar();
-        this.wireSidebar();
         this.wireNavTree();
         this.wireFileLoading();
         this.wireSessionBanner();
@@ -75,7 +66,6 @@ export class AppShell {
 
     private wireKeyboard(): void {
         document.addEventListener("keydown", (e) => {
-            if (this.sourceEditor.focused) return;
             if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
                 e.preventDefault();
                 this.controller.undo();
@@ -89,7 +79,6 @@ export class AppShell {
 
         document.addEventListener("click", (e) => {
             const target = e.target as Node;
-            if (this.elements.sidebarEl.contains(target)) return;
             if (this.elements.workspaceEl.contains(target)) return;
             this.workspace.getActiveTableView()?.cancelActive();
         });
@@ -141,24 +130,6 @@ export class AppShell {
         });
     }
 
-    // ── Sidebar toggle ────────────────────────────────────────────────────────
-
-    private wireSidebar(): void {
-        const btn = this.elements.btnToggleSidebar;
-        const sidebar = this.elements.sidebarEl;
-        btn.classList.add("sidebar-open");
-        btn.addEventListener("click", () => {
-            const collapsed = sidebar.classList.toggle("sidebar-collapsed");
-            btn.classList.toggle("sidebar-open", !collapsed);
-            btn.textContent = collapsed ? "\u25B6 Editor" : "\u25C0 Editor";
-            // On small screens, close nav if opening sidebar
-            if (!collapsed && window.innerWidth <= 768) {
-                this.elements.navTreePanel.classList.add("nav-collapsed");
-                this.elements.btnToggleNav.classList.remove("nav-open");
-            }
-        });
-    }
-
     // ── Nav tree toggle ───────────────────────────────────────────────────────
 
     private wireNavTree(): void {
@@ -168,12 +139,7 @@ export class AppShell {
         btn.addEventListener("click", () => {
             const collapsed = panel.classList.toggle("nav-collapsed");
             btn.classList.toggle("nav-open", !collapsed);
-            // On small screens, close sidebar if opening nav
-            if (!collapsed && window.innerWidth <= 768) {
-                this.elements.sidebarEl.classList.add("sidebar-collapsed");
-                this.elements.btnToggleSidebar.classList.remove("sidebar-open");
-                this.elements.btnToggleSidebar.textContent = "\u25B6 Editor";
-            }
+
         });
     }
 
@@ -184,10 +150,6 @@ export class AppShell {
                 if (targetId === "nav-tree-panel") {
                     this.elements.navTreePanel.classList.add("nav-collapsed");
                     this.elements.btnToggleNav.classList.remove("nav-open");
-                } else if (targetId === "sidebar") {
-                    this.elements.sidebarEl.classList.add("sidebar-collapsed");
-                    this.elements.btnToggleSidebar.classList.remove("sidebar-open");
-                    this.elements.btnToggleSidebar.textContent = "\u25B6 Editor";
                 }
             });
         });
@@ -397,7 +359,7 @@ export class AppShell {
         for (const table of kb.tables) {
             this.workspace.registerView(
                 table.name,
-                () => viewFactory(table, this.controller, this.sourceEditor),
+                () => viewFactory(table, this.controller),
                 { table },
             );
         }
@@ -405,7 +367,7 @@ export class AppShell {
         for (const graph of kb.graphs) {
             this.workspace.registerView(
                 graph.name,
-                () => viewFactory(graph, this.controller, this.sourceEditor),
+                () => viewFactory(graph, this.controller),
                 { graph },
             );
         }
@@ -414,7 +376,7 @@ export class AppShell {
         for (const [name, source] of this.diagramSources) {
             this.workspace.registerView(
                 name,
-                () => new DiagramView(name, source, this.sourceEditor, this.controller),
+                () => new DiagramView(name, source, this.controller),
                 {},
             );
         }

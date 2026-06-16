@@ -30,7 +30,6 @@
       <div id="static-toolbar" class="toolbar-group">
         <button id="btn-save" title="Save all modified files (Ctrl+S)">Save</button>
         <button id="btn-export-csv" title="Export active table as CSV">Export</button>
-        <button id="btn-toggle-sidebar" title="Toggle source editor sidebar">&#9664; Editor</button>
         <button id="btn-toggle-nav" title="Toggle navigation tree">&#9776; Nav</button>
       </div>
       <div class="toolbar-sep"></div>
@@ -48,7 +47,7 @@
       <div id="tab-strip"></div>
     </div>
 
-    <!-- 4. Content area: nav-tree + workspace + sidebar (flex row) -->
+    <!-- 4. Content area: nav-tree + workspace (flex row) -->
     <div id="content-area">
 
       <!-- 4a. Navigation tree: hierarchical structure of loaded content -->
@@ -65,13 +64,6 @@
           </div>
         </div>
         <div id="table-zoom-bar" class="table-zoom-bar" hidden></div>
-      </div>
-
-      <!-- 4c. Source editor sidebar -->
-      <div id="sidebar">
-        <div class="panel-mobile-header"><span>Editor</span><button class="panel-close-btn" data-closes="sidebar">&times;</button></div>
-        <div id="source-editor-container"></div>
-        <pre id="error-message" class="error-message"></pre>
       </div>
 
     </div>

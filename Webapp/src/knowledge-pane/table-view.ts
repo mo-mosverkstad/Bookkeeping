@@ -2,7 +2,7 @@ import { renderCell } from "../cell-renderers/registry.ts";
 import type { Table, Row } from "../model/index.ts";
 import type { AppController } from "../controller/index.ts";
 import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
-import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
+
 
 interface TableState {
     scrollTop: number;
@@ -12,9 +12,79 @@ interface TableState {
 /** Identifies a cell by row/col index within the rendered table. */
 interface CellCoord { row: number; col: number; }
 
+// ── Inline cell editor with local undo/redo ───────────────────────────────────
+
+interface TextSnapshot { text: string; selStart: number; selEnd: number; }
+
+class InlineCellEditor {
+    readonly overlay: HTMLElement;
+    private textarea: HTMLTextAreaElement;
+    private history: TextSnapshot[] = [];
+    private future: TextSnapshot[] = [];
+    private lastSnap: TextSnapshot = { text: "", selStart: 0, selEnd: 0 };
+    private commitCb: ((value: string) => void) | null = null;
+    private cancelCb: (() => void) | null = null;
+    private changeCb: ((value: string) => void) | null = null;
+
+    constructor() {
+        this.overlay = document.createElement("div");
+        this.overlay.className = "inline-cell-editor";
+        this.textarea = document.createElement("textarea");
+        this.textarea.className = "ice-textarea";
+        this.textarea.spellcheck = false;
+        this.overlay.appendChild(this.textarea);
+        this.wire();
+    }
+
+    private wire(): void {
+        this.textarea.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); this.cancelCb?.(); return; }
+            if (e.key === "Enter" && e.altKey) { e.preventDefault(); e.stopPropagation(); this.commitCb?.(this.textarea.value); return; }
+            if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); this.undo(); return; }
+            if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); e.stopPropagation(); this.redo(); return; }
+        }, true);
+        this.textarea.addEventListener("input", () => {
+            const snap = this.snap();
+            if (snap.text !== this.lastSnap.text) {
+                this.history.push(this.lastSnap);
+                if (this.history.length > 200) this.history.shift();
+                this.future = [];
+                this.lastSnap = snap;
+            }
+            this.changeCb?.(this.textarea.value);
+        });
+    }
+
+    private snap(): TextSnapshot { return { text: this.textarea.value, selStart: this.textarea.selectionStart, selEnd: this.textarea.selectionEnd }; }
+    private restore(s: TextSnapshot): void { this.textarea.value = s.text; this.textarea.setSelectionRange(s.selStart, s.selEnd); this.changeCb?.(s.text); }
+    private undo(): void { if (!this.history.length) return; this.future.push(this.snap()); const p = this.history.pop()!; this.lastSnap = p; this.restore(p); }
+    private redo(): void { if (!this.future.length) return; this.history.push(this.snap()); const n = this.future.pop()!; this.lastSnap = n; this.restore(n); }
+
+    open(td: HTMLElement, value: string, commit: (v: string) => void, cancel: () => void, onChange: (v: string) => void): void {
+        this.commitCb = commit; this.cancelCb = cancel; this.changeCb = onChange;
+        this.history = []; this.future = [];
+        this.textarea.value = value;
+        this.lastSnap = this.snap();
+        // Position with fixed viewport coords so scroll doesn't affect it
+        const tdRect = td.getBoundingClientRect();
+        this.overlay.style.position = "fixed";
+        this.overlay.style.left = `${tdRect.left}px`;
+        this.overlay.style.top = `${tdRect.top - 64}px`;
+        this.overlay.style.minWidth = `${tdRect.width}px`;
+        this.overlay.style.zIndex = "10000";
+        document.body.appendChild(this.overlay);
+        this.textarea.focus();
+        this.textarea.select();
+    }
+
+    close(): void { this.overlay.remove(); this.commitCb = null; this.cancelCb = null; this.changeCb = null; }
+    get focused(): boolean { return this.textarea === document.activeElement; }
+    getValue(): string { return this.textarea.value; }
+}
+
 export class TableView implements WorkspaceView {
     private container: HTMLElement;
-    private sourceEditor: SourceEditorView | null = null;
+    private inlineEditor = new InlineCellEditor();
     private controller: AppController | null = null;
     private onEntityClick: ((entityId: string) => void) | null = null;
     private onCellFocusChange: (() => void) | null = null;
@@ -69,7 +139,6 @@ export class TableView implements WorkspaceView {
     }
 
     setController(controller: AppController): void { this.controller = controller; }
-    setSourceEditor(se: SourceEditorView): void { this.sourceEditor = se; }
     setEntityClickHandler(handler: (entityId: string) => void): void { this.onEntityClick = handler; }
     setStatusCallback(cb: (msg: string) => void): void { this.onStatus = cb; }
     setOnCellFocusChange(cb: () => void): void { this.onCellFocusChange = cb; }
@@ -286,6 +355,8 @@ export class TableView implements WorkspaceView {
 
                         td.addEventListener("mousedown", (e) => {
                             if (e.button !== 0) return;
+                            // Don't intercept clicks inside the inline editor
+                            if (this.inlineEditor.focused || this.inlineEditor.overlay.contains(e.target as Node)) return;
                             e.preventDefault();
                             e.stopPropagation();
                             const coord: CellCoord = { row: rowIdx, col: colIdx };
@@ -317,6 +388,7 @@ export class TableView implements WorkspaceView {
 
                             // Also track drag-to-select if mouse moves
                             const onMove = (me: MouseEvent) => {
+                                if (this.inlineEditor.focused) return;
                                 const target = document.elementFromPoint(me.clientX, me.clientY) as HTMLElement | null;
                                 const hitTd = target?.closest<HTMLElement>("td.editable-cell");
                                 if (!hitTd || !hitTd.dataset.row || !hitTd.dataset.col) return;
@@ -545,15 +617,10 @@ export class TableView implements WorkspaceView {
     ): void {
         td.classList.add("cell-active");
 
-        this.sourceEditor?.setText(originalValue, typeId as import("../source-editor/highlighter.ts").SyntaxType);
-        this.sourceEditor?.setOnCellApply(() => this.commitActive());
-        requestAnimationFrame(() => { this.sourceEditor?.focusTextarea(); });
-
         const deactivate = () => {
             this.activeCell = null;
             td.classList.remove("cell-active");
-            this.sourceEditor?.setOnCellApply(null);
-            this.sourceEditor?.clear();
+            this.inlineEditor.close();
         };
 
         const commit = (value: string) => {
@@ -568,13 +635,14 @@ export class TableView implements WorkspaceView {
         };
 
         this.activeCell = { td, originalValue, typeId, tableIdx, rowIdx, colIdx, commit, cancel, onCommit };
+
+        this.inlineEditor.open(td, originalValue, commit, cancel, () => {});
     }
 
     commitActive(): void {
         if (!this.activeCell) return;
-        const value = this.sourceEditor?.getValue() ?? this.activeCell.originalValue;
+        const value = this.inlineEditor.getValue();
         if (value === this.activeCell.originalValue) return;
-        // Update model silently (no re-render), then update just this cell's DOM
         this.activeCell.originalValue = value;
         this.controller!.editCell(this.activeCell.tableIdx, this.activeCell.rowIdx, this.activeCell.colIdx, value, true);
         this.showRendered(this.activeCell.td, value, this.activeCell.typeId);
@@ -586,8 +654,7 @@ export class TableView implements WorkspaceView {
         const { td } = this.activeCell!;
         this.activeCell = null;
         td.classList.remove("cell-active");
-        this.sourceEditor?.setOnCellApply(null);
-        this.sourceEditor?.clear();
+        this.inlineEditor.close();
     }
 
     /** Clear all row checkbox selections and re-render. */
@@ -761,8 +828,8 @@ export class TableView implements WorkspaceView {
         // Only handle when our container is in the DOM and visible
         if (!this.container.isConnected) return;
         if (!this.currentTbody) return;
-        // Don't intercept keys when source editor is focused
-        if (this.sourceEditor?.focused) return;
+        // Don't intercept keys when inline editor is open
+        if (this.activeCell) return;
 
         const ctrl = e.ctrlKey || e.metaKey;
 

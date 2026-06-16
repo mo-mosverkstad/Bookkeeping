@@ -1,6 +1,5 @@
 import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
 import { parseDiagram } from "../cell-renderers/diagram/index.ts";
-import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
 import type { AppController } from "../controller/index.ts";
 
 /**
@@ -11,7 +10,6 @@ import type { AppController } from "../controller/index.ts";
 export class DiagramView implements WorkspaceView {
     private container: HTMLElement | null = null;
     private source: string;
-    private sourceEditor: SourceEditorView | null = null;
     private controller: AppController | null = null;
     private name: string;
     private panX = 0;
@@ -19,41 +17,55 @@ export class DiagramView implements WorkspaceView {
     private zoom = 1;
     private contentGroup: SVGGElement | null = null;
 
-    constructor(name: string, source: string, sourceEditor?: SourceEditorView, controller?: AppController) {
+    constructor(name: string, source: string, controller?: AppController) {
         this.name = name;
         this.source = source;
-        this.sourceEditor = sourceEditor ?? null;
         this.controller = controller ?? null;
     }
+
+    private editorPane: HTMLTextAreaElement | null = null;
+    private renderPane: HTMLElement | null = null;
 
     mount(container: HTMLElement, _data: WorkspaceData, _state?: ViewState): void {
         this.container = container;
         container.style.overflow = "hidden";
+        container.style.display = "flex";
+
+        const left = document.createElement("div");
+        left.className = "diagram-split-editor";
+        this.editorPane = document.createElement("textarea");
+        this.editorPane.className = "diagram-editor-textarea";
+        this.editorPane.spellcheck = false;
+        this.editorPane.value = this.source;
+        left.appendChild(this.editorPane);
+
+        const right = document.createElement("div");
+        right.className = "diagram-split-output";
+        this.renderPane = right;
+
+        container.appendChild(left);
+        container.appendChild(right);
+
         this.render();
-        // Register for undo/redo callbacks
         this.controller?.registerDiagramCallback(
             this.name,
-            (src) => { this.source = src; this.render(); if (this.sourceEditor) this.sourceEditor.setText(src); },
+            (src) => { this.source = src; if (this.editorPane) this.editorPane.value = src; this.render(); },
             () => this.source,
         );
-        if (this.sourceEditor) {
-            requestAnimationFrame(() => {
-                this.sourceEditor!.setText(this.source);
-                this.sourceEditor!.setOnCellApply((value: string) => {
-                    const oldSource = this.source;
-                    this.source = value;
-                    this.render();
-                    this.controller?.editDiagram(this.name, oldSource, value);
-                });
-            });
-        }
+
+        this.editorPane.addEventListener("input", () => {
+            const oldSource = this.source;
+            this.source = this.editorPane!.value;
+            this.render();
+            this.controller?.editDiagram(this.name, oldSource, this.source);
+        });
     }
 
     unmount(): ViewState {
-        if (this.container) this.container.style.overflow = "";
+        if (this.container) { this.container.style.overflow = ""; this.container.style.display = ""; }
         this.controller?.unregisterDiagramCallback(this.name);
-        this.sourceEditor?.setOnCellApply(null);
-        this.sourceEditor?.clear();
+        this.editorPane = null;
+        this.renderPane = null;
         this.contentGroup = null;
         return {};
     }
@@ -83,17 +95,16 @@ export class DiagramView implements WorkspaceView {
     }
 
     private render(): void {
-        if (!this.container) return;
-        this.container.innerHTML = "";
-        this.container.style.overflow = "hidden";
-        this.container.style.position = "relative";
-        this.container.style.width = "100%";
-        this.container.style.height = "100%";
+        const target = this.renderPane ?? this.container;
+        if (!target) return;
+        target.innerHTML = "";
+        target.style.overflow = "hidden";
+        target.style.position = "relative";
         this.contentGroup = null;
         try {
             const result = parseDiagram(this.source);
-            const W = this.container.clientWidth || 800;
-            const H = this.container.clientHeight || 600;
+            const W = target.clientWidth || 800;
+            const H = target.clientHeight || 600;
             const svg = result.render(W, H);
             svg.setAttribute("width", String(W));
             svg.setAttribute("height", String(H));
@@ -116,7 +127,7 @@ export class DiagramView implements WorkspaceView {
                 this.applyTransform();
             }, { passive: false });
 
-            this.container.appendChild(svg);
+            target.appendChild(svg);
 
             // Floating zoom controls at bottom-right
             const controls = document.createElement("div");
@@ -128,12 +139,12 @@ export class DiagramView implements WorkspaceView {
                 btn.addEventListener("click", () => this.doZoom(id));
                 controls.appendChild(btn);
             }
-            this.container.appendChild(controls);
+            target.appendChild(controls);
         } catch (e) {
             const pre = document.createElement("pre");
             pre.className = "cell-error";
             pre.textContent = (e as Error).message;
-            this.container.appendChild(pre);
+            target.appendChild(pre);
         }
     }
 }

@@ -38,17 +38,15 @@ import { TableView } from "./table-view.ts";
 import { FlowDiagramView } from "./flow-diagram-view.ts";
 import { DocumentView } from "./document-view.ts";
 import type { AppController } from "../controller/index.ts";
-import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
 import { Document as DocumentClass } from "../model/Document.ts";
 import { Graph as GraphClass } from "../model/Graph.ts";
 
 export function viewFactory(
     model: Table | Graph | Document,
     controller: AppController,
-    sourceEditor?: SourceEditorView,
 ): WorkspaceView {
     if (model instanceof DocumentClass) {
-        return new DocumentView(controller, sourceEditor);
+        return new DocumentView(controller);
     }
     if (model instanceof TableClass) {
         const view = new TableView(document.createElement("div"));
@@ -57,13 +55,9 @@ export function viewFactory(
         if (handler) view.setEntityClickHandler(handler);
         const dismiss = controller.getDismissPanelsHandler();
         if (dismiss) view.setOnCellFocusChange(dismiss);
-        if (sourceEditor) {
-            view.setSourceEditor(sourceEditor);
-        }
         return view;
     }
     const g = model as GraphClass;
     const diagramView = new FlowDiagramView(g.viewType, controller);
-    if (sourceEditor) diagramView.setSourceEditor(sourceEditor);
     return diagramView;
 }

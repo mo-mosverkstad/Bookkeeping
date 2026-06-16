@@ -9,7 +9,6 @@ import { GraphFilterView } from "./shell/graph-filter-view.ts";
 import { SearchView } from "./shell/search-view.ts";
 import { WorkspaceController } from "./knowledge-pane/workspace-controller.ts";
 import { AppShell } from "./shell/app-shell.ts";
-import { SourceEditorView } from "./source-editor/source-editor-view.ts";
 import { NavigationTreeView } from "./shell/navigation-tree-view.ts";
 
 window.addEventListener("load", async () => {
@@ -23,14 +22,11 @@ window.addEventListener("load", async () => {
     const searchContainer      = document.getElementById("search-container")!;
     const sessionBanner        = document.getElementById("session-banner") as HTMLElement;
     const btnExport            = document.getElementById("btn-export-csv")!;
-    const btnToggleSidebar     = document.getElementById("btn-toggle-sidebar")!;
     const btnToggleNav         = document.getElementById("btn-toggle-nav")!;
     const navTreePanel         = document.getElementById("nav-tree-panel")!;
     const navTreeEl            = document.getElementById("nav-tree")!;
     const dynamicToolbar       = document.getElementById("dynamic-toolbar")!;
     const statusText           = document.getElementById("status-text")!;
-    const sidebarEl            = document.getElementById("sidebar")!;
-    const sourceEditorContainer = document.getElementById("source-editor-container")!;
 
     // ── Controller (model layer) ──────────────────────────────────────────────
     const controller = new AppController();
@@ -145,8 +141,6 @@ window.addEventListener("load", async () => {
         }
     });
 
-    // ── Source code editor (sidebar) ──────────────────────────────────────────
-    const sourceEditor = new SourceEditorView(controller, sourceEditorContainer);
 
     // ── AppShell ──────────────────────────────────────────────────────────────
     // Navigation tree
@@ -154,17 +148,15 @@ window.addEventListener("load", async () => {
     navTreeRef = navTree;
     navTree.setWorkspaceController(workspace);
 
-    const shell = new AppShell(controller, workspace, sourceEditor, navTree, {
+    const shell = new AppShell(controller, workspace, navTree, {
         fileInput,
         workspaceEl,
         errorEl,
         sessionBanner,
         dynamicToolbar,
         btnExport,
-        btnToggleSidebar,
         btnToggleNav,
         navTreePanel,
-        sidebarEl,
         statusText,
     });
     shell.init();

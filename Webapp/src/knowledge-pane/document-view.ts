@@ -11,7 +11,6 @@
 
 import type { WorkspaceView, WorkspaceData, ViewState, ToolbarAction } from "./workspace-view.ts";
 import type { AppController } from "../controller/index.ts";
-import type { SourceEditorView } from "../source-editor/source-editor-view.ts";
 import { TableView } from "./table-view.ts";
 import { FlowDiagramView } from "./flow-diagram-view.ts";
 import { DiagramView } from "./diagram-view.ts";
@@ -31,15 +30,13 @@ interface MountedSection {
 
 export class DocumentView implements WorkspaceView {
     private readonly controller: AppController;
-    private readonly sourceEditor: SourceEditorView | null;
     private container: HTMLElement | null = null;
     private doc: Document | null = null;
     private mounted: MountedSection[] = [];
     private collapsedSections = new Set<string>();
 
-    constructor(controller: AppController, sourceEditor?: SourceEditorView) {
+    constructor(controller: AppController) {
         this.controller = controller;
-        this.sourceEditor = sourceEditor ?? null;
     }
 
     // ── WorkspaceView interface ───────────────────────────────────────────────
@@ -146,11 +143,10 @@ export class DocumentView implements WorkspaceView {
             tv.setController(this.controller);
             const handler = this.controller.getEntityClickHandler();
             if (handler) tv.setEntityClickHandler(handler);
-            if (this.sourceEditor) tv.setSourceEditor(this.sourceEditor);
             tv.mount(childContainer, { table: section.block.table });
             view = tv;
         } else if (section.block.kind === "diagram") {
-            const dv = new DiagramView(section.id, section.block.source, this.sourceEditor ?? undefined);
+            const dv = new DiagramView(section.id, section.block.source);
             dv.mount(childContainer, {});
             view = dv;
         } else {
