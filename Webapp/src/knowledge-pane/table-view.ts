@@ -636,7 +636,9 @@ export class TableView implements WorkspaceView {
 
         this.activeCell = { td, originalValue, typeId, tableIdx, rowIdx, colIdx, commit, cancel, onCommit };
 
-        this.inlineEditor.open(td, originalValue, commit, cancel, () => {});
+        this.inlineEditor.open(td, originalValue, commit, cancel, (value: string) => {
+            this.showRendered(td, value, typeId);
+        });
     }
 
     commitActive(): void {

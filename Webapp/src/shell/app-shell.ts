@@ -78,8 +78,9 @@ export class AppShell {
         });
 
         document.addEventListener("click", (e) => {
-            const target = e.target as Node;
+            const target = e.target as HTMLElement;
             if (this.elements.workspaceEl.contains(target)) return;
+            if (target.closest(".inline-cell-editor")) return;
             this.workspace.getActiveTableView()?.cancelActive();
         });
     }
