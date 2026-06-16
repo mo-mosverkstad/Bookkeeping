@@ -30,6 +30,7 @@ export class DiagramView implements WorkspaceView {
         this.container = container;
         container.style.overflow = "hidden";
         container.style.display = "flex";
+        container.style.height = "100%";
 
         const left = document.createElement("div");
         left.className = "diagram-split-editor";
@@ -62,7 +63,7 @@ export class DiagramView implements WorkspaceView {
     }
 
     unmount(): ViewState {
-        if (this.container) { this.container.style.overflow = ""; this.container.style.display = ""; }
+        if (this.container) { this.container.style.overflow = ""; this.container.style.display = ""; this.container.style.height = ""; }
         this.controller?.unregisterDiagramCallback(this.name);
         this.editorPane = null;
         this.renderPane = null;
