@@ -132,6 +132,7 @@ function astContainsIdentifier(node: MathNode, name: string): boolean {
         case "Derivative": return astContainsIdentifier(node.base, name);
         case "Piecewise": return node.cases.some(c => astContainsIdentifier(c.expr, name) || astContainsIdentifier(c.condition, name));
     }
+    return false;
 }
 
 // ── Graph neighbourhood ───────────────────────────────────────────────────────
