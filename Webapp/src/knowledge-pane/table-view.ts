@@ -205,15 +205,10 @@ export class TableView implements WorkspaceView {
     }
 
     getToolbarActions(): ToolbarAction[] {
-        return [
-            { id: "add-row", label: "+ Row", title: "Add row" },
-        ];
+        return [];
     }
 
-    onToolbarAction(id: string): void {
-        if (id === "add-row" && this.controller) {
-            this.controller.addRow(this.kbTableIdx);
-        }
+    onToolbarAction(_id: string): void {
     }
 
     /**

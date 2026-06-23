@@ -284,7 +284,6 @@ body {
 /* ── 4a. Workspace ────────────────────────────────────────────────────── */
 #workspace-wrapper {
   flex: 1 1 0;
-  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -491,21 +490,12 @@ body {
 
 /* ── Table zoom bar ───────────────────────────────────────────────────── */
 .table-zoom-bar {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 2px 4px;
-  background: var(--surface, #fff);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
   font-size: 0.78em;
-  z-index: 10;
   user-select: none;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  pointer-events: auto;
   white-space: nowrap;
 }
 .table-zoom-bar button {
