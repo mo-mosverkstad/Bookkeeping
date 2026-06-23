@@ -33,12 +33,14 @@ class InlineCellEditor {
         this.textarea = document.createElement("textarea");
         this.textarea.className = "ice-textarea";
         this.textarea.spellcheck = false;
+        this.textarea.placeholder = "Select a cell to edit...";
         this.commitBtn = document.createElement("button");
         this.commitBtn.className = "ice-commit-btn";
         this.commitBtn.textContent = "Enter";
         this.commitBtn.title = "Commit (Alt+Enter)";
         this.overlay.appendChild(this.textarea);
         this.overlay.appendChild(this.commitBtn);
+        this.setDisabled(true);
         this.wire();
     }
 
@@ -76,12 +78,23 @@ class InlineCellEditor {
         this.history = []; this.future = [];
         this.textarea.value = value;
         this.lastSnap = this.snap();
-        document.body.appendChild(this.overlay);
+        this.setDisabled(false);
         this.textarea.focus();
         this.textarea.select();
     }
 
-    close(): void { this.overlay.remove(); this.commitCb = null; this.cancelCb = null; this.changeCb = null; }
+    close(displayValue?: string): void {
+        this.commitCb = null; this.cancelCb = null; this.changeCb = null;
+        if (displayValue !== undefined) this.textarea.value = displayValue;
+        this.setDisabled(true);
+    }
+
+    setDisabled(disabled: boolean): void {
+        this.textarea.disabled = disabled;
+        this.commitBtn.disabled = disabled;
+        this.overlay.classList.toggle("ice-disabled", disabled);
+    }
+
     get focused(): boolean { return this.textarea === document.activeElement; }
     getValue(): string { return this.textarea.value; }
 }
@@ -155,6 +168,11 @@ export class TableView implements WorkspaceView {
     mount(container: HTMLElement, data: WorkspaceData, savedState?: ViewState): void {
         this.container = container;
         this.attachWheelZoom(container);
+        // Place edit bar inside workspace-wrapper (grandparent: table-container → workspace → workspace-wrapper)
+        const wrapper = container.closest("#workspace-wrapper");
+        if (wrapper && !this.inlineEditor.overlay.parentElement) {
+            wrapper.appendChild(this.inlineEditor.overlay);
+        }
         if (data.table) {
             this.currentTables = [data.table];
             this.activeTabIdx = 0;
@@ -171,6 +189,7 @@ export class TableView implements WorkspaceView {
 
     unmount(): ViewState {
         this.cancelActive();
+        this.inlineEditor.overlay.remove();
         return {
             scrollTop:  this.container.scrollTop,
             scrollLeft: this.container.scrollLeft,
@@ -624,17 +643,18 @@ export class TableView implements WorkspaceView {
         const deactivate = () => {
             this.activeCell = null;
             td.classList.remove("cell-active");
-            this.inlineEditor.close();
         };
 
         const commit = (value: string) => {
             deactivate();
+            this.inlineEditor.close(value);
             onCommit(value);
             this.showRendered(td, value, typeId);
         };
 
         const cancel = () => {
             deactivate();
+            this.inlineEditor.close(originalValue);
             this.showRendered(td, originalValue, typeId);
         };
 
@@ -660,7 +680,7 @@ export class TableView implements WorkspaceView {
         const { td } = this.activeCell!;
         this.activeCell = null;
         td.classList.remove("cell-active");
-        this.inlineEditor.close();
+        this.inlineEditor.close(this.inlineEditor.getValue());
     }
 
     /** Clear all row checkbox selections and re-render. */
@@ -692,6 +712,9 @@ export class TableView implements WorkspaceView {
             this.selectionAnchor = coord;
         }
         this.updateCellHighlights();
+        if (this.selectedCells.length !== 1) {
+            this.cancelActive();
+        }
     }
 
     private selectRange(from: CellCoord, to: CellCoord): void {
@@ -706,6 +729,9 @@ export class TableView implements WorkspaceView {
             }
         }
         this.updateCellHighlights();
+        if (this.selectedCells.length !== 1) {
+            this.cancelActive();
+        }
     }
 
     /** Drag-to-move: when user drags an already-selected region, move cells to drop target. */

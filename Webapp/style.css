@@ -288,10 +288,13 @@ body {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 #workspace {
+  flex: 1 1 0;
+  min-height: 0;
   width: 100%;
-  height: 100%;
   overflow: auto;
   background: var(--surface);
   padding: 0;
@@ -1106,18 +1109,17 @@ body {
 
 /* ── Inline cell editor ───────────────────────────────────────────────── */
 .inline-cell-editor {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 10000;
+  display: flex;
   background: var(--bg);
   border-top: 2px solid #3b82f6;
-  box-shadow: 0 -2px 8px rgba(0,0,0,0.12);
   padding: 4px 8px;
-  display: flex;
   align-items: stretch;
   gap: 6px;
+  flex-shrink: 0;
+}
+.inline-cell-editor.ice-disabled {
+  opacity: 0.5;
+  border-top-color: var(--border);
 }
 .ice-textarea {
   flex: 1;
