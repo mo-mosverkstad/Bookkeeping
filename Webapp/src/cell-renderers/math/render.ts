@@ -63,13 +63,13 @@ function renderBinary(node: BinaryExpressionNode): HTMLElement {
     const lo = leftParen ? "(" : "", lc = leftParen ? ")" : "", ro = rightParen ? "(" : "", rc = rightParen ? ")" : "";
     if (operator === "/") return el("span", "fraction", [el("span", "top", [render(left)]), el("span", "bottom", [render(right)])]);
     if (operator === "^") return el("span", "", [lo, render(left), lc, el("sup", "", [ro, render(right), rc])]);
-    if (operator === "*") { if (needsExplicitMultiplySign(left, right, leftParen, rightParen)) return el("span", "", [lo, render(left), lc, " × ", ro, render(right), rc]); return el("span", "", [lo, render(left), lc, ro, render(right), rc]); }
-    if (operator === ".") return el("span", "", [lo, render(left), lc, " · ", ro, render(right), rc]);
-    if (operator === ",") return el("span", "", [render(left), ", ", render(right)]);
-    if (operator === "mod") return el("span", "", [lo, render(left), lc, " mod ", ro, render(right), rc]);
-    if (operator === "div") return el("span", "", [lo, render(left), lc, " ÷ ", ro, render(right), rc]);
-    const rel = RELATIONAL_SYMBOL[operator]; if (rel) return el("span", "", [lo, render(left), lc, ` ${rel} `, ro, render(right), rc]);
-    return el("span", "", [lo, render(left), lc, ` ${operator} `, ro, render(right), rc]);
+    if (operator === "*") { if (needsExplicitMultiplySign(left, right, leftParen, rightParen)) return el("span", "", [lo, render(left), lc, "\u2009×\u2009", ro, render(right), rc]); return el("span", "", [lo, render(left), lc, ro, render(right), rc]); }
+    if (operator === ".") return el("span", "", [lo, render(left), lc, "\u2009·\u2009", ro, render(right), rc]);
+    if (operator === ",") return el("span", "", [render(left), ",\u2009", render(right)]);
+    if (operator === "mod") return el("span", "", [lo, render(left), lc, "\u2009mod\u2009", ro, render(right), rc]);
+    if (operator === "div") return el("span", "", [lo, render(left), lc, "\u2009÷\u2009", ro, render(right), rc]);
+    const rel = RELATIONAL_SYMBOL[operator]; if (rel) return el("span", "", [lo, render(left), lc, `\u2009${rel}\u2009`, ro, render(right), rc]);
+    return el("span", "", [lo, render(left), lc, `\u2009${operator}\u2009`, ro, render(right), rc]);
 }
 
 function renderSubscript(node: SubscriptExpressionNode) { return el("span", "", [render(node.base), el("sub", "", [render(node.subscript)])]); }
@@ -77,9 +77,9 @@ function renderSubSuperscript(node: SubSuperscriptExpressionNode) { return el("s
 function renderCall(node: CallExpressionNode) {
     // If callee is not a named expression, render as implicit multiplication with parentheses
     if (node.callee.type !== "Identifier" && node.callee.type !== "CallExpression" && node.callee.type !== "SubscriptExpression" && node.callee.type !== "SubSuperscriptExpression") {
-        return el("span", "", ["(", render(node.callee), ")", "(", ...interleave(node.args.map(render), ", "), ")"]);
+        return el("span", "", ["(", render(node.callee), ")", "(", ...interleave(node.args.map(render), ",\u2009"), ")"]);
     }
-    return el("span", "", [render(node.callee), "(", ...interleave(node.args.map(render), ", "), ")"]);
+    return el("span", "", [render(node.callee), "(", ...interleave(node.args.map(render), ",\u2009"), ")"]);
 }
 function renderVectorName(node: VectorNameNode) { return el("span", "vector-name", [render(node.identifier), el("span", "vector-arrow", ["⃗"])]); }
 function renderMatrix(node: MatrixNode) { return el("span", "matrix", node.rows.map(row => el("span", "matrix-row", row.map(cell => el("span", "matrix-cell", [render(cell)]))))); }
@@ -88,8 +88,8 @@ function renderAbsoluteValue(node: AbsoluteValueNode) { return (node.expr.type =
 function renderFactorial(node: FactorialExpressionNode) { return el("span", "", [render(node.base), "!"]); }
 function renderDerivative(node: DerivativeNode) { return el("span", "", [render(node.base), "′".repeat(node.order)]); }
 function renderPiecewise(node: PiecewiseNode) { return el("span", "piecewise", node.cases.map(c => el("span", "piecewise-row", [el("span", "piecewise-expr", [render(c.expr)]), el("span", "piecewise-cond", [render(c.condition)])]))); }
-function renderSet(node: SetNode) { return el("span", "", ["{", ...interleave(node.elements.map(render), ", "), "}"]); }
-function renderTuple(node: TupleNode) { return el("span", "", ["(", ...interleave(node.elements.map(render), ", "), ")"]); }
+function renderSet(node: SetNode) { return el("span", "", ["{", ...interleave(node.elements.map(render), ",\u2009"), "}"]); }
+function renderTuple(node: TupleNode) { return el("span", "", ["(", ...interleave(node.elements.map(render), ",\u2009"), ")"]); }
 
 function renderControl(node: ControlExpressionNode): HTMLElement {
     const name = node.name;
@@ -109,14 +109,14 @@ function renderControl(node: ControlExpressionNode): HTMLElement {
         case "tilde": return el("span", "tilde", [render(node.args[0])]);
         case "ul": return el("span", "underline", [render(node.args[0])]);
         case "cancel": return el("span", "cancel", [render(node.args[0])]);
-        case "inner": return el("span", "", ["⟨", ...interleave(node.args.map(render), ", "), "⟩"]);
+        case "inner": return el("span", "", ["⟨", ...interleave(node.args.map(render), ",\u2009"), "⟩"]);
         case "binom": return el("span", "", ["(", el("span", "fraction", [el("span", "top", [render(node.args[0])]), el("span", "bottom", [render(node.args[1])])]), ")"]);
         case "eval": return el("span", "", [render(node.args[0]), el("span", "eval-bar", ["|"]), el("sub", "", [render(node.args[1])])]);
         case "ubrace": return el("span", "underbrace", [el("span", "ubrace-content", [render(node.args[0])]), el("span", "ubrace-label", [render(node.args[1])])]);
         case "obrace": return el("span", "overbrace", [el("span", "obrace-label", [render(node.args[1])]), el("span", "obrace-content", [render(node.args[0])])]);
         case "piecewise": { const cases: {expr:MathNode;condition:MathNode}[] = []; for (let i=0;i+1<node.args.length;i+=2) cases.push({expr:node.args[i],condition:node.args[i+1]}); return renderPiecewise({type:"Piecewise",cases}); }
         case "+": case "*": return renderBigOp(node, name === "+" ? "Σ" : "Π");
-        default: return el("span", "", [resolveGlyph(name), "(", ...interleave(node.args.map(render), ", "), ")"]);
+        default: return el("span", "", [resolveGlyph(name), "(", ...interleave(node.args.map(render), ",\u2009"), ")"]);
     }
 }
 
