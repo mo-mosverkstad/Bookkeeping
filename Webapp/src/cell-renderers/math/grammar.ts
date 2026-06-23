@@ -335,7 +335,7 @@ const grammar: Grammar = {
             const [commaExprs] = tail;
             if (commaExprs.length === 0) return first;
             const elements = [first]; for (const [, expr] of commaExprs) elements.push(expr);
-            return { type: "Matrix", rows: elements.map((e: MathNode) => [e]) };
+            return { type: "Tuple", elements };
         },
     },
 

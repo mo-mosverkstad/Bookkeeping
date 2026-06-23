@@ -25,9 +25,10 @@ export interface PiecewiseNode { type: "Piecewise"; cases: { expr: MathNode; con
 
 export interface SetNode { type: "Set"; elements: MathNode[]; }
 export interface TextLiteralNode { type: "TextLiteral"; text: string; }
+export interface TupleNode { type: "Tuple"; elements: MathNode[]; }
 
 export type MathNode =
     | NumberLiteralNode | IdentifierNode | BinaryExpressionNode | UnaryExpressionNode
     | CallExpressionNode | ControlExpressionNode | SubscriptExpressionNode
     | SubSuperscriptExpressionNode | VectorNameNode | MatrixNode | IndexExpressionNode
-    | AbsoluteValueNode | FactorialExpressionNode | DerivativeNode | EllipsisNode | PiecewiseNode | SetNode | TextLiteralNode;
+    | AbsoluteValueNode | FactorialExpressionNode | DerivativeNode | EllipsisNode | PiecewiseNode | SetNode | TextLiteralNode | TupleNode;
