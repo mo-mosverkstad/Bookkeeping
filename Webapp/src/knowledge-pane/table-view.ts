@@ -19,6 +19,7 @@ interface TextSnapshot { text: string; selStart: number; selEnd: number; }
 class InlineCellEditor {
     readonly overlay: HTMLElement;
     private textarea: HTMLTextAreaElement;
+    private commitBtn: HTMLButtonElement;
     private history: TextSnapshot[] = [];
     private future: TextSnapshot[] = [];
     private lastSnap: TextSnapshot = { text: "", selStart: 0, selEnd: 0 };
@@ -32,7 +33,12 @@ class InlineCellEditor {
         this.textarea = document.createElement("textarea");
         this.textarea.className = "ice-textarea";
         this.textarea.spellcheck = false;
+        this.commitBtn = document.createElement("button");
+        this.commitBtn.className = "ice-commit-btn";
+        this.commitBtn.textContent = "Enter";
+        this.commitBtn.title = "Commit (Alt+Enter)";
         this.overlay.appendChild(this.textarea);
+        this.overlay.appendChild(this.commitBtn);
         this.wire();
     }
 
@@ -42,6 +48,8 @@ class InlineCellEditor {
             if (e.key === "Enter" && e.altKey) { e.preventDefault(); e.stopPropagation(); this.commitCb?.(this.textarea.value); return; }
             if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); this.undo(); return; }
             if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); e.stopPropagation(); this.redo(); return; }
+            // Let arrow keys work naturally inside the textarea
+            if (e.key.startsWith("Arrow")) { e.stopPropagation(); return; }
         }, true);
         this.textarea.addEventListener("input", () => {
             const snap = this.snap();
@@ -52,6 +60,9 @@ class InlineCellEditor {
                 this.lastSnap = snap;
             }
             this.changeCb?.(this.textarea.value);
+        });
+        this.commitBtn.addEventListener("click", () => {
+            this.commitCb?.(this.textarea.value);
         });
     }
 
@@ -65,13 +76,6 @@ class InlineCellEditor {
         this.history = []; this.future = [];
         this.textarea.value = value;
         this.lastSnap = this.snap();
-        // Position with fixed viewport coords so scroll doesn't affect it
-        const tdRect = td.getBoundingClientRect();
-        this.overlay.style.position = "fixed";
-        this.overlay.style.left = `${tdRect.left}px`;
-        this.overlay.style.top = `${tdRect.top - 64}px`;
-        this.overlay.style.minWidth = `${tdRect.width}px`;
-        this.overlay.style.zIndex = "10000";
         document.body.appendChild(this.overlay);
         this.textarea.focus();
         this.textarea.select();

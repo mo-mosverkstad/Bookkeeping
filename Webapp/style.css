@@ -1106,24 +1106,45 @@ body {
 
 /* ── Inline cell editor ───────────────────────────────────────────────── */
 .inline-cell-editor {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
   background: var(--bg);
-  border: 2px solid #3b82f6;
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  padding: 2px;
+  border-top: 2px solid #3b82f6;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.12);
+  padding: 4px 8px;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
 }
 .ice-textarea {
-  width: 100%;
-  min-height: 3em;
-  max-height: 12em;
-  resize: vertical;
-  border: none;
+  flex: 1;
+  height: calc(3 * 1.5em);
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   outline: none;
   font-family: var(--font-mono, monospace);
   font-size: 0.88em;
-  padding: 4px;
+  padding: 4px 6px;
   background: var(--surface);
 }
+.ice-textarea:focus { border-color: #3b82f6; }
+.ice-commit-btn {
+  align-self: stretch;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+.ice-commit-btn:hover { background: #2563eb; }
 
 /* ── Diagram split pane ───────────────────────────────────────────────── */
 .diagram-split-editor {
