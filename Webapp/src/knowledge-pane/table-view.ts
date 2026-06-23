@@ -80,7 +80,8 @@ class InlineCellEditor {
         this.lastSnap = this.snap();
         this.setDisabled(false);
         this.textarea.focus();
-        this.textarea.select();
+        const len = this.textarea.value.length;
+        this.textarea.setSelectionRange(len, len);
     }
 
     close(displayValue?: string): void {
