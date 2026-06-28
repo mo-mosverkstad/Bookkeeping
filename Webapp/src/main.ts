@@ -67,7 +67,7 @@ window.addEventListener("load", async () => {
     controller.setOnDirtyChange(() => {
         const dirtyFiles = controller.getDirtyFiles();
         if (dirtyFiles.size > 0) {
-            statusText.textContent = "● Unsaved changes";
+            statusText.textContent = "* Unsaved changes";
             statusText.style.color = "#b45309";
         } else {
             statusText.textContent = fileSystem.canSaveInPlace ? "" : "⇣ Download mode";
