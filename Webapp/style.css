@@ -391,9 +391,9 @@ body {
 }
 .knowledge-table tbody tr:hover > td { background: var(--bg); }
 .knowledge-table td .cell-error { color: #ef4444; font-size: 0.85em; font-family: monospace; }
-.rich-cell { line-height: 1.6; }
+.rich-cell { line-height: 1.3; }
 .rich-cell .rich-text { display: inline; }
-.rich-cell .native-math { display: inline-block; }
+.rich-cell .native-math { line-height: 1; display: inline-block; }
 
 .col-rownum {
   width: 2.5em;
