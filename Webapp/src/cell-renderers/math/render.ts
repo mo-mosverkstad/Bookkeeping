@@ -1,5 +1,5 @@
 import { el } from "./el.ts";
-import type { MathNode, BinaryExpressionNode, CallExpressionNode, ControlExpressionNode, IdentifierNode, SubscriptExpressionNode, SubSuperscriptExpressionNode, VectorNameNode, MatrixNode, IndexExpressionNode, AbsoluteValueNode, FactorialExpressionNode, DerivativeNode, PiecewiseNode, SetNode, TupleNode } from "./types.ts";
+import type { MathNode, BinaryExpressionNode, FractionExpression, CallExpressionNode, ControlExpressionNode, IdentifierNode, SubscriptExpressionNode, SubSuperscriptExpressionNode, VectorNameNode, MatrixNode, IndexExpressionNode, AbsoluteValueNode, FactorialExpressionNode, DerivativeNode, PiecewiseNode, SetNode, TupleNode } from "./types.ts";
 
 const OPERATOR_PRECEDENCE: Record<string, number> = { ",": -3, "=": -2, "!=": -2, "<=": -2, ">=": -2, "~=": -2, ":=": -2, "~": -2, "<<": -2, ">>": -2, "->": -2, "sub": -2, "supset": -2, "sube": -2, "supe": -2, "in": -2, "notin": -2, "divides": -2, "ndivides": -2, "cong": -2, "parallel": -2, "perp": -2, "sim": -2, "+": 0, "-": 0, "*": 1, "/": 1, ".": 1, "mod": 1, "div": 1, "^": 2 };
 function getOperatorPrecedence(op: string): number { return OPERATOR_PRECEDENCE[op] ?? -1; }
@@ -14,6 +14,7 @@ export function render(node: MathNode): HTMLElement {
         case "NumberLiteral": return el("span", "", [String(node.value)]);
         case "Identifier": return renderIdentifier(node);
         case "BinaryExpression": return renderBinary(node);
+        case "FractionExpression": return renderFraction(node);
         case "UnaryExpression": return el("span", "", [node.operator, render(node.operand)]);
         case "CallExpression": return renderCall(node);
         case "ControlExpression": return renderControl(node);
@@ -70,6 +71,13 @@ function renderBinary(node: BinaryExpressionNode): HTMLElement {
     if (operator === "div") return el("span", "", [lo, render(left), lc, "\u2009÷\u2009", ro, render(right), rc]);
     const rel = RELATIONAL_SYMBOL[operator]; if (rel) return el("span", "", [lo, render(left), lc, `\u2009${rel}\u2009`, ro, render(right), rc]);
     return el("span", "", [lo, render(left), lc, `\u2009${operator}\u2009`, ro, render(right), rc]);
+}
+
+function renderFraction(node: FractionExpression): HTMLElement {
+    return el("span", "fraction", [
+        el("span", "top", [render(node.numerator)]),
+        el("span", "bottom", [render(node.denominator)])
+    ]);
 }
 
 function renderSubscript(node: SubscriptExpressionNode) { return el("span", "", [render(node.base), el("sub", "", [render(node.subscript)])]); }

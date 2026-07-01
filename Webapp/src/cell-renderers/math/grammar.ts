@@ -102,18 +102,21 @@ const grammar: Grammar = {
         peg: { type: "sequence", parts: [
             { type: "rule", name: "Power" },
             { type: "repeat", expr: { type: "choice", options: [
-                { type: "sequence", parts: [{ type: "rule", name: "MultiplicativeOp" }, { type: "rule", name: "Power" }] },
+                { type: "sequence", parts: [
+                    { type: "rule", name: "MultiplicativeOp" },
+                    { type: "rule", name: "Power" },
+                ] },
                 { type: "rule", name: "ImplicitPower" },
             ] } },
         ] },
-        build([left, rest]: [MathNode, any[]]): MathNode {
-            let node = left;
+        build([first, rest]: [MathNode, ([string, MathNode] | MathNode)[]]): MathNode {
+            let node = first;
             for (const item of rest) {
-                if (Array.isArray(item) && item.length === 2) {
+                if (Array.isArray(item)) {
                     const [operator, right] = item;
                     node = { type: "BinaryExpression", operator, left: node, right };
                 } else {
-                    node = { type: "BinaryExpression", operator: "*", left: node, right: item as MathNode };
+                    node = { type: "BinaryExpression", operator: "*", left: node, right: item };
                 }
             }
             return node;
@@ -130,6 +133,48 @@ const grammar: Grammar = {
             return typeof node === "string" && node.startsWith("\\") ? node.slice(1) : node;
         },
     },
+
+Fraction: {
+    peg: {
+        type: "sequence",
+        parts: [
+            {
+                type: "rule",
+                name: "Power"
+            },
+            {
+                type: "repeat",
+                expr: {
+                    type: "sequence",
+                    parts: [
+                        {
+                            type: "literal",
+                            value: "/"
+                        },
+                        {
+                            type: "rule",
+                            name: "Power"
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+
+    build([first, rest]: [MathNode, [string, MathNode][]]): MathNode {
+        let node = first;
+
+        for (const [, denominator] of rest) {
+            node = {
+                type: "FractionExpression",
+                numerator: node,
+                denominator
+            };
+        }
+
+        return node;
+    }
+},
 
     ImplicitPower: {
         peg: { type: "sequence", parts: [
@@ -335,7 +380,7 @@ const grammar: Grammar = {
             const [commaExprs] = tail;
             if (commaExprs.length === 0) return first;
             const elements = [first]; for (const [, expr] of commaExprs) elements.push(expr);
-            return { type: "Tuple", elements };
+            return { type: "Matrix", rows: elements.map(element => [element]) };
         },
     },
 

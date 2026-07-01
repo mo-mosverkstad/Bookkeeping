@@ -6,12 +6,24 @@
 .native-math sup {
   font-size: 0.7em;
   vertical-align: super;
-  line-height: 0;
+  line-height: 1;
 }
+/*
 .native-math sub {
   font-size: 0.7em;
   vertical-align: sub;
   line-height: 0;
+}
+
+.native-math sup{
+    position:relative;
+    top:-0.45em;
+}
+    */
+
+.native-math sub{
+    position:relative;
+    top:0.18em;
 }
 .native-math .fraction {
   display: inline-block;
