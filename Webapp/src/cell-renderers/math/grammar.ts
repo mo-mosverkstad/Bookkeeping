@@ -100,13 +100,13 @@ const grammar: Grammar = {
 
     Multiplicative: {
         peg: { type: "sequence", parts: [
-            { type: "rule", name: "Power" },
+            { type: "rule", name: "Fraction" },
             { type: "repeat", expr: { type: "choice", options: [
                 { type: "sequence", parts: [
                     { type: "rule", name: "MultiplicativeOp" },
-                    { type: "rule", name: "Power" },
+                    { type: "rule", name: "Fraction" },
                 ] },
-                { type: "rule", name: "ImplicitPower" },
+                { type: "rule", name: "ImplicitFraction" },
             ] } },
         ] },
         build([first, rest]: [MathNode, ([string, MathNode] | MathNode)[]]): MathNode {
@@ -125,7 +125,7 @@ const grammar: Grammar = {
 
     MultiplicativeOp: {
         peg: { type: "choice", options: [
-            { type: "literal", value: "*" }, { type: "literal", value: "/" },
+            { type: "literal", value: "*" },
             { type: "literal", value: "." },
             { type: "regex", regex: /^\\(mod|div|cross|oring|tensor)\b/, name: "multiplicative operator" },
         ] },
@@ -175,6 +175,23 @@ Fraction: {
         return node;
     }
 },
+
+    ImplicitFraction: {
+        peg: { type: "sequence", parts: [
+            { type: "rule", name: "ImplicitPower" },
+            { type: "repeat", expr: { type: "sequence", parts: [
+                { type: "literal", value: "/" },
+                { type: "rule", name: "Power" },
+            ] } },
+        ] },
+        build([first, rest]: [MathNode, [string, MathNode][]]): MathNode {
+            let node = first;
+            for (const [, denominator] of rest) {
+                node = { type: "FractionExpression", numerator: node, denominator };
+            }
+            return node;
+        },
+    },
 
     ImplicitPower: {
         peg: { type: "sequence", parts: [
@@ -380,7 +397,7 @@ Fraction: {
             const [commaExprs] = tail;
             if (commaExprs.length === 0) return first;
             const elements = [first]; for (const [, expr] of commaExprs) elements.push(expr);
-            return { type: "Matrix", rows: elements.map(element => [element]) };
+            return { type: "Tuple", elements };
         },
     },
 

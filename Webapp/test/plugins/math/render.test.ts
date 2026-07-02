@@ -116,6 +116,7 @@ describe("Renderer — matrix", () => {
     it("has .matrix", () => { expect(query("[[a, b], [c, d]]", ".matrix")).not.toBeNull(); });
     it("correct rows", () => { expect(renderInput("[[a, b], [c, d]]").querySelectorAll(".matrix-row").length).toBe(2); });
     it("correct cells", () => { expect(renderInput("[[a, b], [c, d]]").querySelectorAll(".matrix-cell").length).toBe(4); });
+    it("parenthesized tuple is not matrix", () => { expect(query("(a, b, c)", ".matrix")).toBeNull(); });
 });
 
 describe("Renderer — absolute value/norm", () => {

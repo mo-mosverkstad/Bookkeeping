@@ -6,6 +6,7 @@ function parse(input: string): MathNode { return parser.parse("Expression", inpu
 function num(value: number) { return { type: "NumberLiteral", value }; }
 function id(name: string, prefix = "plain") { return { type: "Identifier", name, prefix }; }
 function bin(op: string, left: object, right: object) { return { type: "BinaryExpression", operator: op, left, right }; }
+function frac(numerator: object, denominator: object) { return { type: "FractionExpression", numerator, denominator }; }
 function unary(op: string, operand: object) { return { type: "UnaryExpression", operator: op, operand }; }
 function call(callee: object, args: object[]) { return { type: "CallExpression", callee, args }; }
 function control(name: string, args: object[]) { return { type: "ControlExpression", name, args }; }
@@ -39,7 +40,10 @@ describe("Additive", () => {
 
 describe("Multiplicative", () => {
     it("explicit multiply", () => { expect(parse("a*b")).toMatchObject(bin("*", id("a"), id("b"))); });
-    it("division", () => { expect(parse("a/b")).toMatchObject(bin("/", id("a"), id("b"))); });
+    it("division", () => { expect(parse("a/b")).toMatchObject(frac(id("a"), id("b"))); });
+    it("division binds tighter than multiply on the right", () => { expect(parse("a*b/c")).toMatchObject(bin("*", id("a"), frac(id("b"), id("c")))); });
+    it("parenthesized product can be numerator", () => { expect(parse("(a*b)/c")).toMatchObject(frac(bin("*", id("a"), id("b")), id("c"))); });
+    it("implicit product can include fraction", () => { expect(parse("2x/y")).toMatchObject(bin("*", num(2), frac(id("x"), id("y")))); });
     it("implicit 2x", () => { expect(parse("2x")).toMatchObject(bin("*", num(2), id("x"))); });
     it("implicit f(x)y", () => { expect(parse("f(x)y")).toMatchObject(bin("*", call(id("f"), [id("x")]), id("y"))); });
     it("higher precedence than additive", () => { expect(parse("a+b*c")).toMatchObject(bin("+", id("a"), bin("*", id("b"), id("c")))); });
@@ -151,7 +155,7 @@ describe("Vector name [a]", () => {
 describe("Matrix and vector literals", () => {
     it("[a, b, c] row vector", () => { const n = parse("[a, b, c]") as any; expect(n.type).toBe("Matrix"); expect(n.rows).toHaveLength(1); expect(n.rows[0]).toHaveLength(3); });
     it("[[a, b], [c, d]] 2x2 matrix", () => { const n = parse("[[a, b], [c, d]]") as any; expect(n.type).toBe("Matrix"); expect(n.rows).toHaveLength(2); });
-    it("(a, b, c) column vector", () => { const n = parse("(a, b, c)") as any; expect(n.type).toBe("Matrix"); expect(n.rows).toHaveLength(3); expect(n.rows[0]).toHaveLength(1); });
+    it("(a, b, c) is tuple, not vector", () => { const n = parse("(a, b, c)") as any; expect(n.type).toBe("Tuple"); expect(n.elements).toHaveLength(3); });
     it("(a) is grouping", () => { expect((parse("(a)") as any).type).toBe("Identifier"); });
 });
 
